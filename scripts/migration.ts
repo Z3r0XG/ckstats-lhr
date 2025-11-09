@@ -1,3 +1,4 @@
+// eslint-disable-next-line import/no-unresolved
 import 'dotenv/config';
 import { getDb } from '../lib/db_migration';
 
@@ -5,9 +6,9 @@ async function runMigrations() {
   console.log('Running migrations...');
   try {
     const dataSource = await getDb();
-    
+
     const skipInitial = process.argv.includes('--skip-initial');
-    
+
     if (skipInitial) {
       const initialMigrationName = 'InitialMigration1710000000000';
       // Check if the migration is already recorded
@@ -23,24 +24,26 @@ async function runMigrations() {
         );
         console.log(`Skipped migration: ${initialMigrationName}`);
       } else {
-        console.log(`Migration ${initialMigrationName} is already marked as executed.`);
+        console.log(
+          `Migration ${initialMigrationName} is already marked as executed.`
+        );
       }
     }
-    
+
     // Run pending migrations
     const migrations = await dataSource.runMigrations({
-      transaction: 'each'
+      transaction: 'each',
     });
-    
+
     if (migrations.length === 0) {
       console.log('\nNo pending migrations to run');
     } else {
       console.log('\nNewly applied migrations:');
-      migrations.forEach(migration => {
+      migrations.forEach((migration) => {
         console.log(`- ${migration.name}`);
       });
     }
-    
+
     console.log('Migration process completed');
     await dataSource.destroy();
   } catch (error) {
@@ -49,4 +52,4 @@ async function runMigrations() {
   }
 }
 
-runMigrations().catch(console.error); 
+runMigrations().catch(console.error);

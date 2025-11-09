@@ -1,142 +1,78 @@
-'use client';
+import React from 'react';
+import { convertHashrate, formatHashrate } from '../utils/helpers';
 
-import React, { useState } from 'react';
-
-import Link from 'next/link';
-
-import { Worker } from '../lib/entities/Worker';
-import { formatHashrate, formatNumber, formatTimeAgo } from '../utils/helpers';
-
-interface WorkersTableProps {
-  workers: Worker[];
-  address: string;
+interface Worker {
+  id?: number | string;
+  name: string;
+  ip?: string;
+  hashrate?: string | number | bigint;
+  reportedAt?: string;
+  hashrate5m?: string | number | bigint;
+  hashrate1hr?: string | number | bigint;
+  hashrate1d?: string | number | bigint;
+  bestShare?: number | string;
+  bestEver?: number | string;
+  lastUpdate?: string | Date;
 }
 
-type SortField = keyof Worker;
-type SortOrder = 'asc' | 'desc';
+interface Props {
+  workers: Worker[];
+  address?: string;
+}
 
-const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
-  const [sortField, setSortField] = useState<SortField>('hashrate5m');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
-
-  const handleSort = (field: SortField) => {
-    if (field === sortField) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('desc');
-    }
-  };
-
-  const sortedWorkers = [...workers].sort((a, b) => {
-    if (sortField) {
-      const numericFields = [
-        'hashrate5m',
-        'hashrate1hr',
-        'hashrate1d',
-        'bestEver',
-      ];
-      if (numericFields.includes(sortField)) {
-        const aVal = BigInt(Number(a[sortField]) || 0);
-        const bVal = BigInt(Number(b[sortField]) || 0);
-        return sortOrder === 'asc' ? Number(aVal - bVal) : Number(bVal - aVal);
+export default function WorkersTable({ workers, address }: Props) {
+  const rows = workers.map((w) => {
+    const hrBigInt = (() => {
+      try {
+        if (typeof w.hashrate === 'bigint') return w.hashrate as bigint;
+        if (typeof w.hashrate === 'number') return BigInt(Math.floor(w.hashrate));
+        if (typeof w.hashrate === 'string') return convertHashrate(w.hashrate);
+        return BigInt(0);
+      } catch (e) {
+        return BigInt(0);
       }
+    })();
 
-      if (a[sortField] < b[sortField]) return sortOrder === 'asc' ? -1 : 1;
-      if (a[sortField] > b[sortField]) return sortOrder === 'asc' ? 1 : -1;
-    }
-    return 0;
+    return {
+      id: w.id,
+      name: w.name,
+      ip: w.ip,
+      hashrate: hrBigInt,
+      hashrateDisplay: formatHashrate(Number(hrBigInt), true),
+      reportedAt: w.reportedAt,
+      hashrate5m: w.hashrate5m,
+      hashrate1hr: w.hashrate1hr,
+      hashrate1d: w.hashrate1d,
+      bestShare: w.bestShare,
+      bestEver: w.bestEver,
+      lastUpdate: w.lastUpdate,
+    };
   });
 
-  const renderSortIcon = (field: SortField) => {
-    if (sortField !== field) return null;
-    return sortOrder === 'asc' ? ' ▲' : ' ▼';
-  };
+  rows.sort((a, b) => Number(b.hashrate - a.hashrate));
 
   return (
-    <div className="bg-base-200 p-4 rounded-lg mt-8">
-      <h2 className="text-xl font-bold mb-4">Workers</h2>
-      <div className="overflow-x-auto">
-        <table className="table w-full table-sm sm:table-md">
-          <thead>
-            <tr>
-              <th onClick={() => handleSort('name')} className="cursor-pointer">
-                Name{renderSortIcon('name')}
-              </th>
-              <th
-                onClick={() => handleSort('hashrate5m')}
-                className="cursor-pointer"
-              >
-                Hashrate (5m){renderSortIcon('hashrate5m')}
-              </th>
-              <th
-                onClick={() => handleSort('hashrate1hr')}
-                className="cursor-pointer"
-              >
-                Hashrate (1hr){renderSortIcon('hashrate1hr')}
-              </th>
-              <th
-                onClick={() => handleSort('hashrate1d')}
-                className="cursor-pointer"
-              >
-                Hashrate (1d){renderSortIcon('hashrate1d')}
-              </th>
-              <th
-                onClick={() => handleSort('bestShare')}
-                className="cursor-pointer"
-              >
-                Best Share{renderSortIcon('bestShare')}
-              </th>
-              <th
-                onClick={() => handleSort('bestEver')}
-                className="cursor-pointer"
-              >
-                Best Ever{renderSortIcon('bestEver')}
-              </th>
-              <th
-                onClick={() => handleSort('lastUpdate')}
-                className="cursor-pointer"
-              >
-                Last Update{renderSortIcon('lastUpdate')}
-              </th>
+    <div className="overflow-auto">
+      <table className="table w-full">
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>IP</th>
+            <th>Hashrate</th>
+            <th>Reported</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={`${r.name}-${r.ip}`}>
+              <td>{r.name}</td>
+              <td>{r.ip}</td>
+              <td>{r.hashrateDisplay}</td>
+              <td>{r.reportedAt}</td>
             </tr>
-          </thead>
-          <tbody>
-            {sortedWorkers.map((worker) => (
-              <tr key={worker.id}>
-                <td>
-                  <Link
-                    className="link text-primary"
-                    href={`/users/${address}/workers/${encodeURIComponent(worker.name)}`}
-                  >
-                    {worker.name || <span className="italic">Unnamed</span>}
-                  </Link>
-                </td>
-                <td
-                  className={`${Number(worker.hashrate5m) < 1 ? 'text-error' : 'text-accent'}`}
-                >
-                  {formatHashrate(worker.hashrate5m)}
-                </td>
-                <td
-                  className={`${Number(worker.hashrate1hr) < 1 ? 'text-error' : ''}`}
-                >
-                  {formatHashrate(worker.hashrate1hr)}
-                </td>
-                <td
-                  className={`${Number(worker.hashrate1d) < 1 ? 'text-error' : ''}`}
-                >
-                  {formatHashrate(worker.hashrate1d)}
-                </td>
-                <td>{formatNumber(worker.bestShare)}</td>
-                <td>{formatNumber(worker.bestEver)}</td>
-                <td>{formatTimeAgo(worker.lastUpdate)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
-};
-
-export default WorkersTable;
+}

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -8,7 +9,10 @@ async function fetchPoolStats() {
   const response = await fetch(`${apiUrl}/pool/pool.status`);
   const data = await response.text();
   const jsonLines = data.split('\n').filter(Boolean);
-  const parsedData = jsonLines.reduce((acc, line) => ({ ...acc, ...JSON.parse(line) }), {});
+  const parsedData = jsonLines.reduce(
+    (acc, line) => ({ ...acc, ...JSON.parse(line) }),
+    {}
+  );
   return parsedData;
 }
 
@@ -16,7 +20,7 @@ async function seed() {
   try {
     console.log('Fetching pool stats...');
     const stats = await fetchPoolStats();
-    
+
     console.log('Saving pool stats to database...');
 
     // Function to convert hashrate with units to string

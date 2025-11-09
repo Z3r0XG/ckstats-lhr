@@ -4,7 +4,6 @@ import * as bitcoin from 'bitcoinjs-lib';
 // Init ECC in case a taproot address is specified
 bitcoin.initEccLib(ecc);
 
-
 /**
  * Tests if the address is a valid Bitcoin address.
  * @param {string} address - The Bitcoin address to validate.
@@ -20,12 +19,19 @@ export function validateBitcoinAddress(address: string): boolean {
   try {
     bitcoin.address.toOutputScript(address, bitcoin.networks.bitcoin);
     return true;
-  } catch {}
+  } catch {
+    // intentionally ignore parse error; return false if no match
+    void 0;
+  }
+
   // Then testnet (covers m/n/2, tb1q, tb1p; works for testnet4 bech32 hrp `tb`)
   try {
     bitcoin.address.toOutputScript(address, bitcoin.networks.testnet);
     return true;
-  } catch {}
+  } catch {
+    // intentionally ignore parse error; return false if no match
+    void 0;
+  }
 
   return false;
 }

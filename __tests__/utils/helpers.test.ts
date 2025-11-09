@@ -7,7 +7,7 @@ import {
   calculatePercentageChange,
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
-  calculateBlockChances
+  calculateBlockChances,
 } from '../../utils/helpers';
 
 describe('Helper Functions', () => {
@@ -52,10 +52,18 @@ describe('Helper Functions', () => {
     it('formats time ago correctly', () => {
       const now = new Date();
       expect(formatTimeAgo(now, 2)).toBe('Recently');
-      expect(formatTimeAgo(new Date(now.getTime() - 1 * 60000))).toBe('1 min ago');
-      expect(formatTimeAgo(new Date(now.getTime() - 5 * 60000))).toBe('5 mins ago');
-      expect(formatTimeAgo(new Date(now.getTime() - 65 * 60000))).toBe('1 hour 5 mins ago');
-      expect(formatTimeAgo(new Date(now.getTime() - 25 * 60 * 60000))).toBe('1 day 1 hour 0 min ago');
+      expect(formatTimeAgo(new Date(now.getTime() - 1 * 60000))).toBe(
+        '1 min ago'
+      );
+      expect(formatTimeAgo(new Date(now.getTime() - 5 * 60000))).toBe(
+        '5 mins ago'
+      );
+      expect(formatTimeAgo(new Date(now.getTime() - 65 * 60000))).toBe(
+        '1 hour 5 mins ago'
+      );
+      expect(formatTimeAgo(new Date(now.getTime() - 25 * 60 * 60000))).toBe(
+        '1 day 1 hour 0 min ago'
+      );
     });
   });
 
@@ -90,14 +98,22 @@ describe('Helper Functions', () => {
 
   describe('calculateAverageTimeToBlock', () => {
     it('calculates average time to block correctly', () => {
-      expect(calculateAverageTimeToBlock(BigInt(1000000000000), 1, 'T')).toBeCloseTo(4294967296);
-      expect(calculateAverageTimeToBlock(BigInt(2000000000000), 1, 'T')).toBeCloseTo(2147483648);
+      expect(
+        calculateAverageTimeToBlock(BigInt(1000000000000), 1, 'T')
+      ).toBeCloseTo(4294967296);
+      expect(
+        calculateAverageTimeToBlock(BigInt(2000000000000), 1, 'T')
+      ).toBeCloseTo(2147483648);
     });
   });
 
   describe('calculateBlockChances', () => {
     it('calculates block chances correctly', () => {
-      const chances = calculateBlockChances(BigInt(1000000000000), 1, BigInt(100000000000000));
+      const chances = calculateBlockChances(
+        BigInt(1000000000000),
+        1,
+        BigInt(100000000000000)
+      );
       expect(chances['1h']).toBe('<0.001%');
       expect(chances['1d']).toMatch(/\d+\.\d+%|<0\.001%/);
       expect(chances['1w']).toMatch(/\d+\.\d+%|<0\.001%/);

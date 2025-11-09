@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -27,18 +28,20 @@ async function fetchUserDataWithRetry(address, maxRetries = 3, delay = 500) {
       return await response.json();
     } catch (error) {
       if (attempt === maxRetries) {
-        console.error(`Failed to fetch data for ${address} after ${maxRetries} attempts.`);
-        
+        console.error(
+          `Failed to fetch data for ${address} after ${maxRetries} attempts.`
+        );
+
         // Set user's isActive status to false
         await prisma.user.update({
           where: { address },
           data: { isActive: false },
         });
-        
+
         throw error;
       }
       console.log(`Attempt ${attempt} failed for ${address}. Retrying...`);
-      await new Promise(resolve => setTimeout(resolve, delay * attempt));
+      await new Promise((resolve) => setTimeout(resolve, delay * attempt));
     }
   }
 }
@@ -75,7 +78,9 @@ async function updateUser(address, userData) {
 
 async function updateWorker(address, workerData) {
   if (!workerData.workername) {
-    console.log(`Worker data for address ${address} is missing a valid name. Skipping.`);
+    console.log(
+      `Worker data for address ${address} is missing a valid name. Skipping.`
+    );
     return;
   }
 
@@ -138,8 +143,8 @@ async function updateUserAndWorkers(address) {
   try {
     const userData = await fetchUserDataWithRetry(address);
     await prisma.$transaction(async () => {
-      await updateUser(address, userData,);
-      await Promise.all(userData.worker.map(w => updateWorker(address, w)));
+      await updateUser(address, userData);
+      await Promise.all(userData.worker.map((w) => updateWorker(address, w)));
     });
     console.log(`Updated user and workers for: ${address}`);
   } catch (error) {
@@ -157,7 +162,9 @@ async function updateUsers() {
 
     for (let i = 0; i < users.length; i += batchSize) {
       const batch = users.slice(i, i + batchSize);
-      await Promise.all(batch.map(user => updateUserAndWorkers(user.address)));
+      await Promise.all(
+        batch.map((user) => updateUserAndWorkers(user.address))
+      );
     }
 
     console.log('All users and workers updated successfully');
