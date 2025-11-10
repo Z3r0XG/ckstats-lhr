@@ -1,6 +1,8 @@
+// eslint-disable-next-line import/no-unresolved
 import 'dotenv/config';
 import 'reflect-metadata';
 import * as fs from 'fs';
+
 import { getDb } from '../lib/db';
 import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
@@ -47,7 +49,8 @@ async function updateUser(address: string): Promise<void> {
     throw new Error('updateUser(): address contains invalid characters');
   }
 
-  const apiUrl = (process.env.API_URL || 'https://solo.ckpool.org') + `/users/${address}`;
+  const apiUrl =
+    (process.env.API_URL || 'https://solo.ckpool.org') + `/users/${address}`;
 
   console.log('Attempting to update user stats for:', address);
   const db = await getDb();
@@ -56,17 +59,17 @@ async function updateUser(address: string): Promise<void> {
     try {
       const response = await fetch(apiUrl);
 
-       if (!response.ok) {
-         throw new Error(`HTTP error! status: ${response.status}`);
-       }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      userData = await response.json() as UserData;
+      userData = (await response.json()) as UserData;
     } catch (error: any) {
       if (error.cause?.code == 'ERR_INVALID_URL') {
         userData = JSON.parse(fs.readFileSync(apiUrl, 'utf-8')) as UserData;
       } else throw error;
     }
-    
+
     await db.transaction(async (manager) => {
       // Update or create user
       const userRepository = manager.getRepository(User);
@@ -80,7 +83,7 @@ async function updateUser(address: string): Promise<void> {
           address,
           authorised: userData.authorised.toString(),
           isActive: true,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         });
       }
 
@@ -88,23 +91,25 @@ async function updateUser(address: string): Promise<void> {
       const userStatsRepository = manager.getRepository(UserStats);
       const userStats = userStatsRepository.create({
         userAddress: address,
-        hashrate1m: convertHashrate(userData.hashrate1m.toString()).toString(),
-        hashrate5m: convertHashrate(userData.hashrate5m.toString()).toString(),
-        hashrate1hr: convertHashrate(userData.hashrate1hr.toString()).toString(),
-        hashrate1d: convertHashrate(userData.hashrate1d.toString()).toString(),
-        hashrate7d: convertHashrate(userData.hashrate7d.toString()).toString(),
-        lastShare: BigInt(userData.lastshare).toString(),
+        // convert and store hashrate fields so aggregated stats are populated
+        hashrate1m: convertHashrate(String(userData.hashrate1m)).toString(),
+        hashrate5m: convertHashrate(String(userData.hashrate5m)).toString(),
+        hashrate1hr: convertHashrate(String(userData.hashrate1hr)).toString(),
+        hashrate1d: convertHashrate(String(userData.hashrate1d)).toString(),
+        hashrate7d: convertHashrate(String(userData.hashrate7d)).toString(),
+        // safe conversions to avoid BigInt RangeError for fractional values
+        lastShare: BigInt(Math.floor(Number(userData.lastshare || 0))).toString(),
         workerCount: userData.workers,
-        shares: BigInt(userData.shares).toString(),
+        shares: BigInt(String(userData.shares || 0)).toString(),
         bestShare: parseFloat(userData.bestshare),
-        bestEver: BigInt(userData.bestever).toString()
+        bestEver: BigInt(Math.floor(Number(userData.bestever || 0))).toString(),
       });
       await userStatsRepository.save(userStats);
 
       // Update or create workers
       const workerRepository = manager.getRepository(Worker);
       const workerStatsRepository = manager.getRepository(WorkerStats);
-      
+
       for (const workerData of userData.worker) {
         const workerName = workerData.workername.includes('.')
           ? workerData.workername.split('.')[1]
@@ -119,15 +124,25 @@ async function updateUser(address: string): Promise<void> {
         });
 
         const workerValues = {
-          hashrate1m: convertHashrate(workerData.hashrate1m.toString()).toString(),
-          hashrate5m: convertHashrate(workerData.hashrate5m.toString()).toString(),
-          hashrate1hr: convertHashrate(workerData.hashrate1hr.toString()).toString(),
-          hashrate1d: convertHashrate(workerData.hashrate1d.toString()).toString(),
-          hashrate7d: convertHashrate(workerData.hashrate7d.toString()).toString(),
+          hashrate1m: convertHashrate(
+            workerData.hashrate1m.toString()
+          ).toString(),
+          hashrate5m: convertHashrate(
+            workerData.hashrate5m.toString()
+          ).toString(),
+          hashrate1hr: convertHashrate(
+            workerData.hashrate1hr.toString()
+          ).toString(),
+          hashrate1d: convertHashrate(
+            workerData.hashrate1d.toString()
+          ).toString(),
+          hashrate7d: convertHashrate(
+            workerData.hashrate7d.toString()
+          ).toString(),
           lastUpdate: new Date(workerData.lastshare * 1000),
-          shares: BigInt(workerData.shares).toString(),
+          shares: BigInt(String(workerData.shares || 0)).toString(),
           bestShare: parseFloat(workerData.bestshare),
-          bestEver: BigInt(workerData.bestever).toString(),
+          bestEver: BigInt(Math.floor(Number(workerData.bestever || 0))).toString(),
         };
 
         let workerId: number;
@@ -155,7 +170,7 @@ async function updateUser(address: string): Promise<void> {
           hashrate7d: workerValues.hashrate7d,
           shares: workerValues.shares,
           bestShare: workerValues.bestShare,
-          bestEver: workerValues.bestEver
+          bestEver: workerValues.bestEver,
         });
         await workerStatsRepository.save(workerStats);
       }
@@ -194,7 +209,7 @@ async function updateUser(address: string): Promise<void> {
 
 async function main() {
   let db;
-  
+
   try {
     db = await getDb();
     const userRepository = db.getRepository(User);
@@ -211,8 +226,10 @@ async function main() {
     // Process users in batches
     for (let i = 0; i < users.length; i += BATCH_SIZE) {
       const batch = users.slice(i, i + BATCH_SIZE);
-      console.log(`Processing batch ${i / BATCH_SIZE + 1} of ${Math.ceil(users.length / BATCH_SIZE)}`);
-      
+      console.log(
+        `Processing batch ${i / BATCH_SIZE + 1} of ${Math.ceil(users.length / BATCH_SIZE)}`
+      );
+
       await Promise.all(
         batch.map(async (user) => {
           try {
@@ -242,4 +259,4 @@ async function main() {
 }
 
 // Run the script
-main().catch(console.error); 
+main().catch(console.error);
