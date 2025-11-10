@@ -16,7 +16,8 @@
     "test:watch": "jest --watch",
     "load-test": "next lint --fix && next build && clinic doctor --on-port 'autocannon -c 200 -d 10 localhost:$PORT' -- node ./node_modules/next/dist/bin/next start",
     "migration:run": "ts-node -P tsconfig.scripts.json ./scripts/migration.ts",
-    "migration:run:skip": "ts-node -P tsconfig.scripts.json ./scripts/migration.ts --skip-initial"
+    "migration:run:skip": "ts-node -P tsconfig.scripts.json ./scripts/migration.ts --skip-initial",
+    "postinstall": "node ./scripts/checkAndMaybeFixPnpmLinks.js || true"
   },
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",
