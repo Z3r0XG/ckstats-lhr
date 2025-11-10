@@ -1,15 +1,20 @@
 'use client';
+/* eslint-disable import/order */
 
 import React, { useState } from 'react';
-
 import Link from 'next/link';
 
 import { Worker } from '../lib/entities/Worker';
-import { formatHashrate, formatNumber, formatTimeAgo } from '../utils/helpers';
+import {
+  formatHashrate,
+  formatNumber,
+  formatTimeAgo,
+  convertHashrate,
+} from '../utils/helpers';
 
 interface WorkersTableProps {
   workers: Worker[];
-  address: string;
+  address?: string;
 }
 
 type SortField = keyof Worker;
@@ -37,8 +42,32 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         'bestEver',
       ];
       if (numericFields.includes(sortField)) {
-        const aVal = BigInt(Number(a[sortField]) || 0);
-        const bVal = BigInt(Number(b[sortField]) || 0);
+        const toBigIntSafe = (v: any): bigint => {
+          const s = String(v ?? '0').trim();
+          // If it's an integer string, use BigInt directly
+          if (/^[+-]?\d+$/.test(s)) {
+            try {
+              return BigInt(s);
+            } catch {
+              return BigInt(0);
+            }
+          }
+          // If the field is a hashrate (starts with 'hashrate'), use convertHashrate
+          if ((sortField as string).startsWith('hashrate')) {
+            try {
+              return convertHashrate(s);
+            } catch {
+              return BigInt(0);
+            }
+          }
+          // Fallback: parse as number and round
+          const n = Number(s);
+          if (Number.isNaN(n)) return BigInt(0);
+          return BigInt(Math.round(n));
+        };
+
+        const aVal = toBigIntSafe(a[sortField]);
+        const bVal = toBigIntSafe(b[sortField]);
         return sortOrder === 'asc' ? Number(aVal - bVal) : Number(bVal - aVal);
       }
 
@@ -115,17 +144,17 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                 <td
                   className={`${Number(worker.hashrate5m) < 1 ? 'text-error' : 'text-accent'}`}
                 >
-                  {formatHashrate(worker.hashrate5m)}
+                  {formatHashrate(Number(worker.hashrate5m), true)}
                 </td>
                 <td
                   className={`${Number(worker.hashrate1hr) < 1 ? 'text-error' : ''}`}
                 >
-                  {formatHashrate(worker.hashrate1hr)}
+                  {formatHashrate(Number(worker.hashrate1hr), true)}
                 </td>
                 <td
                   className={`${Number(worker.hashrate1d) < 1 ? 'text-error' : ''}`}
                 >
-                  {formatHashrate(worker.hashrate1d)}
+                  {formatHashrate(Number(worker.hashrate1d), true)}
                 </td>
                 <td>{formatNumber(worker.bestShare)}</td>
                 <td>{formatNumber(worker.bestEver)}</td>
