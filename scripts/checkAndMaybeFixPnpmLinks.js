@@ -9,13 +9,7 @@ const path = require('path');
 const projectRoot = process.cwd();
 const fixer = path.join(__dirname, 'fixPnpmLinks.js');
 
-console.log('Note: links will be created only inside this repository under node_modules/ (not outside the project).');
-
-// If explicit skip flag is set, don't run
-if (process.env.FIX_PNPM_LINKS === '0') {
-  console.log('FIX_PNPM_LINKS=0 set; skipping pnpm link fix.');
-  process.exit(0);
-}
+console.log('Note: links will be created under node_modules/.');
 
 // Run a dry run of the fixer to show planned operations
 const dry = spawnSync(process.execPath, [fixer], {
@@ -38,11 +32,6 @@ for (let i = 0; i < Math.min(20, wouldCreate.length); i++) {
   console.log('  ' + wouldCreate[i]);
 }
 if (wouldCreate.length > 20) console.log(`  ...and ${wouldCreate.length - 20} more`);
-
-if (process.env.DRY_RUN === '1') {
-  console.log('DRY_RUN=1 set; not applying changes.');
-  process.exit(0);
-}
 
 if (process.env.FIX_PNPM_LINKS === '1') {
   console.log('FIX_PNPM_LINKS=1 set; applying fixes now.');
