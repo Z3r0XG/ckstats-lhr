@@ -1,6 +1,8 @@
 # CK Stats
 
-This project displays real-time and historical statistics for the CKPool Bitcoin mining pool using data from their API.
+This project is forked from the original awesome ckstats code by mrv777 (https://github.com/mrv777/ckstats) to display Pool and User statistics for CKPool Solo (https://github.com/golden-guy/ckpool-solo). With low hash rate versions of ckpool being forked, ckstats needed to be tweaked to be able to ingest and values based on much smaller difficulties (less than 1). This was tested against goldenguy's LHR version of ckpool (https://github.com/golden-guy/ckpool-solo) but may work with others. It does not preclude tracking stats against normal installs of ckpool.
+
+ORIGINAL INSTRUCTIONS:
 
 ## Features
 
