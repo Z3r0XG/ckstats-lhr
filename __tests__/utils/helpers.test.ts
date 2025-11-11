@@ -34,6 +34,10 @@ describe('Helper Functions', () => {
       expect(formatHashrate('999')).toBe('999 H/s');
       expect(formatHashrate('1010000000000')).toBe('1.01 TH/s');
       expect(formatHashrate('1100000000000')).toBe('1.1 TH/s');
+      // Floor behavior: any absolute hashrate < 1 H/s should be reported as 0 H/s
+      expect(formatHashrate('0')).toBe('0 H/s');
+      expect(formatHashrate('0.5')).toBe('0 H/s');
+      expect(formatHashrate('0.999')).toBe('0 H/s');
     });
   });
 

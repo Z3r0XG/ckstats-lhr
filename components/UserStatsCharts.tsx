@@ -16,6 +16,7 @@ import {
 
 import { UserStats } from '../lib/entities/UserStats';
 import { WorkerStats } from '../lib/entities/WorkerStats';
+import { convertHashrate, toNumberSafe } from '../utils/helpers';
 
 // Add this function at the top of the file, outside the component
 function getHashrateUnit(maxHashrate: number): [string, number] {
@@ -35,37 +36,65 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
   const [hashrateUnit, setHashrateUnit] = useState<string>('PH/s');
 
   const chartData = useMemo(() => {
-    // Reverse the userStats array
-    const reversedStats = [...userStats].reverse();
+    // use central toNumberSafe
 
-    const maxHashrate = Math.max(
-      ...reversedStats.flatMap((stat) => [
-        Number(stat.hashrate1m),
-        Number(stat.hashrate5m),
-        Number(stat.hashrate1hr),
-        Number(stat.hashrate1d),
-        Number(stat.hashrate7d),
-      ])
-    );
+    // convert to numeric timestamp, sort ascending
+    const sorted = [...userStats]
+      .map((stat) => ({ ...stat, timestampMs: new Date(stat.timestamp).getTime() }))
+      .sort((a, b) => a.timestampMs - b.timestampMs);
 
-    const [unit, scaleFactor] = getHashrateUnit(maxHashrate);
+    // compute max using BigInt-aware convertHashrate
+    const maxBig = sorted
+      .flatMap((stat) => [stat.hashrate1m, stat.hashrate5m, stat.hashrate1hr, stat.hashrate1d, stat.hashrate7d])
+      .map((v) => {
+        try {
+          return convertHashrate(v ?? '0');
+        } catch {
+          return BigInt(0);
+        }
+      })
+      .reduce((acc, cur) => (cur > acc ? cur : acc), BigInt(0));
+
+    const THRESHOLDS: { threshold: bigint; unit: string; divisor: number }[] = [
+      { threshold: BigInt('1000000000000000000000'), unit: 'Z', divisor: 1e21 },
+      { threshold: BigInt('1000000000000000000'), unit: 'E', divisor: 1e18 },
+      { threshold: BigInt('1000000000000000'), unit: 'P', divisor: 1e15 },
+      { threshold: BigInt('1000000000000'), unit: 'T', divisor: 1e12 },
+      { threshold: BigInt('1000000000'), unit: 'G', divisor: 1e9 },
+      { threshold: BigInt('1000000'), unit: 'M', divisor: 1e6 },
+      { threshold: BigInt('1000'), unit: 'k', divisor: 1e3 },
+    ];
+
+    const found = THRESHOLDS.find((t) => maxBig >= t.threshold);
+    const unit = found ? found.unit + 'H/s' : 'H/s';
+    const scaleFactor = found ? found.divisor : 1;
     setHashrateUnit(unit);
 
-    return reversedStats.map((stat) => ({
-      timestamp: new Date(stat.timestamp).toLocaleString('en-US', {
+    return sorted.map((stat) => ({
+      timestampMs: stat.timestampMs,
+      timestampStr: new Date(stat.timestamp).toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
       }),
       workerCount: 'workerCount' in stat ? stat.workerCount : undefined,
-      '1m': Number(stat.hashrate1m) / scaleFactor,
-      '5m': Number(stat.hashrate5m) / scaleFactor,
-      '1hr': Number(stat.hashrate1hr) / scaleFactor,
-      '1d': Number(stat.hashrate1d) / scaleFactor,
-      '7d': Number(stat.hashrate7d) / scaleFactor,
+      '1m': toNumberSafe(convertHashrate(stat.hashrate1m ?? '0')) / scaleFactor,
+      '5m': toNumberSafe(convertHashrate(stat.hashrate5m ?? '0')) / scaleFactor,
+      '1hr': toNumberSafe(convertHashrate(stat.hashrate1hr ?? '0')) / scaleFactor,
+      '1d': toNumberSafe(convertHashrate(stat.hashrate1d ?? '0')) / scaleFactor,
+      '7d': toNumberSafe(convertHashrate(stat.hashrate7d ?? '0')) / scaleFactor,
     }));
   }, [userStats]);
+
+  // Debug logs (browser console) to inspect raw userStats and computed chartData
+  if (typeof window !== 'undefined') {
+    try {
+  // Debug logs removed — keep code path clean in production build
+    } catch (e) {
+      // ignore
+    }
+  }
 
   const [visibleLines, setVisibleLines] = useState({
     '1m': false,
@@ -171,7 +200,12 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
             data={chartData}
             margin={{ top: 5, right: 0, left: 0, bottom: 5 }}
           >
-            <XAxis dataKey="timestamp" minTickGap={50} />
+               <XAxis
+                 dataKey="timestampMs"
+                 type="number"
+                 domain={["dataMin", "dataMax"]}
+                 tickFormatter={(v) => new Date(v).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+               />
             <YAxis
               allowDataOverflow={true}
               domain={[
@@ -179,7 +213,7 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
                 (dataMax: number) => Math.ceil(dataMax * 1.01),
               ]}
             />
-            <Tooltip formatter={hashrateTooltipFormatter} />
+               <Tooltip labelFormatter={(label) => new Date(toNumberSafe(label)).toLocaleString()} />
             <Legend
               payload={legendPayload.map((item) => ({
                 ...item,
@@ -187,8 +221,8 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
               }))}
               onClick={(e) => handleLegendClick(e.value)}
             />
-            <Brush
-              dataKey="timestamp"
+               <Brush
+                 dataKey="timestampMs"
               height={30}
               alwaysShowText={true}
               startIndex={

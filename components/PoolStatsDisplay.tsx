@@ -5,12 +5,13 @@ import { PoolStats } from '../lib/entities/PoolStats';
 import {
   formatNumber,
   formatHashrate,
-  formatTimeAgo,
   formatDuration,
   calculatePercentageChange,
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
 } from '../utils/helpers';
+import TimeAgo from './TimeAgo';
+import { toNumberSafe } from '../utils/helpers';
 
 const CountdownTimer = dynamic(() => import('./CountdownTimer'), {
   ssr: false,
@@ -30,7 +31,7 @@ export default function PoolStatsDisplay({
     if (key.startsWith('hashrate')) {
       return formatHashrate(value);
     } else if (key === 'diff') {
-      return `${formatNumber(value)}%`;
+  return `${formatNumber(value)}%`;
       // const networkDiff = (stats.accepted * BigInt(10000)) / BigInt(Math.round(Number(stats.diff) * 100));
       // return `${(Number(networkDiff) / 1e12).toFixed(2)}T`;
     } else if (
@@ -86,8 +87,8 @@ export default function PoolStatsDisplay({
   const renderPercentageChange = (key: string) => {
     if (historicalStats.length < 120) return 'N/A';
 
-    const currentValue = Number(stats[key]);
-    const pastValue = Number(
+    const currentValue = toNumberSafe(stats[key]);
+    const pastValue = toNumberSafe(
       historicalStats[historicalStats.length - 120][key]
     );
 
@@ -123,7 +124,7 @@ export default function PoolStatsDisplay({
               <div className="stat">
                 <div className="stat-title">Last Update</div>
                 <div className="stat-value text-2xl">
-                  {formatTimeAgo(stats.timestamp)}
+                  <TimeAgo timestamp={stats.timestamp} />
                 </div>
               </div>
               <div className="stat">
@@ -134,7 +135,7 @@ export default function PoolStatsDisplay({
                         calculateAverageTimeToBlock(
                           stats.hashrate6hr,
                           (BigInt(stats.accepted) * BigInt(10000)) /
-                            BigInt(Math.round(Number(stats.diff) * 100))
+                            BigInt(Math.round(toNumberSafe(stats.diff) * 100))
                         )
                       )
                     : 'N/A'}

@@ -65,14 +65,14 @@ export default async function TopUserHashrates({
                         <td className="text-accent">
                           {formatHashrate(user.hashrate1hr)}
                         </td>
-                        <td>{formatHashrate(user.hashrate1d)}</td>
-                        <td>{formatHashrate(user.hashrate7d)}</td>
-                        <td>{formatNumber(Number(user.bestShare))}</td>
-                        <td>{formatNumber(Number(user.bestEver))}</td>
+                        <td>{formatHashrate(user.hashrate1d, true)}</td>
+                        <td>{formatHashrate(user.hashrate7d, true)}</td>
+                        <td>{formatNumber(user.bestShare)}</td>
+                        <td>{formatNumber(user.bestEver)}</td>
                       </>
                     ) : (
                       <td className="text-accent">
-                        {formatHashrate(user.hashrate1hr)}
+                        {formatHashrate(user.hashrate1hr, true)}
                       </td>
                     )}
                   </tr>

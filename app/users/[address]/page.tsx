@@ -19,7 +19,9 @@ import {
   getPercentageChangeColor,
   calculateBlockChances,
   serializeData,
+  toNumberSafe,
 } from '../../../utils/helpers';
+import TimeAgo from '../../../components/TimeAgo';
 
 export default async function UserPage({
   params,
@@ -79,8 +81,8 @@ export default async function UserPage({
   const renderPercentageChange = (key: string) => {
     if (historicalStats.length < 120) return 'N/A';
 
-    const currentValue = Number(latestStats[key]);
-    const pastValue = Number(
+    const currentValue = toNumberSafe(latestStats[key]);
+    const pastValue = toNumberSafe(
       historicalStats[historicalStats.length - 120][key]
     );
 
@@ -112,15 +114,15 @@ export default async function UserPage({
         </div>
         <div className="stat">
           <div className="stat-title">Authorised</div>
-          <div className="stat-value text-3xl">
-            {new Date(Number(user.authorised) * 1000).toLocaleDateString()}
+            <div className="stat-value text-3xl">
+            {new Date(toNumberSafe(user.authorised) * 1000).toLocaleDateString()}
           </div>
         </div>
         <div className="stat">
           <div className="stat-title">Last Share</div>
           <div className="stat-value text-3xl">
             {/* We only update every 10 minutes, so show 'Recently' if less than 11 minutes */}
-            {formatTimeAgo(Number(latestStats.lastShare) * 1000, 11)}
+            <TimeAgo timestamp={toNumberSafe(latestStats.lastShare) * 1000} minDiff={11} />
           </div>
         </div>
       </div>
@@ -150,28 +152,28 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">Hashrate (5m)</div>
           <div className="stat-value text-3xl">
-            {formatHashrate(latestStats.hashrate5m)}
+            {formatHashrate(latestStats.hashrate5m, true)}
           </div>
           {renderPercentageChange('hashrate5m')}
         </div>
         <div className="stat">
           <div className="stat-title">Hashrate (1hr)</div>
           <div className="stat-value text-3xl">
-            {formatHashrate(latestStats.hashrate1hr)}
+            {formatHashrate(latestStats.hashrate1hr, true)}
           </div>
           {renderPercentageChange('hashrate1hr')}
         </div>
         <div className="stat">
           <div className="stat-title">Hashrate (1d)</div>
           <div className="stat-value text-3xl">
-            {formatHashrate(latestStats.hashrate1d)}
+            {formatHashrate(latestStats.hashrate1d, true)}
           </div>
           {renderPercentageChange('hashrate1d')}
         </div>
         <div className="stat">
           <div className="stat-title">Hashrate (7d)</div>
           <div className="stat-value text-3xl">
-            {formatHashrate(latestStats.hashrate7d)}
+            {formatHashrate(latestStats.hashrate7d, true)}
           </div>
           {renderPercentageChange('hashrate7d')}
         </div>
@@ -185,7 +187,7 @@ export default async function UserPage({
             {latestStats.hashrate1hr && stats?.diff
               ? calculateBlockChances(
                   latestStats.hashrate1hr,
-                  Number(stats.diff),
+                  toNumberSafe(stats.diff),
                   stats.accepted
                 )['1d']
               : 'N/A'}
@@ -197,7 +199,7 @@ export default async function UserPage({
             {latestStats.hashrate1hr && stats?.diff
               ? calculateBlockChances(
                   latestStats.hashrate1hr,
-                  Number(stats.diff),
+                  toNumberSafe(stats.diff),
                   stats.accepted
                 )['1w']
               : 'N/A'}
@@ -209,7 +211,7 @@ export default async function UserPage({
             {latestStats.hashrate1hr && stats?.diff
               ? calculateBlockChances(
                   latestStats.hashrate1hr,
-                  Number(stats.diff),
+                  toNumberSafe(stats.diff),
                   stats.accepted
                 )['1m']
               : 'N/A'}
@@ -221,7 +223,7 @@ export default async function UserPage({
             {latestStats.hashrate1hr && stats?.diff
               ? calculateBlockChances(
                   latestStats.hashrate1hr,
-                  Number(stats.diff),
+                  toNumberSafe(stats.diff),
                   stats.accepted
                 )['1y']
               : 'N/A'}

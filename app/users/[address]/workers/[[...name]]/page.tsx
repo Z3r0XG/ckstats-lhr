@@ -11,6 +11,7 @@ import {
   calculatePercentageChange,
   getPercentageChangeColor,
   serializeData,
+  toNumberSafe,
 } from '../../../../../utils/helpers';
 
 export default async function WorkerPage({
@@ -35,8 +36,8 @@ export default async function WorkerPage({
   const renderPercentageChange = (key: string) => {
     if (worker.stats.length < 120) return 'N/A';
 
-    const currentValue = Number(latestStats[key]);
-    const pastValue = Number(worker.stats[worker.stats.length - 120][key]);
+  const currentValue = toNumberSafe(latestStats[key]);
+  const pastValue = toNumberSafe(worker.stats[worker.stats.length - 120][key]);
 
     const change = calculatePercentageChange(currentValue, pastValue);
     const color = getPercentageChangeColor(change);
@@ -81,7 +82,7 @@ export default async function WorkerPage({
         <div className="stat">
           <div className="stat-title">Hashrate (1m)</div>
           <div className="stat-value text-3xl">
-            {formatHashrate(latestStats.hashrate1m)}
+            {formatHashrate(latestStats.hashrate1m, true)}
           </div>
           {renderPercentageChange('hashrate1m')}
         </div>
@@ -89,7 +90,7 @@ export default async function WorkerPage({
         <div className="stat">
           <div className="stat-title">Hashrate (5m) </div>
           <div className="stat-value text-3xl">
-            {formatHashrate(latestStats.hashrate5m)}
+            {formatHashrate(latestStats.hashrate5m, true)}
           </div>
           {renderPercentageChange('hashrate5m')}
         </div>
@@ -97,21 +98,21 @@ export default async function WorkerPage({
         <div className="stat">
           <div className="stat-title">Hashrate (1hr)</div>
           <div className="stat-value text-3xl">
-            {formatHashrate(latestStats.hashrate1hr)}
+            {formatHashrate(latestStats.hashrate1hr, true)}
           </div>
           {renderPercentageChange('hashrate1hr')}
         </div>
         <div className="stat">
           <div className="stat-title">Hashrate (1d)</div>
           <div className="stat-value text-3xl">
-            {formatHashrate(latestStats.hashrate1d)}
+            {formatHashrate(latestStats.hashrate1d, true)}
           </div>
           {renderPercentageChange('hashrate1d')}
         </div>
         <div className="stat">
           <div className="stat-title">Hashrate (7d)</div>
           <div className="stat-value text-3xl">
-            {formatHashrate(latestStats.hashrate7d)}
+            {formatHashrate(latestStats.hashrate7d, true)}
           </div>
           {renderPercentageChange('hashrate7d')}
         </div>

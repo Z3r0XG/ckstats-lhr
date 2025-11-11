@@ -9,11 +9,11 @@ import { WorkerStats } from './entities/WorkerStats';
 
 const AppDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  username: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'password',
-  database: process.env.DB_NAME || 'postgres',
+  host: process.env.DB_HOST || (() => { throw new Error('DB_HOST is not set'); })(),
+  port: parseInt(process.env.DB_PORT || (() => { throw new Error('DB_PORT is not set'); })()),
+  username: process.env.DB_USER || (() => { throw new Error('DB_USER is not set'); })(),
+  password: process.env.DB_PASSWORD || (() => { throw new Error('DB_PASSWORD is not set'); })(),
+  database: process.env.DB_NAME || (() => { throw new Error('DB_NAME is not set'); })(),
   entities: [PoolStats, User, UserStats, Worker, WorkerStats],
   logging: process.env.NODE_ENV === 'development',
   ssl:

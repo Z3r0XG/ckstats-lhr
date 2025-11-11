@@ -1,11 +1,12 @@
 import * as fs from 'fs';
+import * as path from 'path';
 
 import { getDb } from './db';
 import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
 import { Worker } from './entities/Worker';
-import { convertHashrate } from '../utils/helpers';
+import { convertHashrate, toNumberSafe } from '../utils/helpers';
 
 const HISTORICAL_DATA_POINTS = 5760;
 
@@ -52,7 +53,37 @@ export async function getUserWithWorkersAndStats(address: string) {
   if (!user) return null;
 
   // Sort workers by hashrate
-  user.workers.sort((a, b) => Number(b.hashrate5m) - Number(a.hashrate5m));
+  // BigInt-safe comparison: supports very large values while keeping small values accurate
+  const safeToBigInt = (v: any, treatAsHashrate = false): bigint => {
+    const s = String(v ?? '0').trim();
+    // integer-like string
+    if (/^[+-]?\d+$/.test(s)) {
+      try {
+        return BigInt(s);
+      } catch (_) {
+        return BigInt(0);
+      }
+    }
+
+    if (treatAsHashrate || s.toLowerCase().endsWith('h/s') || /[kMGTPEZ]$/i.test(s)) {
+      try {
+        return convertHashrate(s);
+      } catch (_) {
+        return BigInt(0);
+      }
+    }
+
+    const n = toNumberSafe(s);
+    return BigInt(Math.round(n));
+  };
+
+  user.workers.sort((a, b) => {
+    const aVal = safeToBigInt(a.hashrate5m, true);
+    const bVal = safeToBigInt(b.hashrate5m, true);
+    if (bVal > aVal) return 1;
+    if (bVal < aVal) return -1;
+    return 0;
+  });
 
   // Sort stats by timestamp and take the most recent
   user.stats.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
@@ -124,7 +155,22 @@ export async function getTopUserDifficulties(limit: number = 10) {
     .getMany();
 
   const sortedUsers = topUsers
-    .sort((a, b) => Number(b.bestEver) - Number(a.bestEver))
+    .sort((a, b) => {
+      // Prefer BigInt comparisons to avoid precision/overflow when values are large
+      try {
+        const aVal = BigInt(a.bestEver || '0');
+        const bVal = BigInt(b.bestEver || '0');
+        if (bVal > aVal) return 1;
+        if (bVal < aVal) return -1;
+        return 0;
+      } catch (_e) {
+        // If BigInt parsing fails (malformed), fall back to a deterministic string-based compare:
+        const aStr = String(a.bestEver || '0');
+        const bStr = String(b.bestEver || '0');
+        if (bStr.length !== aStr.length) return bStr.length - aStr.length;
+        return bStr.localeCompare(aStr);
+      }
+    })
     .slice(0, limit);
 
   return sortedUsers.map((stats) => ({
@@ -166,7 +212,21 @@ export async function getTopUserHashrates(limit: number = 10) {
 
   // Then sort by hashrate and take the top N
   const sortedUsers = topUsers
-    .sort((a, b) => Number(b.hashrate1hr) - Number(a.hashrate1hr))
+    .sort((a, b) => {
+      try {
+        const aVal = BigInt(a.hashrate1hr || '0');
+        const bVal = BigInt(b.hashrate1hr || '0');
+        if (bVal > aVal) return 1;
+        if (bVal < aVal) return -1;
+        return 0;
+      } catch (_e) {
+        // Deterministic fallback without Number(): compare string lengths then lexicographically
+        const aStr = String(a.hashrate1hr || '0');
+        const bStr = String(b.hashrate1hr || '0');
+        if (bStr.length !== aStr.length) return bStr.length - aStr.length;
+        return bStr.localeCompare(aStr);
+      }
+    })
     .slice(0, limit);
 
   return sortedUsers.map((stats) => ({
@@ -192,34 +252,57 @@ export async function updateSingleUser(address: string): Promise<void> {
     throw new Error('updateSingleUser(): address contains invalid characters');
   }
 
-  const apiUrl =
-    (process.env.API_URL || 'https://solo.ckpool.org') + `/users/${address}`;
+  const apiBase = process.env.API_URL || 'https://solo.ckpool.org';
 
-  if (!apiUrl) {
+  if (!apiBase) {
     throw new Error('API_URL is not defined in environment variables');
   }
+
+  // Determine whether the configured API base is an HTTP(S) endpoint or a local
+  // directory/file path. Construct the fetch URL for HTTP bases or a safe
+  // filesystem path for local bases. This avoids passing user-controlled data
+  // (the address) directly into fs.readFileSync without sanitization.
+  const isHttp = /^https?:\/\//i.test(apiBase);
+  const fetchUrl = isHttp ? `${apiBase.replace(/\/+$/, '')}/users/${address}` : undefined;
+  const localPath = isHttp ? undefined : path.join(apiBase, 'users', address);
 
   console.log('Attempting to update user stats for:', address);
 
   try {
-    let userData;
+    let userData: any;
 
-    try {
-      const response = await fetch(apiUrl);
-
+    if (isHttp && fetchUrl) {
+      // Normal HTTP(S) flow
+      const response = await fetch(fetchUrl);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       userData = await response.json();
-    } catch (error: any) {
-      if (error.cause?.code == 'ERR_INVALID_URL') {
-        userData = JSON.parse(fs.readFileSync(apiUrl, 'utf-8'));
-      } else throw error;
-    }
+      console.log('API URL:', fetchUrl);
+      console.log('Response:', userData);
+    } else if (localPath) {
+      // Local filesystem flow: resolve and validate the path to avoid
+      // directory traversal. The configured API base must be treated as the
+      // allowed root directory for user files.
+      const resolvedBase = path.resolve(apiBase);
+      const resolvedUserFile = path.resolve(localPath);
 
-    console.log('API URL:', apiUrl);
-    console.log('Response:', userData);
+      if (!resolvedUserFile.startsWith(resolvedBase + path.sep) && resolvedUserFile !== resolvedBase) {
+        throw new Error('Refusing to read file outside of configured API base');
+      }
+
+      const raw = fs.readFileSync(resolvedUserFile, 'utf-8');
+      try {
+        userData = JSON.parse(raw);
+      } catch (err) {
+        throw new Error('Failed to parse local user data JSON');
+      }
+
+      console.log('Local API path:', resolvedUserFile);
+      console.log('Response (from file):', userData);
+    } else {
+      throw new Error('No valid API base configured');
+    }
 
     const db = await getDb();
     await db.transaction(async (manager) => {
@@ -248,11 +331,11 @@ export async function updateSingleUser(address: string): Promise<void> {
         hashrate1hr: convertHashrate(userData.hashrate1hr).toString(),
         hashrate1d: convertHashrate(userData.hashrate1d).toString(),
         hashrate7d: convertHashrate(userData.hashrate7d).toString(),
-        lastShare: BigInt(userData.lastshare).toString(),
+  lastShare: BigInt(Math.floor(toNumberSafe(userData.lastshare || 0))).toString(),
         workerCount: userData.workers,
-        shares: BigInt(userData.shares).toString(),
+        shares: BigInt(String(userData.shares)).toString(),
         bestShare: parseFloat(userData.bestshare),
-        bestEver: BigInt(userData.bestever).toString(),
+  bestEver: BigInt(Math.floor(toNumberSafe(userData.bestever || 0))).toString(),
       });
       await userStatsRepository.save(userStats);
 
@@ -277,7 +360,7 @@ export async function updateSingleUser(address: string): Promise<void> {
           worker.lastUpdate = new Date(workerData.lastshare * 1000);
           worker.shares = workerData.shares;
           worker.bestShare = parseFloat(workerData.bestshare);
-          worker.bestEver = BigInt(workerData.bestever).toString();
+          worker.bestEver = BigInt(Math.floor(toNumberSafe(workerData.bestever || 0))).toString();
           await workerRepository.save(worker);
         } else {
           await workerRepository.insert({
@@ -291,7 +374,7 @@ export async function updateSingleUser(address: string): Promise<void> {
             lastUpdate: new Date(workerData.lastshare * 1000),
             shares: workerData.shares,
             bestShare: parseFloat(workerData.bestshare),
-            bestEver: BigInt(workerData.bestever).toString(),
+            bestEver: BigInt(Math.floor(toNumberSafe(workerData.bestever || 0))).toString(),
             updatedAt: new Date().toISOString(),
           });
         }

@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 
 import { PoolStats } from '../lib/entities/PoolStats';
-import { ISOUnit, findISOUnit } from '../utils/helpers';
+import { convertHashrate, toNumberSafe } from '../utils/helpers';
 
 interface PoolStatsChartProps {
   data: PoolStats[];
@@ -35,6 +35,15 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
   const handleLegendClick = (dataKey: string) => {
     setVisibleLines((prev) => ({ ...prev, [dataKey]: !prev[dataKey] }));
   };
+
+  // Debug: log raw and formatted data in the browser console for inspection
+  if (typeof window !== 'undefined') {
+    try {
+      // Debug logs removed — keep code path clean in production build
+    } catch (e) {
+      // ignore
+    }
+  }
 
   const legendPayload = [
     {
@@ -130,42 +139,68 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
     },
   ];
 
-  // Calculate the maximum hashrate
-  const maxHashrate = Math.max(
-    ...data.flatMap((stat) => [
-      Number(stat.hashrate1m),
-      Number(stat.hashrate5m),
-      Number(stat.hashrate15m),
-      Number(stat.hashrate1hr),
-      Number(stat.hashrate6hr),
-      Number(stat.hashrate1d),
-      Number(stat.hashrate7d),
+  // Calculate the maximum hashrate using BigInt-aware parsing
+  const maxHashrateBig: bigint = data
+    .flatMap((stat) => [
+      stat.hashrate1m,
+      stat.hashrate5m,
+      stat.hashrate15m,
+      stat.hashrate1hr,
+      stat.hashrate6hr,
+      stat.hashrate1d,
+      stat.hashrate7d,
     ])
-  );
+    .map((v) => {
+      try {
+        return convertHashrate(v ?? '0');
+      } catch (_) {
+        return BigInt(0);
+      }
+    })
+    .reduce((acc, cur) => (cur > acc ? cur : acc), BigInt(0));
 
-  // Find out the nearest ISO unit
-  const hashrateUnit: ISOUnit = findISOUnit(Number(maxHashrate));
-  const hashrateDivisor: number = hashrateUnit.threshold;
+  // Decide an ISO unit based on BigInt thresholds (keeps small numbers supported)
+  const THRESHOLDS: { threshold: bigint; iso: string; divisor: number }[] = [
+    { threshold: BigInt('1000000000000000000000'), iso: 'Z', divisor: 1e21 },
+    { threshold: BigInt('1000000000000000000'), iso: 'E', divisor: 1e18 },
+    { threshold: BigInt('1000000000000000'), iso: 'P', divisor: 1e15 },
+    { threshold: BigInt('1000000000000'), iso: 'T', divisor: 1e12 },
+    { threshold: BigInt('1000000000'), iso: 'G', divisor: 1e9 },
+    { threshold: BigInt('1000000'), iso: 'M', divisor: 1e6 },
+    { threshold: BigInt('1000'), iso: 'k', divisor: 1e3 },
+  ];
 
-  // Reverse the data array
-  const reversedData = [...data].reverse();
+  const found = THRESHOLDS.find((t) => maxHashrateBig >= t.threshold);
+  const hashrateUnitIso = found ? found.iso : 'H/s';
+  const hashrateDivisor: number = found ? found.divisor : 1;
 
-  // Format the reversed data for the charts
-  const formattedData = reversedData.map((item) => ({
+  // use central helper
+
+  // Create a numeric timestamp and sort ascending by time so the chart X axis is time-based
+  const sorted = [...data]
+    .map((item) => ({
+      ...item,
+      timestampMs: new Date(item.timestamp).getTime(),
+    }))
+    .sort((a, b) => a.timestampMs - b.timestampMs);
+
+  // Format the sorted data for the charts (use numeric timestampMs for X axis)
+  const formattedData = sorted.map((item) => ({
     ...item,
-    timestamp: new Date(item.timestamp).toLocaleString('en-US', {
+    // keep the original timestamp for tooltips if needed
+    timestampStr: new Date(item.timestamp).toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     }),
-    hashrate1m: Number(item.hashrate1m) / hashrateDivisor,
-    hashrate5m: Number(item.hashrate5m) / hashrateDivisor,
-    hashrate15m: Number(item.hashrate15m) / hashrateDivisor,
-    hashrate1hr: Number(item.hashrate1hr) / hashrateDivisor,
-    hashrate6hr: Number(item.hashrate6hr) / hashrateDivisor,
-    hashrate1d: Number(item.hashrate1d) / hashrateDivisor,
-    hashrate7d: Number(item.hashrate7d) / hashrateDivisor,
+  hashrate1m: toNumberSafe(convertHashrate(item.hashrate1m ?? '0')) / hashrateDivisor,
+  hashrate5m: toNumberSafe(convertHashrate(item.hashrate5m ?? '0')) / hashrateDivisor,
+  hashrate15m: toNumberSafe(convertHashrate(item.hashrate15m ?? '0')) / hashrateDivisor,
+  hashrate1hr: toNumberSafe(convertHashrate(item.hashrate1hr ?? '0')) / hashrateDivisor,
+  hashrate6hr: toNumberSafe(convertHashrate(item.hashrate6hr ?? '0')) / hashrateDivisor,
+  hashrate1d: toNumberSafe(convertHashrate(item.hashrate1d ?? '0')) / hashrateDivisor,
+  hashrate7d: toNumberSafe(convertHashrate(item.hashrate7d ?? '0')) / hashrateDivisor,
     SPS1m: item.SPS1m ?? 0,
     SPS5m: item.SPS5m ?? 0,
     SPS15m: item.SPS15m ?? 0,
@@ -173,7 +208,7 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
   }));
 
   const hashrateTooltipFormatter = (value: number, name: string) => [
-    `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${hashrateUnit.iso}H/s`,
+    `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${hashrateUnitIso}H/s`,
     name,
   ];
 
@@ -190,7 +225,13 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
           data={formattedData}
           margin={{ top: 5, right: 0, left: 0, bottom: 5 }}
         >
-          <XAxis dataKey="timestamp" minTickGap={40} />
+          <XAxis
+            dataKey="timestampMs"
+            type="number"
+            domain={["dataMin", "dataMax"]}
+            tickFormatter={(ms) => new Date(ms).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit' })}
+            minTickGap={40}
+          />
           <YAxis
             yAxisId="left"
             allowDataOverflow={true}
@@ -211,12 +252,11 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
           <Tooltip />
           <Legend />
           <Brush
-            dataKey="timestamp"
+            dataKey="timestampMs"
             height={30}
             alwaysShowText={true}
-            startIndex={
-              formattedData.length - 1440 > 0 ? formattedData.length - 1440 : 0
-            }
+            startIndex={formattedData.length - 1440 > 0 ? formattedData.length - 1440 : 0}
+            tickFormatter={(ms) => new Date(ms).toLocaleDateString()}
           />
           <Line
             yAxisId="left"

@@ -33,11 +33,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Prisma
-/prisma/*.sqlite3
-/prisma/*.sqlite3-journal
-/prisma/*.db
-/prisma/*.db-journal
+# Prisma (legacy)
+# Archived Prisma artifacts were removed from the main codebase. If you re-enable Prisma scripts,
+# re-add suitable ignore patterns here (e.g. /prisma/*.db).
 
 # IDE-specific files
 .idea
@@ -46,3 +44,18 @@ next-env.d.ts
 .clinic
 .wsl-backup/
 *.bak
+
+# Local backup artifacts (Windows/WSL)
+.wsl-backup
+
+# Common editor/temp backups
+*~
+*.bak
+*.old
+*.local_backup
+*.swp
+*.swo
+.DS_Store
+thumbs.db
+*~
+*.local_backup

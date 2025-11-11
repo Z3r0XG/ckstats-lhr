@@ -92,16 +92,16 @@ export default async function TopUserDifficulties({
                           {user.workerCount}
                         </td>
                         <td className="text-accent">
-                          {formatNumber(Number(user.difficulty))}
+                          {formatNumber(user.difficulty)}
                         </td>
-                        <td>{formatNumber(Number(user.bestShare))}</td>
+                        <td>{formatNumber(user.bestShare)}</td>
                         <td>{formatHashrate(user.hashrate1hr)}</td>
                         <td>{formatHashrate(user.hashrate1d)}</td>
                         <td>{formatHashrate(user.hashrate7d)}</td>
                       </>
                     ) : (
                       <td className="text-accent">
-                        {formatNumber(Number(user.difficulty))}
+                        {formatNumber(user.difficulty)}
                       </td>
                     )}
                   </tr>

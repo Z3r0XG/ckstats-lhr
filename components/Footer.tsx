@@ -42,7 +42,7 @@ const Footer: React.FC = () => {
       <div>
         <p>Always free, always open source.</p>
         <p className="break-all">
-          Donations: bc1qz9vvexjmexe8pr2aueuz6x0v94ulkx2m2sp6lr
+          Donations: bc1qryh7hv7quzceehet75udcta0u6lkm4hjvrt9mw
         </p>
       </div>
     </footer>
