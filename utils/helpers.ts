@@ -110,7 +110,8 @@ export function convertHashrateFloat(value: string): number {
   if (!value) return 0;
 
   // Match unit-suffixed values like "1.5M" or "2k"
-  const match = value.match(/^([\d.+-eE]+)([ZEPTGMK])$/i);
+  // Accept an optional sign, integer or decimal, and optional exponent (e or E with optional sign)
+  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMK])$/i);
   if (match) {
     const [, num, unit] = match;
     const parsedNum = Number(num);
@@ -256,10 +257,16 @@ export function calculateBlockChances(hashRate: number | bigint, difficulty: num
   return Object.entries(periodsInSeconds).reduce((chances, [period, seconds]) => {
     const lambda = hashesPerSecond * seconds * probabilityPerHash;
     const probability = 1 - Math.exp(-lambda);
-    if (probability * 100 > 0.001) {
-      chances[period] = `${(probability * 100).toFixed(3)}%`;
+    // Use a smaller threshold for very small probabilities so UX can show
+    // a more granular "<0.0001%" instead of the previous "<0.001%".
+    const pct = probability * 100;
+    if (pct > 0.0001) {
+      // For tiny but non-negligible probabilities, show more precision
+      // (up to 6 decimal places). For larger percentages the fixed 3
+      // decimal display is sufficient for readability.
+      chances[period] = pct < 0.1 ? `${pct.toFixed(6)}%` : `${pct.toFixed(3)}%`;
     } else {
-      chances[period] = `<0.001%`;
+      chances[period] = `<0.0001%`;
     }
     return chances;
   }, {} as { [key: string]: string });

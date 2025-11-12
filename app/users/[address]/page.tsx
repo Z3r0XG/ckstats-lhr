@@ -182,9 +182,9 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Day</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr && stats?.diff
+            {(latestStats.hashrate1hr != null && stats?.diff != null)
               ? calculateBlockChances(
-                  latestStats.hashrate1hr,
+                  Number(latestStats.hashrate1hr) || 0,
                   Number(stats.diff),
                   stats.accepted
                 )['1d']
@@ -194,9 +194,9 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Week</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr && stats?.diff
+            {(latestStats.hashrate1hr != null && stats?.diff != null)
               ? calculateBlockChances(
-                  latestStats.hashrate1hr,
+                  Number(latestStats.hashrate1hr) || 0,
                   Number(stats.diff),
                   stats.accepted
                 )['1w']
@@ -206,9 +206,9 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Month</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr && stats?.diff
+            {(latestStats.hashrate1hr != null && stats?.diff != null)
               ? calculateBlockChances(
-                  latestStats.hashrate1hr,
+                  Number(latestStats.hashrate1hr) || 0,
                   Number(stats.diff),
                   stats.accepted
                 )['1m']
@@ -218,9 +218,9 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Year</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr && stats?.diff
+            {(latestStats.hashrate1hr != null && stats?.diff != null)
               ? calculateBlockChances(
-                  latestStats.hashrate1hr,
+                  Number(latestStats.hashrate1hr) || 0,
                   Number(stats.diff),
                   stats.accepted
                 )['1y']
