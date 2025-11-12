@@ -30,7 +30,6 @@ export class PoolStats {
   @Column()
   disconnected: number;
 
-  @Column('bigint', { default: '0' })
   @Column('double precision', { default: 0 })
   hashrate1m: number;
 

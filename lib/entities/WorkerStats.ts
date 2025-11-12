@@ -22,19 +22,19 @@ export class WorkerStats {
   @Column()
   workerId: number;
 
-  @Column('bigint', { default: '0' })
+  @Column('double precision', { default: 0 })
   hashrate1m: number;
 
-  @Column('bigint', { default: '0' })
+  @Column('double precision', { default: 0 })
   hashrate5m: number;
 
-  @Column('bigint', { default: '0' })
+  @Column('double precision', { default: 0 })
   hashrate1hr: number;
 
-  @Column('bigint', { default: '0' })
+  @Column('double precision', { default: 0 })
   hashrate1d: number;
 
-  @Column('bigint', { default: '0' })
+  @Column('double precision', { default: 0 })
   hashrate7d: number;
 
   @Column('bigint', { default: '0' })

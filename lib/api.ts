@@ -5,7 +5,7 @@ import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
 import { Worker } from './entities/Worker';
-import { convertHashrate, convertHashrateFloat } from '../utils/helpers';
+import { convertHashrateFloat } from '../utils/helpers';
 
 const HISTORICAL_DATA_POINTS = 5760;
 
@@ -130,11 +130,11 @@ export async function getTopUserDifficulties(limit: number = 10) {
   return sortedUsers.map((stats) => ({
     address: stats.userAddress,
     workerCount: stats.workerCount,
-  difficulty: String(stats.bestEver),
-  hashrate1hr: String(stats.hashrate1hr),
-  hashrate1d: String(stats.hashrate1d),
-  hashrate7d: String(stats.hashrate7d),
-  bestShare: String(stats.bestShare),
+    difficulty: stats.bestEver,
+    hashrate1hr: stats.hashrate1hr,
+    hashrate1d: stats.hashrate1d,
+    hashrate7d: stats.hashrate7d,
+    bestShare: stats.bestShare,
   }));
 }
 
@@ -172,11 +172,11 @@ export async function getTopUserHashrates(limit: number = 10) {
   return sortedUsers.map((stats) => ({
     address: stats.userAddress,
     workerCount: stats.workerCount,
-  hashrate1hr: String(stats.hashrate1hr),
-  hashrate1d: String(stats.hashrate1d),
-  hashrate7d: String(stats.hashrate7d),
-  bestShare: String(stats.bestShare),
-  bestEver: String(stats.bestEver),
+    hashrate1hr: stats.hashrate1hr,
+    hashrate1d: stats.hashrate1d,
+    hashrate7d: stats.hashrate7d,
+    bestShare: stats.bestShare,
+    bestEver: stats.bestEver,
   }));
 }
 
@@ -243,16 +243,19 @@ export async function updateSingleUser(address: string): Promise<void> {
       const userStatsRepository = manager.getRepository(UserStats);
       const userStats = userStatsRepository.create({
         userAddress: address,
-        hashrate1m: convertHashrate(userData.hashrate1m).toString(),
-        hashrate5m: convertHashrate(userData.hashrate5m).toString(),
-        hashrate1hr: convertHashrate(userData.hashrate1hr).toString(),
-        hashrate1d: convertHashrate(userData.hashrate1d).toString(),
-        hashrate7d: convertHashrate(userData.hashrate7d).toString(),
+        // preserve fractional hashrates as numbers
+        hashrate1m: convertHashrateFloat(userData.hashrate1m),
+        hashrate5m: convertHashrateFloat(userData.hashrate5m),
+        hashrate1hr: convertHashrateFloat(userData.hashrate1hr),
+        hashrate1d: convertHashrateFloat(userData.hashrate1d),
+        hashrate7d: convertHashrateFloat(userData.hashrate7d),
+        // lastShare and shares are counters - keep as strings for bigint safety
         lastShare: BigInt(userData.lastshare).toString(),
         workerCount: userData.workers,
         shares: BigInt(userData.shares).toString(),
         bestShare: parseFloat(userData.bestshare),
-        bestEver: BigInt(userData.bestever).toString(),
+        // store bestEver as a number (double precision) to preserve fractional difficulty
+        bestEver: parseFloat(userData.bestever) || 0,
       });
       await userStatsRepository.save(userStats);
 
@@ -267,31 +270,29 @@ export async function updateSingleUser(address: string): Promise<void> {
           },
         });
         if (worker) {
-          worker.hashrate1m = convertHashrate(workerData.hashrate1m).toString();
-          worker.hashrate5m = convertHashrate(workerData.hashrate5m).toString();
-          worker.hashrate1hr = convertHashrate(
-            workerData.hashrate1hr
-          ).toString();
-          worker.hashrate1d = convertHashrate(workerData.hashrate1d).toString();
-          worker.hashrate7d = convertHashrate(workerData.hashrate7d).toString();
+          worker.hashrate1m = convertHashrateFloat(workerData.hashrate1m);
+          worker.hashrate5m = convertHashrateFloat(workerData.hashrate5m);
+          worker.hashrate1hr = convertHashrateFloat(workerData.hashrate1hr);
+          worker.hashrate1d = convertHashrateFloat(workerData.hashrate1d);
+          worker.hashrate7d = convertHashrateFloat(workerData.hashrate7d);
           worker.lastUpdate = new Date(workerData.lastshare * 1000);
           worker.shares = workerData.shares;
           worker.bestShare = parseFloat(workerData.bestshare);
-          worker.bestEver = BigInt(workerData.bestever).toString();
+          worker.bestEver = parseFloat(workerData.bestever) || 0;
           await workerRepository.save(worker);
         } else {
           await workerRepository.insert({
             userAddress: address,
             name: workerName,
-            hashrate1m: convertHashrate(workerData.hashrate1m).toString(),
-            hashrate5m: convertHashrate(workerData.hashrate5m).toString(),
-            hashrate1hr: convertHashrate(workerData.hashrate1hr).toString(),
-            hashrate1d: convertHashrate(workerData.hashrate1d).toString(),
-            hashrate7d: convertHashrate(workerData.hashrate7d).toString(),
+            hashrate1m: convertHashrateFloat(workerData.hashrate1m),
+            hashrate5m: convertHashrateFloat(workerData.hashrate5m),
+            hashrate1hr: convertHashrateFloat(workerData.hashrate1hr),
+            hashrate1d: convertHashrateFloat(workerData.hashrate1d),
+            hashrate7d: convertHashrateFloat(workerData.hashrate7d),
             lastUpdate: new Date(workerData.lastshare * 1000),
             shares: workerData.shares,
             bestShare: parseFloat(workerData.bestshare),
-            bestEver: BigInt(workerData.bestever).toString(),
+            bestEver: parseFloat(workerData.bestever) || 0,
             updatedAt: new Date().toISOString(),
           });
         }

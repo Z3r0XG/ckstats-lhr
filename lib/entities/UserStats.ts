@@ -25,19 +25,19 @@ export class UserStats {
   @Index('userAddress_hashrate1hr_timestamp_idx')
   userAddress: string;
 
-  @Column('bigint', { default: '0' })
+  @Column('double precision', { default: 0 })
   hashrate1m: number;
 
-  @Column('bigint', { default: '0' })
+  @Column('double precision', { default: 0 })
   hashrate5m: number;
 
-  @Column('bigint', { default: '0' })
+  @Column('double precision', { default: 0 })
   hashrate1hr: number;
 
-  @Column('bigint', { default: '0' })
+  @Column('double precision', { default: 0 })
   hashrate1d: number;
 
-  @Column('bigint', { default: '0' })
+  @Column('double precision', { default: 0 })
   hashrate7d: number;
 
   @Column('bigint', { default: '0' })

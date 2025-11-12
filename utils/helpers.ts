@@ -190,35 +190,67 @@ export function getPercentageChangeColor(change: number | 'N/A'): string {
 }
 
 // Difficulty is assumed to be in T, hashrate in H/s
-export function calculateAverageTimeToBlock(hashRate: bigint, difficulty: number | bigint, units?: string): number {
-  const hashesPerDifficulty = BigInt(2 ** 32);
-  let convertedDifficulty: bigint;
-  if (typeof difficulty === 'number') {
-  if (units === 'T') {
-      convertedDifficulty = BigInt(Math.round(difficulty * 1e12)); // Convert T
-    } else {
-      convertedDifficulty = BigInt(Math.round(difficulty)); // No units
-    }
+export function calculateAverageTimeToBlock(hashRate: number | bigint, difficulty: number | bigint, units?: string): number {
+  // Accept number or bigint for hashRate. Convert to number safely for double-precision calculations.
+  const hashesPerDifficulty = Math.pow(2, 32);
+  let diffNum: number;
+  if (typeof difficulty === 'bigint') {
+    // difficulty stored as bigint: convert to number (may lose precision for astronomic values)
+    diffNum = Number(difficulty);
   } else {
-    convertedDifficulty = difficulty;
+    if (units === 'T') {
+      diffNum = Number(difficulty) * 1e12;
+    } else {
+      diffNum = Number(difficulty);
+    }
   }
-  return Number((BigInt(convertedDifficulty) * BigInt(hashesPerDifficulty)) / BigInt(hashRate));
+
+  const hr = typeof hashRate === 'bigint' ? Number(hashRate) : hashRate;
+  if (!Number.isFinite(hr) || hr === 0 || !Number.isFinite(diffNum) || diffNum === 0) return Infinity;
+
+  // expected seconds = difficulty * 2^32 / hashRate
+  return (diffNum * hashesPerDifficulty) / hr;
 }
 
 // Difficulty is assumed to be a % of network, hashrate in H/s
-export function calculateBlockChances(hashRate: bigint, difficulty: number, accepted: bigint): { [key: string]: string } {
-  const networkDiff = (BigInt(accepted) / BigInt(Math.round(Number(difficulty) * 100))) * BigInt(10000);
-  const hashesPerDifficulty = BigInt(2 ** 32);
-  // const convertedDifficulty = BigInt(Math.round(Number(networkDiff) * 1e12));
-  const probabilityPerHash = 1 / Number(networkDiff * hashesPerDifficulty);
-  const hashesPerSecond = Number(hashRate);
+export function calculateBlockChances(hashRate: number | bigint, difficulty: number, accepted: bigint): { [key: string]: string } {
+  // Convert accepted and difficulty into a probability per hash. This function prefers number math
+  // because we use fractional hashrates. For very large integers, precision might be limited.
+  const acceptedNum = Number(accepted);
+  const networkDiff = Number(difficulty);
+  if (!Number.isFinite(acceptedNum) || !Number.isFinite(networkDiff) || networkDiff === 0) {
+    return {
+      '1h': '<0.001%',
+      '1d': '<0.001%',
+      '1w': '<0.001%',
+      '1m': '<0.001%',
+      '1y': '<0.001%',
+    };
+  }
+
+  // Estimate probability per hash. Note: original code used a derived network difficulty from accepted and difficulty.
+  // We approximate similarly but remain in floating arithmetic.
+  const hashesPerDifficulty = Math.pow(2, 32);
+  const networkFactor = (acceptedNum / (networkDiff * 100));
+  const probabilityPerHash = 1 / (networkFactor * hashesPerDifficulty);
+
+  const hashesPerSecond = typeof hashRate === 'bigint' ? Number(hashRate) : hashRate;
+  if (!Number.isFinite(hashesPerSecond) || hashesPerSecond <= 0) {
+    return {
+      '1h': '<0.001%',
+      '1d': '<0.001%',
+      '1w': '<0.001%',
+      '1m': '<0.001%',
+      '1y': '<0.001%',
+    };
+  }
 
   const periodsInSeconds = {
     '1h': 3600,
     '1d': 86400,
     '1w': 604800,
-    '1m': 2592000,  // 30 days
-    '1y': 31536000  // 365 days
+    '1m': 2592000, // 30 days
+    '1y': 31536000, // 365 days
   };
 
   return Object.entries(periodsInSeconds).reduce((chances, [period, seconds]) => {
