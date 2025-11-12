@@ -2,6 +2,7 @@ import {
   formatNumber,
   formatHashrate,
   convertHashrate,
+  convertHashrateFloat,
   formatTimeAgo,
   formatDuration,
   calculatePercentageChange,
@@ -45,6 +46,35 @@ describe('Helper Functions', () => {
       expect(convertHashrate('1T')).toBe(BigInt(1000000000000));
       expect(convertHashrate('1P')).toBe(BigInt(1000000000000000));
       expect(convertHashrate('1')).toBe(BigInt(1));
+    });
+  });
+
+  describe('convertHashrateFloat', () => {
+    it('converts hashrates to float correctly', () => {
+      expect(convertHashrateFloat('1K')).toBe(1000);
+      expect(convertHashrateFloat('1M')).toBe(1000000);
+      expect(convertHashrateFloat('1.5M')).toBe(1500000);
+      expect(convertHashrateFloat('2.5G')).toBe(2500000000);
+      expect(convertHashrateFloat('1T')).toBe(1000000000000);
+      expect(convertHashrateFloat('1')).toBe(1);
+    });
+
+    it('preserves fractional values', () => {
+      expect(convertHashrateFloat('0.5')).toBe(0.5);
+      expect(convertHashrateFloat('4.45352')).toBe(4.45352);
+      expect(convertHashrateFloat('123.456')).toBe(123.456);
+    });
+
+    it('handles unit-suffixed fractional values', () => {
+      expect(convertHashrateFloat('4.45352M')).toBe(4453520);
+      expect(convertHashrateFloat('0.5k')).toBe(500);
+      expect(convertHashrateFloat('1.234G')).toBe(1234000000);
+    });
+
+    it('handles edge cases', () => {
+      expect(convertHashrateFloat('')).toBe(0);
+      expect(convertHashrateFloat('0')).toBe(0);
+      expect(convertHashrateFloat('invalid')).toBe(0);
     });
   });
 
