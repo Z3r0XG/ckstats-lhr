@@ -182,7 +182,7 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Day</div>
           <div className="stat-value text-3xl">
-            {(latestStats.hashrate1hr != null && stats?.diff != null)
+            {latestStats.hashrate1hr != null && stats?.diff != null
               ? calculateBlockChances(
                   Number(latestStats.hashrate1hr) || 0,
                   Number(stats.diff),
@@ -194,7 +194,7 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Week</div>
           <div className="stat-value text-3xl">
-            {(latestStats.hashrate1hr != null && stats?.diff != null)
+            {latestStats.hashrate1hr != null && stats?.diff != null
               ? calculateBlockChances(
                   Number(latestStats.hashrate1hr) || 0,
                   Number(stats.diff),
@@ -206,7 +206,7 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Month</div>
           <div className="stat-value text-3xl">
-            {(latestStats.hashrate1hr != null && stats?.diff != null)
+            {latestStats.hashrate1hr != null && stats?.diff != null
               ? calculateBlockChances(
                   Number(latestStats.hashrate1hr) || 0,
                   Number(stats.diff),
@@ -218,7 +218,7 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Year</div>
           <div className="stat-value text-3xl">
-            {(latestStats.hashrate1hr != null && stats?.diff != null)
+            {latestStats.hashrate1hr != null && stats?.diff != null
               ? calculateBlockChances(
                   Number(latestStats.hashrate1hr) || 0,
                   Number(stats.diff),
