@@ -61,7 +61,7 @@ export class PoolStats {
   rejected: bigint;
 
   @Column('bigint')
-  bestshare: bigint;
+  bestshare: number;
 
   @Column('float')
   SPS1m: number;
