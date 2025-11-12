@@ -28,20 +28,20 @@ export class Worker {
   @UpdateDateColumn({ default: () => 'CURRENT_TIMESTAMP' })
   updatedAt: Date;
 
-  @Column('bigint', { default: () => '0' })
-  hashrate1m: string;
+  @Column('double precision', { default: 0 })
+  hashrate1m: number;
 
-  @Column('bigint', { default: () => '0' })
-  hashrate5m: string;
+  @Column('double precision', { default: 0 })
+  hashrate5m: number;
 
-  @Column('bigint', { default: () => '0' })
-  hashrate1hr: string;
+  @Column('double precision', { default: 0 })
+  hashrate1hr: number;
 
-  @Column('bigint', { default: () => '0' })
-  hashrate1d: string;
+  @Column('double precision', { default: 0 })
+  hashrate1d: number;
 
-  @Column('bigint', { default: () => '0' })
-  hashrate7d: string;
+  @Column('double precision', { default: 0 })
+  hashrate7d: number;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   lastUpdate: Date;
@@ -52,8 +52,8 @@ export class Worker {
   @Column('float', { default: 0 })
   bestShare: number;
 
-  @Column('bigint', { default: '0' })
-  bestEver: string;
+  @Column('double precision', { default: 0 })
+  bestEver: number;
 
   @ManyToOne('User', 'workers')
   user: Promise<User>;

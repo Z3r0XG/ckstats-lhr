@@ -7,7 +7,7 @@ import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
 import { WorkerStats } from '../lib/entities/WorkerStats';
-import { convertHashrate } from '../utils/helpers';
+import { convertHashrate, convertHashrateFloat } from '../utils/helpers';
 
 const BATCH_SIZE = 10;
 
@@ -82,28 +82,28 @@ async function updateUser(address: string): Promise<void> {
       }
 
       const userStatsRepository = manager.getRepository(UserStats);
-      const safeConvert = (v: any) => {
+      const safeConvertFloat = (v: any) => {
         try {
-          if (v === null || v === undefined || v === '') return '0';
-          return convertHashrate(v.toString()).toString();
+          if (v === null || v === undefined || v === '') return 0;
+          return convertHashrateFloat(v.toString());
         } catch (err) {
-          console.error('convertHashrate failed for value:', v, err);
-          return '0';
+          console.error('convertHashrateFloat failed for value:', v, err);
+          return 0;
         }
       };
 
-      const userStats = userStatsRepository.create({
+        const userStats = userStatsRepository.create({
         userAddress: address,
-        hashrate1m: safeConvert(userData.hashrate1m),
-        hashrate5m: safeConvert(userData.hashrate5m),
-        hashrate1hr: safeConvert(userData.hashrate1hr),
-        hashrate1d: safeConvert(userData.hashrate1d),
-        hashrate7d: safeConvert(userData.hashrate7d),
+        hashrate1m: safeConvertFloat(userData.hashrate1m),
+        hashrate5m: safeConvertFloat(userData.hashrate5m),
+        hashrate1hr: safeConvertFloat(userData.hashrate1hr),
+        hashrate1d: safeConvertFloat(userData.hashrate1d),
+        hashrate7d: safeConvertFloat(userData.hashrate7d),
         lastShare: BigInt(Math.floor(Number(userData.lastshare || 0))).toString(),
         workerCount: userData.workers,
         shares: BigInt(String(userData.shares)).toString(),
         bestShare: parseFloat(userData.bestshare),
-        bestEver: BigInt(Math.floor(Number(userData.bestever || 0))).toString()
+        bestEver: parseFloat(userData.bestever) || 0
       });
       await userStatsRepository.save(userStats);
 
@@ -125,15 +125,15 @@ async function updateUser(address: string): Promise<void> {
         });
 
         const workerValues = {
-          hashrate1m: safeConvert(workerData.hashrate1m),
-          hashrate5m: safeConvert(workerData.hashrate5m),
-          hashrate1hr: safeConvert(workerData.hashrate1hr),
-          hashrate1d: safeConvert(workerData.hashrate1d),
-          hashrate7d: safeConvert(workerData.hashrate7d),
+          hashrate1m: safeConvertFloat(workerData.hashrate1m),
+          hashrate5m: safeConvertFloat(workerData.hashrate5m),
+          hashrate1hr: safeConvertFloat(workerData.hashrate1hr),
+          hashrate1d: safeConvertFloat(workerData.hashrate1d),
+          hashrate7d: safeConvertFloat(workerData.hashrate7d),
           lastUpdate: new Date(workerData.lastshare * 1000),
           shares: BigInt(String(workerData.shares || 0)).toString(),
           bestShare: parseFloat(workerData.bestshare),
-          bestEver: BigInt(Math.floor(Number(workerData.bestever || 0))).toString(),
+          bestEver: parseFloat(workerData.bestever) || 0,
         };
 
         let workerId: number;
