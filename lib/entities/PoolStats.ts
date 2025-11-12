@@ -31,25 +31,26 @@ export class PoolStats {
   disconnected: number;
 
   @Column('bigint', { default: '0' })
-  hashrate1m: bigint;
+  @Column('double precision', { default: 0 })
+  hashrate1m: number;
 
-  @Column('bigint', { default: '0' })
-  hashrate5m: bigint;
+  @Column('double precision', { default: 0 })
+  hashrate5m: number;
 
-  @Column('bigint', { default: '0' })
-  hashrate15m: bigint;
+  @Column('double precision', { default: 0 })
+  hashrate15m: number;
 
-  @Column('bigint', { default: '0' })
-  hashrate1hr: bigint;
+  @Column('double precision', { default: 0 })
+  hashrate1hr: number;
 
-  @Column('bigint', { default: '0' })
-  hashrate6hr: bigint;
+  @Column('double precision', { default: 0 })
+  hashrate6hr: number;
 
-  @Column('bigint', { default: '0' })
-  hashrate1d: bigint;
+  @Column('double precision', { default: 0 })
+  hashrate1d: number;
 
-  @Column('bigint', { default: '0' })
-  hashrate7d: bigint;
+  @Column('double precision', { default: 0 })
+  hashrate7d: number;
 
   @Column('float')
   diff: number;
@@ -60,7 +61,7 @@ export class PoolStats {
   @Column('bigint')
   rejected: bigint;
 
-  @Column('bigint')
+  @Column('double precision')
   bestshare: number;
 
   @Column('float')

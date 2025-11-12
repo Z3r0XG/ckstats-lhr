@@ -105,6 +105,25 @@ export function convertHashrate(value: string): bigint {
   return BigInt(rounded);
 };
 
+// Preserve fractional hashrate as a floating number (H/s). Returns a number.
+export function convertHashrateFloat(value: string): number {
+  if (!value) return 0;
+
+  // Match unit-suffixed values like "1.5M" or "2k"
+  const match = value.match(/^([\d.+-eE]+)([ZEPTGMK])$/i);
+  if (match) {
+    const [, num, unit] = match;
+    const parsedNum = Number(num);
+    const isoUnit = isoUnits.find((u) => u.iso.toUpperCase() === unit.toUpperCase()) || { threshold: 1, iso: '' };
+    const val = parsedNum * isoUnit.threshold;
+    return Number(val);
+  }
+
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) return 0;
+  return parsed;
+}
+
 export function findISOUnit(num: number): ISOUnit {
   const absNum = Math.abs(num);
 

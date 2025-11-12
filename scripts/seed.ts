@@ -3,7 +3,7 @@ import 'dotenv/config';
 import * as fs from 'fs';
 import { getDb } from '../lib/db';
 import { PoolStats } from '../lib/entities/PoolStats';
-import { convertHashrate } from '../utils/helpers';
+import { convertHashrate, convertHashrateFloat } from '../utils/helpers';
 
 const DRY_RUN = Boolean(process.env.SEED_DRY_RUN || process.env.DRY_RUN);
 
@@ -61,17 +61,17 @@ async function seed() {
       workers: parseInt(stats.Workers ?? '0'),
       idle: parseInt(stats.Idle ?? '0'),
       disconnected: stats.Disconnected ? parseInt(stats.Disconnected) : 0,
-      hashrate1m: convertHashrate(stats.hashrate1m ?? '0'),
-      hashrate5m: convertHashrate(stats.hashrate5m ?? '0'),
-      hashrate15m: convertHashrate(stats.hashrate15m ?? '0'),
-      hashrate1hr: convertHashrate(stats.hashrate1hr ?? '0'),
-      hashrate6hr: convertHashrate(stats.hashrate6hr ?? '0'),
-      hashrate1d: convertHashrate(stats.hashrate1d ?? '0'),
-      hashrate7d: convertHashrate(stats.hashrate7d ?? '0'),
+  hashrate1m: convertHashrateFloat(stats.hashrate1m ?? ''),
+  hashrate5m: convertHashrateFloat(stats.hashrate5m ?? ''),
+  hashrate15m: convertHashrateFloat(stats.hashrate15m ?? ''),
+  hashrate1hr: convertHashrateFloat(stats.hashrate1hr ?? ''),
+  hashrate6hr: convertHashrateFloat(stats.hashrate6hr ?? ''),
+  hashrate1d: convertHashrateFloat(stats.hashrate1d ?? ''),
+  hashrate7d: convertHashrateFloat(stats.hashrate7d ?? ''),
       diff: stats.diff,
       accepted: stats.accepted,
       rejected: stats.rejected,
-      bestshare: stats.bestshare,
+  bestshare: parseFloat(stats.bestshare ?? '') || 0,
       SPS1m: stats.SPS1m,
       SPS5m: stats.SPS5m,
       SPS15m: stats.SPS15m,

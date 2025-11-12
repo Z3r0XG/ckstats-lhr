@@ -5,7 +5,7 @@ import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
 import { Worker } from './entities/Worker';
-import { convertHashrate } from '../utils/helpers';
+import { convertHashrate, convertHashrateFloat } from '../utils/helpers';
 
 const HISTORICAL_DATA_POINTS = 5760;
 
@@ -130,11 +130,11 @@ export async function getTopUserDifficulties(limit: number = 10) {
   return sortedUsers.map((stats) => ({
     address: stats.userAddress,
     workerCount: stats.workerCount,
-    difficulty: stats.bestEver.toString(),
-    hashrate1hr: stats.hashrate1hr.toString(),
-    hashrate1d: stats.hashrate1d.toString(),
-    hashrate7d: stats.hashrate7d.toString(),
-    bestShare: stats.bestShare.toString(),
+  difficulty: String(stats.bestEver),
+  hashrate1hr: String(stats.hashrate1hr),
+  hashrate1d: String(stats.hashrate1d),
+  hashrate7d: String(stats.hashrate7d),
+  bestShare: String(stats.bestShare),
   }));
 }
 
@@ -172,11 +172,11 @@ export async function getTopUserHashrates(limit: number = 10) {
   return sortedUsers.map((stats) => ({
     address: stats.userAddress,
     workerCount: stats.workerCount,
-    hashrate1hr: stats.hashrate1hr.toString(),
-    hashrate1d: stats.hashrate1d.toString(),
-    hashrate7d: stats.hashrate7d.toString(),
-    bestShare: stats.bestShare.toString(),
-    bestEver: stats.bestEver.toString(),
+  hashrate1hr: String(stats.hashrate1hr),
+  hashrate1d: String(stats.hashrate1d),
+  hashrate7d: String(stats.hashrate7d),
+  bestShare: String(stats.bestShare),
+  bestEver: String(stats.bestEver),
   }));
 }
 
