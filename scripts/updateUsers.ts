@@ -118,12 +118,12 @@ async function updateUser(address: string): Promise<void> {
         // string to avoid creating mismatched/duplicate rows.
         const rawName = workerData.workername || '';
         let workerName: string;
-        if (rawName === address) {
+        if (!rawName || rawName === address) {
           workerName = '';
-        } else if (rawName.includes('.')) {
-          workerName = rawName.split('.')[1];
-        } else if (rawName.includes('_')) {
-          workerName = rawName.split('_')[1];
+        } else if (rawName.startsWith(address + '.')) {
+          workerName = rawName.substring(address.length + 1);
+        } else if (rawName.startsWith(address + '_')) {
+          workerName = rawName.substring(address.length + 1);
         } else {
           workerName = rawName;
         }
