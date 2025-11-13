@@ -262,7 +262,23 @@ export async function updateSingleUser(address: string): Promise<void> {
       // Update or create workers
       const workerRepository = manager.getRepository(Worker);
       for (const workerData of userData.worker) {
-        const workerName = workerData.workername.split('.')[1];
+        // Normalize worker name coming from ckpool. ckpool uses formats like
+        // "<address>.<worker>" for multi-worker users and the plain address
+        // for single-worker users. Historically the DB stored an empty name
+        // for single-worker users, so map address-only names to an empty
+        // string to avoid creating mismatched/duplicate rows.
+        const rawName = workerData.workername || '';
+        let workerName: string;
+        if (!rawName || rawName === address) {
+          workerName = '';
+        } else if (rawName.startsWith(address + '.')) {
+          workerName = rawName.substring(address.length + 1);
+        } else if (rawName.startsWith(address + '_')) {
+          workerName = rawName.substring(address.length + 1);
+        } else {
+          workerName = rawName;
+        }
+
         const worker = await workerRepository.findOne({
           where: {
             userAddress: address,
