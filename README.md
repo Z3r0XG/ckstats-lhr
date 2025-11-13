@@ -2,7 +2,7 @@
 
 This project is forked from the original awesome CKStats code by mrv777 (https://github.com/mrv777/ckstats). CKStats is designed to display Pool and User statistics for CKPool Solo (https://github.com/golden-guy/ckpool-solo). With low hash rate versions of CKPool being forked (primarily for nerdminers and other LHR devices), CKStats needed to be tweaked to be able to ingest and process values based on much smaller difficulties (less than 1), while still supporting normal difficulty tracking. This was tested against goldenguy's LHR version of CKPool Solo (https://github.com/golden-guy/ckpool-solo) but may work with others. 
 
-ORIGINAL INSTRUCTIONS:
+ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
 
 ## Features
 
@@ -21,10 +21,10 @@ ORIGINAL INSTRUCTIONS:
 
 ## Deployment
 
-1. Clone the repository (git clone https://github.com/mrv777/ckstats.git)
+1. Clone the repository (git clone https://github.com/Z3r0XG/ckstats-lhr.git)
 2. Install pnpm: `curl -fsSL https://get.pnpm.io/install.sh | bash`
 3. Install packages if needed: `sudo apt install postgresql postgresql-contrib nodejs nginx`
-4. Go to the directory: `cd ckstats`
+4. Go to the directory: `cd ckstats-lhr`
 5. Set up the environment variables in `.env`
   - Example:
    ```
