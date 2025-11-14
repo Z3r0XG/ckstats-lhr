@@ -3,7 +3,7 @@ export interface ISOUnit {
   iso: string;
 }
 
-// An array of all ISO units we support.
+// An array of all ISO units we support for formatting large numbers.
 // Make sure you check for 0 if you use this.
 const isoUnits: ISOUnit[] = [
   { threshold: 1e21, iso: 'Z' },
@@ -14,6 +14,22 @@ const isoUnits: ISOUnit[] = [
   { threshold: 1e6, iso: 'M' },
   { threshold: 1e3, iso: 'k' },
 ] as const;
+
+// Map of unit suffix (case-sensitive) to multiplier.
+// We intentionally include common variants (uppercase/lowercase and ascii 'u' for micro).
+const unitMultipliers: { [unit: string]: number } = {
+  Z: 1e21,
+  E: 1e18,
+  P: 1e15,
+  T: 1e12,
+  G: 1e9,
+  M: 1e6,
+  k: 1e3,
+  K: 1e3,
+  m: 1e-3, // milli
+  u: 1e-6, // micro (ascii 'u')
+  'µ': 1e-6, // micro (unicode mu)
+};
 
 
 export function formatNumber(num: number | bigint | string): string {
@@ -75,13 +91,14 @@ export function formatHashrate(num: string | bigint | number, showLessThanOne: b
 export function convertHashrate(value: string): bigint {
   if (!value) return BigInt(0);
 
-  // Match unit-suffixed values like "1.5M" or "2k" (supports scientific notation in the number)
-  const match = value.match(/^(\d+(?:\.\d+)?(?:e[+-]?\d+)?)([ZEPTGMK])$/i);
+  // Match unit-suffixed values like "1.5M" or "2k" or with micro 'u' or unicode 'µ'.
+  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([a-zA-Zµ])$/);
   if (match) {
     const [, num, unit] = match;
     const parsedNum = Number(num);
-    const isoUnit = isoUnits.find((u) => u.iso.toUpperCase() === unit.toUpperCase()) || { threshold: 1, iso: '' };
-    const val = parsedNum * isoUnit.threshold;
+    const multiplier = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()];
+    const factor = multiplier ?? 1;
+    const val = parsedNum * factor;
     if (val < 1) return BigInt(0);
     return BigInt(Math.round(val));
   }
@@ -109,14 +126,15 @@ export function convertHashrate(value: string): bigint {
 export function convertHashrateFloat(value: string): number {
   if (!value) return 0;
 
-  // Match unit-suffixed values like "1.5M" or "2k"
+  // Match unit-suffixed values like "1.5M", "2k", "939u" or with unicode micro 'µ'.
   // Accept an optional sign, integer or decimal, and optional exponent (e or E with optional sign)
-  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMK])$/i);
+  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([a-zA-Zµ])$/);
   if (match) {
     const [, num, unit] = match;
     const parsedNum = Number(num);
-    const isoUnit = isoUnits.find((u) => u.iso.toUpperCase() === unit.toUpperCase()) || { threshold: 1, iso: '' };
-    const val = parsedNum * isoUnit.threshold;
+    const multiplier = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()];
+    const factor = multiplier ?? 1;
+    const val = parsedNum * factor;
     return Number(val);
   }
 
