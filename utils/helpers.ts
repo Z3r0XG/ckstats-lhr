@@ -92,12 +92,12 @@ export function convertHashrate(value: string): bigint {
   if (!value) return BigInt(0);
 
   // Match unit-suffixed values like "1.5M" or "2k" or with micro 'u' or unicode 'µ'.
-  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([a-zA-Zµ])$/);
+  // Only accept known unit suffixes (upper-case SI prefixes and common lower-case variants)
+  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/);
   if (match) {
     const [, num, unit] = match;
     const parsedNum = Number(num);
-    const multiplier = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()];
-    const factor = multiplier ?? 1;
+    const factor = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()] ?? 1;
     const val = parsedNum * factor;
     if (val < 1) return BigInt(0);
     return BigInt(Math.round(val));
@@ -128,12 +128,11 @@ export function convertHashrateFloat(value: string): number {
 
   // Match unit-suffixed values like "1.5M", "2k", "939u" or with unicode micro 'µ'.
   // Accept an optional sign, integer or decimal, and optional exponent (e or E with optional sign)
-  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([a-zA-Zµ])$/);
+  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/);
   if (match) {
     const [, num, unit] = match;
     const parsedNum = Number(num);
-    const multiplier = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()];
-    const factor = multiplier ?? 1;
+    const factor = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()] ?? 1;
     const val = parsedNum * factor;
     return Number(val);
   }
