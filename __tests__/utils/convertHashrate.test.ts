@@ -27,8 +27,6 @@ describe('convertHashrate (bigint)', () => {
     expect(convertHashrate('1.5k').toString()).toBe('1500');
   });
 });
-import { convertHashrate } from '../../utils/helpers';
-
 describe('convertHashrate edge cases', () => {
   it('treats values smaller than 1 H/s as 0', () => {
     expect(convertHashrate('0.5')).toBe(BigInt(0));
