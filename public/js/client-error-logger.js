@@ -19,10 +19,20 @@
         if (now - last < DEDUPE_WINDOW_MS) return
       }
       recent.set(dedupeKey, now)
-      // trim the map when it grows too large
+      // First, remove clearly stale entries by timestamp (older than 2x window)
+      try {
+        for (var [k, ts] of recent.entries()) {
+          if (now - ts > DEDUPE_WINDOW_MS * 2) {
+            recent.delete(k)
+          }
+        }
+      } catch (e) {}
+
+      // If still too large, remove the oldest insertion-order entries (compute count once)
       if (recent.size > DEDUPE_MAX_ENTRIES) {
+        var toDelete = recent.size - DEDUPE_MAX_ENTRIES
         var iter = recent.keys()
-        while (recent.size > DEDUPE_MAX_ENTRIES) {
+        for (var i = 0; i < toDelete; i++) {
           var k = iter.next()
           if (k.done) break
           recent.delete(k.value)
