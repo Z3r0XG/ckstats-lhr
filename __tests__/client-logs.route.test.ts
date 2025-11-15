@@ -2,7 +2,7 @@ import { POST, __clearRateMapForTests, RATE_LIMIT, MAX_BODY_BYTES } from '../app
 
 // Build a minimal Request-like object compatible with the handler under test.
 function makeReq(body: string | null, headers: Record<string, string> = {}) {
-  const hdrs = Object.assign({ 'Content-Type': 'application/json' }, headers || {});
+  const hdrs = Object.assign({ 'Content-Type': 'application/json' }, headers);
   return {
     text: async () => (body === null ? '' : body),
     headers: {
@@ -46,7 +46,7 @@ describe('POST /api/client-logs handler (unit)', () => {
   });
 
   test('token required when CLIENT_LOG_TOKEN set', async () => {
-    process.env.CLIENT_LOG_TOKEN = 't'
+    process.env.CLIENT_LOG_TOKEN = 't';
     try {
       const reqNoHeader = makeReq(JSON.stringify({}), { 'x-forwarded-for': '127.0.0.1-4' });
       const res1: any = await POST(reqNoHeader as any);
