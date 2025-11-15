@@ -1,4 +1,4 @@
-# CK Stats
+# CK Stats LHR (Low Hash Rate) Edition
 
 This project is forked from the original awesome CKStats code by mrv777 (https://github.com/mrv777/ckstats). CKStats is designed to display Pool and User statistics for CKPool Solo (https://github.com/golden-guy/ckpool-solo). With low hash rate versions of CKPool being forked (primarily for nerdminers and other LHR devices), CKStats needed to be tweaked to be able to ingest and process values based on much smaller difficulties (less than 1), while still supporting normal difficulty tracking. This was tested against goldenguy's LHR version of CKPool Solo (https://github.com/golden-guy/ckpool-solo) but may work with others. 
 
@@ -73,6 +73,25 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
 - `pnpm test:watch`: Run tests in watch mode
 - `pnpm migration:run`: Run TypeORM database migrations
 - `pnpm migration:run:skip`: Run TypeORM database migrations skipping the initial migration
+
+## Client Error Reporting
+
+This project includes a lightweight client-side error reporting endpoint.
+
+- Endpoint: `POST /api/client-logs`
+- Authentication: Optional `CLIENT_LOG_TOKEN` environment variable. If set, requests must include header `x-client-log-token: <token>`.
+- Size limits: Payloads larger than 64 KiB are rejected with `413 Payload Too Large`. A basic in-memory rate limiter is enabled to limit request frequency.
+- Logging: Reports are emitted to stderr prefixed with `[client-log]` as structured JSON, suitable for collection by systemd/journald.
+
+View logs (example)
+- `journalctl -f | grep '\[client-log\]'`
+- For a specific service unit: `journalctl -u <unit> -f | grep '\[client-log\]'`
+
+Test examples
+- Without token:
+  - `curl -v -X POST -H 'Content-Type: application/json' -d '{"message":"test"}' http://localhost:3000/api/client-logs`
+- With token:
+  - `curl -v -X POST -H 'Content-Type: application/json' -H 'x-client-log-token: your-token' -d '{"message":"test"}' http://localhost:3000/api/client-logs`
 
 ## License
 
