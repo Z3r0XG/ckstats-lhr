@@ -21,7 +21,10 @@ export async function POST(req: Request) {
       }
     }
 
-    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'anon';
+    const ip =
+      req.headers.get('x-forwarded-for') ||
+      req.headers.get('x-real-ip') ||
+      'anon';
     const key = String(ip);
 
     const now = Date.now();
