@@ -6,8 +6,13 @@ function sendLog(payload: any) {
     var token = (window as any).__CLIENT_LOG_TOKEN || null;
     var body = JSON.stringify(payload);
     if (navigator.sendBeacon) {
-      navigator.sendBeacon('/api/client-logs', body);
-      return;
+      try {
+        var blob = new Blob([body], { type: 'application/json' });
+        navigator.sendBeacon('/api/client-logs', blob);
+        return;
+      } catch (e) {
+        // fall through to fetch
+      }
     }
     fetch('/api/client-logs', {
       method: 'POST',
