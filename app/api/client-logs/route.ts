@@ -1,14 +1,32 @@
-export const RATE_LIMIT = 60; // max requests
-export const WINDOW_MS = 60_000; // per minute
-export const MAX_BODY_BYTES = 64 * 1024; // 64KB - reject larger payloads early
+const RATE_LIMIT = 60; // max requests
+const WINDOW_MS = 60_000; // per minute
+const MAX_BODY_BYTES = 64 * 1024; // 64KB - reject larger payloads early
 const RATE_MAP_CLEANUP_THRESHOLD = 10_000; // when to run a quick cleanup pass
 type Rec = { count: number; start: number };
 
 const rateMap = new Map<string, Rec>();
 
-// Test helper: clear in-memory rate map between tests
-export function __clearRateMapForTests() {
-  rateMap.clear();
+// Provide typings for the test-only globals we attach when running under
+// Jest. This avoids needing ts-ignore comments and keeps these helpers out of
+// the module's named exports (Next.js rejects unknown route exports).
+/* eslint-disable no-var */
+declare global {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  var __clearRateMapForTests: (() => void) | undefined;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  var __CLIENT_LOG_RATE_LIMIT: number | undefined;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  var __CLIENT_LOG_MAX_BODY_BYTES: number | undefined;
+}
+/* eslint-enable no-var */
+
+// Attach test helpers and constants to global during Jest runs only.
+if (process.env.JEST_WORKER_ID) {
+  (globalThis as any).__clearRateMapForTests = () => {
+    rateMap.clear();
+  };
+  (globalThis as any).__CLIENT_LOG_RATE_LIMIT = RATE_LIMIT;
+  (globalThis as any).__CLIENT_LOG_MAX_BODY_BYTES = MAX_BODY_BYTES;
 }
 
 export async function POST(req: Request) {
@@ -32,9 +50,9 @@ export async function POST(req: Request) {
     // keep the in-memory rateMap bounded in long-running processes — clean stale entries first
     if (rateMap.size > RATE_MAP_CLEANUP_THRESHOLD) {
       const cutoff = now - WINDOW_MS * 2;
-      for (const [k, r] of rateMap) {
+      rateMap.forEach((r, k) => {
         if (r.start < cutoff) rateMap.delete(k);
-      }
+      });
     }
 
     let rec = rateMap.get(key);

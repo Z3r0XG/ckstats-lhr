@@ -1,4 +1,12 @@
-import { POST, __clearRateMapForTests, RATE_LIMIT, MAX_BODY_BYTES } from '../app/api/client-logs/route';
+import { POST } from '../app/api/client-logs/route';
+
+// Pull the constants from the test-only globals the route attaches when
+// running under Jest. This avoids exporting extra named symbols from the
+// route module (which Next.js will reject during build).
+// @ts-ignore
+const RATE_LIMIT: number = global.__CLIENT_LOG_RATE_LIMIT;
+// @ts-ignore
+const MAX_BODY_BYTES: number = global.__CLIENT_LOG_MAX_BODY_BYTES;
 
 // Build a minimal Request-like object compatible with the handler under test.
 function makeReq(body: string | null, headers: Record<string, string> = {}) {
@@ -15,7 +23,9 @@ function makeReq(body: string | null, headers: Record<string, string> = {}) {
 }
 
 beforeEach(() => {
-  __clearRateMapForTests();
+  // Call the test helper attached to global by the route during Jest runs.
+  // @ts-ignore
+  global.__clearRateMapForTests?.();
 });
 
 describe('POST /api/client-logs handler (unit)', () => {
