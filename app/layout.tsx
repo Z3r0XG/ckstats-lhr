@@ -2,10 +2,10 @@ import './globals.css';
 import { Metadata } from 'next';
 import { Lato } from 'next/font/google';
 
+import ErrorBoundary from '../components/ErrorBoundary';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
 import Providers from '../components/Providers';
-import ErrorBoundary from '../components/ErrorBoundary';
 
 const lato = Lato({ subsets: ['latin'], weight: ['400', '700'] });
 
