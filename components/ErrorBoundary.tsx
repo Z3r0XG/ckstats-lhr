@@ -1,46 +1,31 @@
-'use client';
+"use client";
 import React from 'react';
 
 function sendLog(payload: any) {
   try {
-    const token = (window as any).__CLIENT_LOG_TOKEN || null;
-    const body = JSON.stringify(payload);
+    var token = (window as any).__CLIENT_LOG_TOKEN || null;
+    var body = JSON.stringify(payload);
     if (navigator.sendBeacon) {
       try {
-        const blob = new Blob([body], { type: 'application/json' });
+        var blob = new Blob([body], { type: 'application/json' });
         navigator.sendBeacon('/api/client-logs', blob);
         return;
-      } catch {
+      } catch (e) {
         // fall through to fetch
       }
     }
-
     fetch('/api/client-logs', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'x-client-log-token': token } : {}),
-      },
-      body,
+      headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { 'x-client-log-token': token } : {}),
+      body: body,
       keepalive: true,
-    }).catch(() => {
-      /* ignore */
-    });
-  } catch (err) {
-    // Log failure to send client log, but do not throw
-    // eslint-disable-next-line no-console
-    console.error('[error-boundary][sendLog]', err);
-  }
+    }).catch(() => {});
+  } catch (e) {}
 }
 
-type Props = {
-  children: React.ReactNode;
-};
+type Props = { children: React.ReactNode };
 
-export default class ErrorBoundary extends React.Component<
-  Props,
-  { hasError: boolean }
-> {
+export default class ErrorBoundary extends React.Component<Props, { hasError: boolean }> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
@@ -64,11 +49,7 @@ export default class ErrorBoundary extends React.Component<
 
   render() {
     if (this.state.hasError) {
-      return (
-        <div className="p-4">
-          An error occurred. The team has been notified.
-        </div>
-      );
+      return <div className="p-4">An error occurred. The team has been notified.</div>;
     }
     return this.props.children as React.ReactElement;
   }
