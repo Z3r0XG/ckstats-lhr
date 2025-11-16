@@ -70,7 +70,6 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
 - `pnpm lint`: Run ESLint
 - `pnpm lint:fix`: Run ESLint and fix issues
 - `pnpm seed`: Save/Update pool stats to database
-- `pnpm update-stats`: Update pool statistics #Currently not used
 - `pnpm update-users`: Update user and worker information
 - `pnpm cleanup`: Clean up old statistics
 - `pnpm test`: Run tests
