@@ -77,7 +77,11 @@ export default async function UserPage({
   const latestStats = user.stats[0]; // Assuming stats are ordered by timestamp desc
 
   const renderPercentageChange = (key: string) => {
-    const change = getHistoricalPercentageChange(latestStats, historicalStats, key);
+    const change = getHistoricalPercentageChange(
+      latestStats,
+      historicalStats,
+      key
+    );
     const color = getPercentageChangeColor(change);
 
     return (
