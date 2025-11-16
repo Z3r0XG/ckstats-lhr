@@ -8,7 +8,6 @@
   var recent = window.__CLIENT_LOG_RECENT || (window.__CLIENT_LOG_RECENT = new Map())
   var DEDUPE_WINDOW_MS = 5 * 1000
   var DEDUPE_MAX_ENTRIES = 200
-  var _lastDedupeCleanup = 0
 
   function send(payload) {
     try {
@@ -20,23 +19,10 @@
         if (now - last < DEDUPE_WINDOW_MS) return
       }
       recent.set(dedupeKey, now)
-      // Perform timestamp-based cleanup only occasionally to reduce overhead
-      try {
-        if (now - _lastDedupeCleanup > 5000) {
-          _lastDedupeCleanup = now
-          for (var [k, ts] of recent.entries()) {
-            if (now - ts > DEDUPE_WINDOW_MS * 2) {
-              recent.delete(k)
-            }
-          }
-        }
-      } catch (e) {}
-
-      // If still too large, remove the oldest insertion-order entries (compute count once)
+      // trim the map when it grows too large
       if (recent.size > DEDUPE_MAX_ENTRIES) {
-        var toDelete = recent.size - DEDUPE_MAX_ENTRIES
         var iter = recent.keys()
-        for (var i = 0; i < toDelete; i++) {
+        while (recent.size > DEDUPE_MAX_ENTRIES) {
           var k = iter.next()
           if (k.done) break
           recent.delete(k.value)
