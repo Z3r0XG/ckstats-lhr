@@ -34,11 +34,13 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
    DB_USER="username"
    DB_PASSWORD="password"
    DB_NAME="database"
+   SITE_TITLE="Custom Title"
    ```
    Replace `username`, `password`, `server`, `port`, `database` with your actual PostgreSQL credentials, server details, and database names.
    You can also set the DB_SSL to true if you want to use SSL and set the DB_SSL_REJECT_UNAUTHORIZED to true if you want to reject untrusted SSL certificates (like self-signed certificates).
    If PostgreSQL is running locally, you can make `DB_HOST` `/var/run/postgresql/` (which connects via a Unix socket).  The username and password are then ignored (authentication is done based on the Unix user connection to the socket).
    If ckpool is running locally you can make `API_URL` the path to the logs directory.  For example `/home/ckpool-testnet/solobtc/logs`.
+   You can customize the title of the stats page, or if not included, will default to CKStats.
    
 6. Install dependencies: `pnpm install`
 7. Run database migrations: `pnpm migration:run`
@@ -73,25 +75,6 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
 - `pnpm test:watch`: Run tests in watch mode
 - `pnpm migration:run`: Run TypeORM database migrations
 - `pnpm migration:run:skip`: Run TypeORM database migrations skipping the initial migration
-
-## Client Error Reporting
-
-This project includes a lightweight client-side error reporting endpoint.
-
-- Endpoint: `POST /api/client-logs`
-- Authentication: Optional `CLIENT_LOG_TOKEN` environment variable. If set, requests must include header `x-client-log-token: <token>`.
-- Size limits: Payloads larger than 64 KiB are rejected with `413 Payload Too Large`. A basic in-memory rate limiter is enabled to limit request frequency.
-- Logging: Reports are emitted to stderr prefixed with `[client-log]` as structured JSON, suitable for collection by systemd/journald.
-
-View logs (example)
-- `journalctl -f | grep '\[client-log\]'`
-- For a specific service unit: `journalctl -u <unit> -f | grep '\[client-log\]'`
-
-Test examples
-- Without token:
-  - `curl -v -X POST -H 'Content-Type: application/json' -d '{"message":"test"}' http://localhost:3000/api/client-logs`
-- With token:
-  - `curl -v -X POST -H 'Content-Type: application/json' -H 'x-client-log-token: your-token' -d '{"message":"test"}' http://localhost:3000/api/client-logs`
 
 ## License
 
