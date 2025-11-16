@@ -80,9 +80,10 @@ export default async function UserPage({
     if (historicalStats.length < 120) return 'N/A';
 
     const currentValue = Number(latestStats[key]);
-    const pastValue = Number(
-      historicalStats[historicalStats.length - 120][key]
-    );
+    // Pick the 120th-most-recent sample (index 119) from newest-first array.
+    const pastEntry = historicalStats[119];
+    if (!pastEntry) return 'N/A';
+    const pastValue = Number(pastEntry[key]);
 
     const change = calculatePercentageChange(currentValue, pastValue);
     const color = getPercentageChangeColor(change);

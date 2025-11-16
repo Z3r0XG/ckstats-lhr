@@ -1,4 +1,10 @@
 /** @type {import('next').NextConfig} */
+// Use SITE_TITLE as the single canonical source for the site name.
+// This intentionally prefers `SITE_TITLE` (server env) and maps it to the
+// client-exposed `NEXT_PUBLIC_SITE_NAME` at build time. If `SITE_TITLE` is
+// not set, fall back to the default name.
+const siteName = process.env.SITE_TITLE || 'CKPool Stats';
+
 const nextConfig = {
   webpack: (config) => {
     config.externals.push({
@@ -9,6 +15,11 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ['typeorm'],
+  },
+  // Expose a client-safe SITE_NAME variable. Prefer NEXT_PUBLIC_SITE_NAME,
+  // but fall back to SITE_NAME or SITE_TITLE if present in the environment.
+  env: {
+    NEXT_PUBLIC_SITE_NAME: siteName,
   },
 };
 

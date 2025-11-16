@@ -9,7 +9,9 @@ const Footer: React.FC = () => {
           <a href="https://github.com/mrv777/ckstats">CKStats</a>: Always free,
           always open source.
         </p>
-        <p className="break-all">Donations: bc1qryh7hv7quzceehet75udcta0u6lkm4hjvrt9mw</p>
+        <p className="break-all">
+          Donations: bc1qryh7hv7quzceehet75udcta0u6lkm4hjvrt9mw
+        </p>
       </div>
     </footer>
   );
