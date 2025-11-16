@@ -1,4 +1,4 @@
-import { calculatePercentageChange } from '../../utils/helpers';
+import { calculatePercentageChange, getHistoricalPercentageChange } from '../../utils/helpers';
 
 const latestStats = {
   hashrate1m: 4_000_000,
@@ -29,12 +29,9 @@ function makeHistorical(len: number, valueAt119: number) {
   return arr;
 }
 
+// Use the public helper to compute historical percent change.
 function computePercentForKey(stats: any, historical: any[], key: string) {
-  if (!historical || historical.length < 120) return 'N/A';
-  const pastEntry = historical[119];
-  if (!pastEntry) return 'N/A';
-  const pastValue = Number(pastEntry[key]);
-  return calculatePercentageChange(Number(stats[key]), pastValue);
+  return getHistoricalPercentageChange(stats, historical, key);
 }
 
 test('returns N/A when fewer than 120 historical samples', () => {

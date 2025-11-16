@@ -7,7 +7,7 @@ import {
   formatHashrate,
   formatTimeAgo,
   formatDuration,
-  calculatePercentageChange,
+  getHistoricalPercentageChange,
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
 } from '../utils/helpers';
@@ -84,19 +84,7 @@ export default function PoolStatsDisplay({
   };
 
   const renderPercentageChange = (key: string) => {
-    // If we don't have the full 120 samples, show N/A per spec.
-    if (historicalStats.length < 120) return 'N/A';
-
-    const currentValue = Number(stats[key]);
-    // historicalStats is newest-first (timestamp DESC). The 120th-most-recent
-    // sample is at index 119 (0-based). Use that index directly to avoid
-    // selecting a stale/old slot via `length - 120` which pointed at the
-    // wrong physical row in production.
-    const pastEntry = historicalStats[119];
-    if (!pastEntry) return 'N/A';
-    const pastValue = Number(pastEntry[key]);
-
-    const change = calculatePercentageChange(currentValue, pastValue);
+    const change = getHistoricalPercentageChange(stats, historicalStats, key);
     const color = getPercentageChangeColor(change);
 
     return (
@@ -146,7 +134,7 @@ export default function PoolStatsDisplay({
                 </div>
                 <div className="stat-desc">
                   <Link
-                    href="https://mempool.space/mining/pool/solock"
+                    href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG ?? 'solock'}`}
                     target="_blank"
                     className="link text-primary"
                   >

@@ -202,6 +202,28 @@ export function calculatePercentageChange(currentValue: number, pastValue: numbe
   return Number(percentageChange.toFixed(2));
 }
 
+/**
+ * Select the nth-most-recent historical sample (default 120 -> index 119)
+ * and compute a percentage change between `stats[key]` and that sample.
+ * Returns the same result types as `calculatePercentageChange` and applies
+ * the same guards (returns 'N/A' when insufficient samples or past value is 0).
+ */
+export function getHistoricalPercentageChange(
+  stats: any,
+  historical: any[] | null | undefined,
+  key: string,
+  requiredSamples: number = 120
+): number | 'N/A' {
+  if (!historical || historical.length < requiredSamples) return 'N/A';
+
+  const index = requiredSamples - 1; // 120th-most-recent sample -> index 119
+  const pastEntry = historical[index];
+  if (!pastEntry) return 'N/A';
+
+  const pastValue = Number(pastEntry[key]);
+  return calculatePercentageChange(Number(stats[key]), pastValue);
+}
+
 export function getPercentageChangeColor(change: number | 'N/A'): string {
   if (change === 'N/A') return 'text-base-content';
   return change > 0 ? 'text-success' : change < 0 ? 'text-error' : 'text-base-content';
