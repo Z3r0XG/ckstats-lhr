@@ -35,7 +35,7 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
    DB_PASSWORD="password"
    DB_NAME="database"
    SITE_TITLE="Custom Title"
-   MEMPOOL_LINK_TAG="solock"
+   MEMPOOL_LINK_TAG="your_sig"
    ```
    Replace `username`, `password`, `server`, `port`, `database` with your actual PostgreSQL credentials, server details, and database names.
    You can also set the DB_SSL to true if you want to use SSL and set the DB_SSL_REJECT_UNAUTHORIZED to true if you want to reject untrusted SSL certificates (like self-signed certificates).
