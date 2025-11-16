@@ -35,12 +35,14 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
    DB_PASSWORD="password"
    DB_NAME="database"
    SITE_TITLE="Custom Title"
+   MEMPOOL_LINK_TAG="solock"
    ```
    Replace `username`, `password`, `server`, `port`, `database` with your actual PostgreSQL credentials, server details, and database names.
    You can also set the DB_SSL to true if you want to use SSL and set the DB_SSL_REJECT_UNAUTHORIZED to true if you want to reject untrusted SSL certificates (like self-signed certificates).
    If PostgreSQL is running locally, you can make `DB_HOST` `/var/run/postgresql/` (which connects via a Unix socket).  The username and password are then ignored (authentication is done based on the Unix user connection to the socket).
    If ckpool is running locally you can make `API_URL` the path to the logs directory.  For example `/home/ckpool-testnet/solobtc/logs`.
    You can customize the title of the stats page, or if not included, will default to CKStats.
+   You can customize the mempool link with your tag, or if not included, will default to solock.
    
 6. Install dependencies: `pnpm install`
 7. Run database migrations: `pnpm migration:run`
@@ -75,6 +77,7 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
 - `pnpm test:watch`: Run tests in watch mode
 - `pnpm migration:run`: Run TypeORM database migrations
 - `pnpm migration:run:skip`: Run TypeORM database migrations skipping the initial migration
+
 
 ## License
 

@@ -20,6 +20,11 @@ const nextConfig = {
   // but fall back to SITE_NAME or SITE_TITLE if present in the environment.
   env: {
     NEXT_PUBLIC_SITE_NAME: siteName,
+    // Map a friendly server-side env var `MEMPOOL_LINK_TAG` into the
+    // client-exposed `NEXT_PUBLIC_MEMPOOL_LINK_TAG` so deploys can set the
+    // simple name without needing the NEXT_PUBLIC prefix.
+    NEXT_PUBLIC_MEMPOOL_LINK_TAG:
+      process.env.MEMPOOL_LINK_TAG || process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG || 'solock',
   },
 };
 
