@@ -42,7 +42,7 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
    If PostgreSQL is running locally, you can make `DB_HOST` `/var/run/postgresql/` (which connects via a Unix socket).  The username and password are then ignored (authentication is done based on the Unix user connection to the socket).
    If ckpool is running locally you can make `API_URL` the path to the logs directory.  For example `/home/ckpool-testnet/solobtc/logs`.
    You can customize the title of the stats page, or if not included, will default to CKStats.
-   You can customize the mempool link with your tag, or if not included, will default to cksolo.
+   You can customize the mempool link with your tag, or if not included, will default to solock.
    
 6. Install dependencies: `pnpm install`
 7. Run database migrations: `pnpm migration:run`
