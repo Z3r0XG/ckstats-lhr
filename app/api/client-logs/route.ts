@@ -1,15 +1,10 @@
-export const RATE_LIMIT = 60; // max requests
-export const WINDOW_MS = 60_000; // per minute
-export const MAX_BODY_BYTES = 64 * 1024; // 64KB - reject larger payloads early
+const RATE_LIMIT = 60; // max requests
+const WINDOW_MS = 60_000; // per minute
+const MAX_BODY_BYTES = 64 * 1024; // 64KB - reject larger payloads early
 const RATE_MAP_CLEANUP_THRESHOLD = 10_000; // when to run a quick cleanup pass
 type Rec = { count: number; start: number };
 
 const rateMap = new Map<string, Rec>();
-
-// Test helper: clear in-memory rate map between tests
-export function __clearRateMapForTests() {
-  rateMap.clear();
-}
 
 export async function POST(req: Request) {
   try {
@@ -25,15 +20,6 @@ export async function POST(req: Request) {
     const key = String(ip);
 
     const now = Date.now();
-
-    // keep the in-memory rateMap bounded in long-running processes — clean stale entries first
-    if (rateMap.size > RATE_MAP_CLEANUP_THRESHOLD) {
-      const cutoff = now - WINDOW_MS * 2;
-      for (const [k, r] of rateMap) {
-        if (r.start < cutoff) rateMap.delete(k);
-      }
-    }
-
     let rec = rateMap.get(key);
     if (!rec || now - rec.start > WINDOW_MS) {
       rec = { count: 0, start: now };
@@ -44,12 +30,11 @@ export async function POST(req: Request) {
       return new Response('rate-limited', { status: 429 });
     }
 
-    // If the client advertises a Content-Length header, honor it before reading body
-    const contentLength = req.headers.get('content-length');
-    if (contentLength) {
-      const n = parseInt(contentLength, 10);
-      if (!Number.isNaN(n) && n > MAX_BODY_BYTES) {
-        return new Response('payload too large', { status: 413 });
+    // keep the in-memory rateMap bounded in long-running processes
+    if (rateMap.size > RATE_MAP_CLEANUP_THRESHOLD) {
+      const cutoff = now - WINDOW_MS * 2;
+      for (const [k, r] of rateMap) {
+        if (r.start < cutoff) rateMap.delete(k);
       }
     }
 
