@@ -3,7 +3,7 @@ export interface ISOUnit {
   iso: string;
 }
 
-// An array of all ISO units we support for formatting large numbers.
+// An array of all ISO units we support.
 // Make sure you check for 0 if you use this.
 const isoUnits: ISOUnit[] = [
   { threshold: 1e21, iso: 'Z' },
@@ -14,22 +14,6 @@ const isoUnits: ISOUnit[] = [
   { threshold: 1e6, iso: 'M' },
   { threshold: 1e3, iso: 'k' },
 ] as const;
-
-// Map of unit suffix (case-sensitive) to multiplier.
-// We intentionally include common variants (uppercase/lowercase and ascii 'u' for micro).
-const unitMultipliers: { [unit: string]: number } = {
-  Z: 1e21,
-  E: 1e18,
-  P: 1e15,
-  T: 1e12,
-  G: 1e9,
-  M: 1e6,
-  k: 1e3,
-  K: 1e3,
-  m: 1e-3, // milli
-  u: 1e-6, // micro (ascii 'u')
-  'µ': 1e-6, // micro (unicode mu)
-};
 
 
 export function formatNumber(num: number | bigint | string): string {
@@ -91,14 +75,13 @@ export function formatHashrate(num: string | bigint | number, showLessThanOne: b
 export function convertHashrate(value: string): bigint {
   if (!value) return BigInt(0);
 
-  // Match unit-suffixed values like "1.5M" or "2k" or with micro 'u' or unicode 'µ'.
-  // Only accept known unit suffixes (upper-case SI prefixes and common lower-case variants)
-  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/);
+  // Match unit-suffixed values like "1.5M" or "2k" (supports scientific notation in the number)
+  const match = value.match(/^(\d+(?:\.\d+)?(?:e[+-]?\d+)?)([ZEPTGMK])$/i);
   if (match) {
     const [, num, unit] = match;
     const parsedNum = Number(num);
-    const factor = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()] ?? 1;
-    const val = parsedNum * factor;
+    const isoUnit = isoUnits.find((u) => u.iso.toUpperCase() === unit.toUpperCase()) || { threshold: 1, iso: '' };
+    const val = parsedNum * isoUnit.threshold;
     if (val < 1) return BigInt(0);
     return BigInt(Math.round(val));
   }
@@ -126,14 +109,14 @@ export function convertHashrate(value: string): bigint {
 export function convertHashrateFloat(value: string): number {
   if (!value) return 0;
 
-  // Match unit-suffixed values like "1.5M", "2k", "939u" or with unicode micro 'µ'.
+  // Match unit-suffixed values like "1.5M" or "2k"
   // Accept an optional sign, integer or decimal, and optional exponent (e or E with optional sign)
-  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/);
+  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMK])$/i);
   if (match) {
     const [, num, unit] = match;
     const parsedNum = Number(num);
-    const factor = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()] ?? 1;
-    const val = parsedNum * factor;
+    const isoUnit = isoUnits.find((u) => u.iso.toUpperCase() === unit.toUpperCase()) || { threshold: 1, iso: '' };
+    const val = parsedNum * isoUnit.threshold;
     return Number(val);
   }
 
@@ -200,28 +183,6 @@ export function calculatePercentageChange(currentValue: number, pastValue: numbe
 
   const percentageChange = ((currentValue - pastValue) / pastValue) * 100;
   return Number(percentageChange.toFixed(2));
-}
-
-/**
- * Select the nth-most-recent historical sample (default 120 -> index 119)
- * and compute a percentage change between `stats[key]` and that sample.
- * Returns the same result types as `calculatePercentageChange` and applies
- * the same guards (returns 'N/A' when insufficient samples or past value is 0).
- */
-export function getHistoricalPercentageChange(
-  stats: any,
-  historical: any[] | null | undefined,
-  key: string,
-  requiredSamples: number = 120
-): number | 'N/A' {
-  if (!historical || historical.length < requiredSamples) return 'N/A';
-
-  const index = requiredSamples - 1; // 120th-most-recent sample -> index 119
-  const pastEntry = historical[index];
-  if (!pastEntry) return 'N/A';
-
-  const pastValue = Number(pastEntry[key]);
-  return calculatePercentageChange(Number(stats[key]), pastValue);
 }
 
 export function getPercentageChangeColor(change: number | 'N/A'): string {

@@ -3,9 +3,12 @@ export const revalidate = 60;
 import React from 'react';
 
 import TopUserHashrates from '../../components/TopUserHashrates';
+import { SITE_NAME } from '../../lib/site';
+
+const siteTitle = SITE_NAME;
 
 export const metadata = {
-  title: 'Top 100 User Hashrates - CKstats',
+  title: `Top 100 User Hashrates - ${siteTitle}`,
   description: 'View the top 100 user hashrates on CKPool.',
 };
 

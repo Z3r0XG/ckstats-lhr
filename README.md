@@ -34,7 +34,7 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
    DB_USER="username"
    DB_PASSWORD="password"
    DB_NAME="database"
-   SITE_TITLE="Custom Title"
+  SITE_NAME="Custom Title"
    MEMPOOL_LINK_TAG="your_sig"
    ```
    Replace `username`, `password`, `server`, `port`, `database` with your actual PostgreSQL credentials, server details, and database names.
