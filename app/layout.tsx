@@ -5,11 +5,14 @@ import { Lato } from 'next/font/google';
 import Footer from '../components/Footer';
 import Header from '../components/Header';
 import Providers from '../components/Providers';
+import { SITE_NAME } from '../lib/site';
 
 const lato = Lato({ subsets: ['latin'], weight: ['400', '700'] });
 
+const siteTitle = SITE_NAME;
+
 export const metadata: Metadata = {
-  title: 'CKstats',
+  title: siteTitle,
   description:
     'Real-time and historical statistics for the CKPool Bitcoin mining pool using data from their API.',
 };

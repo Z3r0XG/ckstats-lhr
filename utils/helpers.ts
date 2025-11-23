@@ -31,7 +31,6 @@ const unitMultipliers: { [unit: string]: number } = {
   'µ': 1e-6, // micro (unicode mu)
 };
 
-
 export function formatNumber(num: number | bigint | string): string {
   const absNum = Math.abs(Number(num));
 
@@ -91,13 +90,12 @@ export function formatHashrate(num: string | bigint | number, showLessThanOne: b
 export function convertHashrate(value: string): bigint {
   if (!value) return BigInt(0);
 
-  // Match unit-suffixed values like "1.5M" or "2k" or with micro 'u' or unicode 'µ'.
-  // Only accept known unit suffixes (upper-case SI prefixes and common lower-case variants)
+  // Match unit-suffixed values like "1.5M", "2k", "370u" (supports signed, decimal and scientific notation)
   const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/);
   if (match) {
     const [, num, unit] = match;
     const parsedNum = Number(num);
-    const factor = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()] ?? 1;
+    const factor = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()] ?? (isoUnits.find((u) => u.iso.toUpperCase() === unit.toUpperCase())?.threshold ?? 1);
     const val = parsedNum * factor;
     if (val < 1) return BigInt(0);
     return BigInt(Math.round(val));
@@ -126,13 +124,13 @@ export function convertHashrate(value: string): bigint {
 export function convertHashrateFloat(value: string): number {
   if (!value) return 0;
 
-  // Match unit-suffixed values like "1.5M", "2k", "939u" or with unicode micro 'µ'.
+  // Match unit-suffixed values like "1.5M", "2k", "370u"
   // Accept an optional sign, integer or decimal, and optional exponent (e or E with optional sign)
   const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/);
   if (match) {
     const [, num, unit] = match;
     const parsedNum = Number(num);
-    const factor = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()] ?? 1;
+    const factor = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()] ?? (isoUnits.find((u) => u.iso.toUpperCase() === unit.toUpperCase())?.threshold ?? 1);
     const val = parsedNum * factor;
     return Number(val);
   }

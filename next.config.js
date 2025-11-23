@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
-// Use SITE_TITLE as the single canonical source for the site name.
-// This intentionally prefers `SITE_TITLE` (server env) and maps it to the
-// client-exposed `NEXT_PUBLIC_SITE_NAME` at build time. If `SITE_TITLE` is
-// not set, fall back to the default name.
-const siteName = process.env.SITE_TITLE || 'CKPool Stats';
+// Use `SITE_NAME` (server-side) as the single canonical source for the site name.
+// This prefers `SITE_NAME` (server env) and maps it to the client-exposed
+// `NEXT_PUBLIC_SITE_NAME` at build time. If `SITE_NAME` is not set, fall back
+// to `NEXT_PUBLIC_SITE_NAME` or the default.
+const siteName = process.env.SITE_NAME || process.env.NEXT_PUBLIC_SITE_NAME || 'CKstats';
 
 const nextConfig = {
   webpack: (config) => {
@@ -17,8 +17,10 @@ const nextConfig = {
     serverComponentsExternalPackages: ['typeorm'],
   },
   // Expose a client-safe SITE_NAME variable. Prefer NEXT_PUBLIC_SITE_NAME,
-  // but fall back to SITE_NAME or SITE_TITLE if present in the environment.
+  // but fall back to SITE_NAME if present in the environment.
   env: {
+    // Expose the canonical `SITE_NAME` value to the client as
+    // `NEXT_PUBLIC_SITE_NAME` so browser code can read it safely.
     NEXT_PUBLIC_SITE_NAME: siteName,
     // Map a friendly server-side env var `MEMPOOL_LINK_TAG` into the
     // client-exposed `NEXT_PUBLIC_MEMPOOL_LINK_TAG` so deploys can set the

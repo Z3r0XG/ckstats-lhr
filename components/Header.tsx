@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import ThemeController from './ThemeController';
+import { SITE_NAME_PUBLIC } from '../lib/site';
 import { validateBitcoinAddress } from '../utils/validateBitcoinAddress';
 
 export default function Header() {
@@ -70,7 +71,7 @@ export default function Header() {
     addUserMutation.mutate(trimmedAddress);
   };
 
-  const siteName = process.env.NEXT_PUBLIC_SITE_NAME || 'CKPool Stats';
+  const siteName = SITE_NAME_PUBLIC;
 
   return (
     <header className="navbar bg-base-100">
