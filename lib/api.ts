@@ -9,67 +9,127 @@ import { convertHashrateFloat } from '../utils/helpers';
 
 const HISTORICAL_DATA_POINTS = 5760;
 
+// Simple in-memory TTL cache suitable for single-instance deployments.
+type CacheEntry = { expires: number; value: any };
+const _cache = new Map<string, CacheEntry>();
+
+async function getCached<T>(
+  key: string,
+  ttlSeconds: number,
+  loader: () => Promise<T>
+): Promise<T> {
+  const now = Date.now();
+  const entry = _cache.get(key);
+  if (entry && entry.expires > now) return entry.value as T;
+  const value = await loader();
+  // add small jitter to spread revalidation load slightly
+  const jitter = 0.9 + Math.random() * 0.2;
+  _cache.set(key, {
+    expires: now + Math.round(ttlSeconds * 1000 * jitter),
+    value,
+  });
+  return value;
+}
+
+function cacheDelete(key: string) {
+  _cache.delete(key);
+}
+
+function cacheDeletePrefix(prefix: string) {
+  for (const k of Array.from(_cache.keys())) {
+    if (k.startsWith(prefix)) _cache.delete(k);
+  }
+}
+
+function cacheGet(key: string): CacheEntry | undefined {
+  const now = Date.now();
+  const entry = _cache.get(key);
+  if (!entry) return undefined;
+  if (entry.expires <= now) {
+    _cache.delete(key);
+    return undefined;
+  }
+  return entry;
+}
+
+// Export cache helpers for testing and controlled eviction in other modules
+export { getCached, cacheDelete, cacheDeletePrefix, cacheGet };
+
 export type PoolStatsInput = Omit<PoolStats, 'id' | 'timestamp'>;
 
 export async function savePoolStats(stats: PoolStatsInput): Promise<PoolStats> {
   const db = await getDb();
   const repository = db.getRepository(PoolStats);
   const poolStats = repository.create(stats);
-  return repository.save(poolStats);
+  const saved = await repository.save(poolStats);
+  // Evict pool stats caches so next reads are fresh
+  cacheDelete('latestPoolStats');
+  cacheDelete('historicalPoolStats');
+  return saved;
 }
 
 export async function getLatestPoolStats(): Promise<PoolStats | null> {
-  const db = await getDb();
-  const repository = db.getRepository(PoolStats);
-  return repository.findOne({
-    where: {},
-    order: { timestamp: 'DESC' },
+  return getCached('latestPoolStats', 5, async () => {
+    const db = await getDb();
+    const repository = db.getRepository(PoolStats);
+    return repository.findOne({
+      where: {},
+      order: { timestamp: 'DESC' },
+    });
   });
 }
 
 export async function getHistoricalPoolStats(): Promise<PoolStats[]> {
-  const db = await getDb();
-  const repository = db.getRepository(PoolStats);
-  return repository.find({
-    order: { timestamp: 'DESC' },
-    take: HISTORICAL_DATA_POINTS,
+  return getCached('historicalPoolStats', 60, async () => {
+    const db = await getDb();
+    const repository = db.getRepository(PoolStats);
+    return repository.find({
+      order: { timestamp: 'DESC' },
+      take: HISTORICAL_DATA_POINTS,
+    });
   });
 }
 
 export async function getUserWithWorkersAndStats(address: string) {
-  const db = await getDb();
-  const userRepository = db.getRepository(User);
+  const key = `userWithWorkers:${address}`;
+  return getCached(key, 3, async () => {
+    const db = await getDb();
+    const userRepository = db.getRepository(User);
 
-  const user = await userRepository.findOne({
-    where: { address },
-    relations: {
-      workers: true,
-      stats: true,
-    },
-    relationLoadStrategy: 'query',
+    const user = await userRepository.findOne({
+      where: { address },
+      relations: {
+        workers: true,
+        stats: true,
+      },
+      relationLoadStrategy: 'query',
+    });
+
+    if (!user) return null;
+
+    // Sort workers by hashrate
+    user.workers.sort((a, b) => Number(b.hashrate5m) - Number(a.hashrate5m));
+
+    // Sort stats by timestamp and take the most recent
+    user.stats.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+    return {
+      ...user,
+      stats: user.stats.slice(0, 1),
+    };
   });
-
-  if (!user) return null;
-
-  // Sort workers by hashrate
-  user.workers.sort((a, b) => Number(b.hashrate5m) - Number(a.hashrate5m));
-
-  // Sort stats by timestamp and take the most recent
-  user.stats.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-  return {
-    ...user,
-    stats: user.stats.slice(0, 1),
-  };
 }
 
 export async function getUserHistoricalStats(address: string) {
-  const db = await getDb();
-  const repository = db.getRepository(UserStats);
-  return repository.find({
-    where: { userAddress: address },
-    order: { timestamp: 'DESC' },
-    take: HISTORICAL_DATA_POINTS,
+  const key = `userHistorical:${address}`;
+  return getCached(key, 60, async () => {
+    const db = await getDb();
+    const repository = db.getRepository(UserStats);
+    return repository.find({
+      where: { userAddress: address },
+      order: { timestamp: 'DESC' },
+      take: HISTORICAL_DATA_POINTS,
+    });
   });
 }
 
@@ -77,107 +137,118 @@ export async function getWorkerWithStats(
   userAddress: string,
   workerName: string
 ) {
-  const db = await getDb();
-  const repository = db.getRepository(Worker);
+  const key = `workerWithStats:${userAddress}:${workerName}`;
+  return getCached(key, 5, async () => {
+    const db = await getDb();
+    const repository = db.getRepository(Worker);
 
-  const worker = await repository.findOne({
-    where: {
-      userAddress,
-      name: workerName.trim(),
-    },
-    relations: {
-      stats: true,
-    },
-    relationLoadStrategy: 'query',
+    const worker = await repository.findOne({
+      where: {
+        userAddress,
+        name: workerName.trim(),
+      },
+      relations: {
+        stats: true,
+      },
+      relationLoadStrategy: 'query',
+    });
+
+    if (worker) {
+      // Sort stats by timestamp after loading
+      worker.stats.sort(
+        (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+      );
+    }
+
+    return worker;
   });
-
-  if (worker) {
-    // Sort stats by timestamp after loading
-    worker.stats.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }
-
-  return worker;
 }
 
 export async function getTopUserDifficulties(limit: number = 10) {
-  const db = await getDb();
-  const repository = db.getRepository(UserStats);
+  const key = `topUserDifficulties:${limit}`;
+  return getCached(key, 30, async () => {
+    const db = await getDb();
+    const repository = db.getRepository(UserStats);
 
-  const topUsers = await repository
-    .createQueryBuilder('userStats')
-    .innerJoin('userStats.user', 'user')
-    .select([
-      'userStats.id',
-      'userStats.userAddress',
-      'userStats.workerCount',
-      'userStats.bestEver',
-      'userStats.bestShare',
-      'userStats.hashrate1hr',
-      'userStats.hashrate1d',
-      'userStats.hashrate7d',
-      'userStats.timestamp',
-    ])
-    .where('user.isPublic = :isPublic', { isPublic: true })
-    .distinctOn(['userStats.userAddress'])
-    .orderBy('userStats.userAddress', 'ASC')
-    .addOrderBy('userStats.timestamp', 'DESC')
-    .getMany();
+    const topUsers = await repository
+      .createQueryBuilder('userStats')
+      .innerJoin('userStats.user', 'user')
+      .select([
+        'userStats.id',
+        'userStats.userAddress',
+        'userStats.workerCount',
+        'userStats.bestEver',
+        'userStats.bestShare',
+        'userStats.hashrate1hr',
+        'userStats.hashrate1d',
+        'userStats.hashrate7d',
+        'userStats.timestamp',
+      ])
+      .where('user.isPublic = :isPublic', { isPublic: true })
+      .distinctOn(['userStats.userAddress'])
+      .orderBy('userStats.userAddress', 'ASC')
+      .addOrderBy('userStats.timestamp', 'DESC')
+      .getMany();
 
-  const sortedUsers = topUsers
-    .sort((a, b) => Number(b.bestEver) - Number(a.bestEver))
-    .slice(0, limit);
+    const sortedUsers = topUsers
+      .sort((a, b) => Number(b.bestEver) - Number(a.bestEver))
+      .slice(0, limit);
 
-  return sortedUsers.map((stats) => ({
-    address: stats.userAddress,
-    workerCount: stats.workerCount,
-    difficulty: stats.bestEver,
-    hashrate1hr: stats.hashrate1hr,
-    hashrate1d: stats.hashrate1d,
-    hashrate7d: stats.hashrate7d,
-    bestShare: stats.bestShare,
-  }));
+    return sortedUsers.map((stats) => ({
+      address: stats.userAddress,
+      workerCount: stats.workerCount,
+      difficulty: stats.bestEver,
+      hashrate1hr: stats.hashrate1hr,
+      hashrate1d: stats.hashrate1d,
+      hashrate7d: stats.hashrate7d,
+      bestShare: stats.bestShare,
+    }));
+  });
 }
 
 export async function getTopUserHashrates(limit: number = 10) {
-  const db = await getDb();
-  const repository = db.getRepository(UserStats);
+  const key = `topUserHashrates:${limit}`;
+  return getCached(key, 30, async () => {
+    const db = await getDb();
+    const repository = db.getRepository(UserStats);
 
-  // First get the latest stats for each user
-  const topUsers = await repository
-    .createQueryBuilder('userStats')
-    .innerJoinAndSelect('userStats.user', 'user')
-    .select([
-      'userStats.id',
-      'userStats.userAddress',
-      'userStats.workerCount',
-      'userStats.hashrate1hr',
-      'userStats.hashrate1d',
-      'userStats.hashrate7d',
-      'userStats.bestShare',
-      'userStats.bestEver',
-      'userStats.timestamp',
-    ])
-    .where('user.isPublic = :isPublic', { isPublic: true })
-    .andWhere('user.isActive = :isActive', { isActive: true })
-    .distinctOn(['userStats.userAddress'])
-    .orderBy('userStats.userAddress', 'ASC')
-    .addOrderBy('userStats.timestamp', 'DESC')
-    .getMany();
+    // First get the latest stats for each user
+    const topUsers = await repository
+      .createQueryBuilder('userStats')
+      .innerJoinAndSelect('userStats.user', 'user')
+      .select([
+        'userStats.id',
+        'userStats.userAddress',
+        'userStats.workerCount',
+        'userStats.hashrate1hr',
+        'userStats.hashrate1d',
+        'userStats.hashrate7d',
+        'userStats.bestShare',
+        'userStats.bestEver',
+        'userStats.timestamp',
+      ])
+      .where('user.isPublic = :isPublic', { isPublic: true })
+      .andWhere('user.isActive = :isActive', { isActive: true })
+      .distinctOn(['userStats.userAddress'])
+      .orderBy('userStats.userAddress', 'ASC')
+      .addOrderBy('userStats.timestamp', 'DESC')
+      .getMany();
 
-  // Then sort by hashrate and take the top N
-  const sortedUsers = topUsers
-    .sort((a, b) => Number(b.hashrate1hr) - Number(a.hashrate1hr))
-    .slice(0, limit);
+    // Then sort by hashrate and take the top N
+    const sortedUsers = topUsers
+      .sort((a, b) => Number(b.hashrate1hr) - Number(a.hashrate1hr))
+      .slice(0, limit);
 
-  return sortedUsers.map((stats) => ({
-    address: stats.userAddress,
-    workerCount: stats.workerCount,
-    hashrate1hr: stats.hashrate1hr,
-    hashrate1d: stats.hashrate1d,
-    hashrate7d: stats.hashrate7d,
-    bestShare: stats.bestShare,
-    bestEver: stats.bestEver,
-  }));
+    return sortedUsers.map((stats) => ({
+      address: stats.userAddress,
+      workerCount: stats.workerCount,
+      hashrate1hr: stats.hashrate1hr,
+      hashrate1d: stats.hashrate1d,
+      hashrate7d: stats.hashrate7d,
+      bestShare: stats.bestShare,
+      bestEver: stats.bestEver,
+    }));
+  });
 }
 
 export async function resetUserActive(address: string): Promise<void> {
@@ -298,8 +369,12 @@ export async function updateSingleUser(address: string): Promise<void> {
         }
       }
     });
-
     console.log(`Updated user and workers for: ${address}`);
+    // Evict caches related to this user so future reads are fresh
+    cacheDelete(`userWithWorkers:${address}`);
+    cacheDelete(`userHistorical:${address}`);
+    // evict top lists (coarse)
+    cacheDeletePrefix('topUser');
   } catch (error) {
     console.error(`Error updating user ${address}:`, error);
     throw error;
@@ -320,6 +395,10 @@ export async function toggleUserStatsPrivacy(
   const newIsPublic = !user.isPublic;
 
   await userRepository.update(address, { isPublic: newIsPublic });
+  // Evict caches for this user so reads reflect new privacy immediately
+  cacheDelete(`userWithWorkers:${address}`);
+  cacheDelete(`userHistorical:${address}`);
+  cacheDeletePrefix('topUser');
 
   return { isPublic: newIsPublic };
 }
