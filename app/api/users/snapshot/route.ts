@@ -20,9 +20,9 @@ export async function GET(request: NextRequest) {
 
     const ifModifiedSince = request.headers.get('if-modified-since');
 
-    // Try to use cached helper result first (avoid DB work)
-    // Access the internal cache via require of lib/api's internal accessor is not ideal,
-    // but we can attempt a lightweight DB check if no cache present.
+    // Attempt a lightweight DB check for last-modified before loading full
+    // snapshot (the full snapshot helper is cached). This avoids expensive
+    // joins when not necessary.
 
     const db = await getDb();
 

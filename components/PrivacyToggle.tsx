@@ -58,8 +58,10 @@ const PrivacyToggle: React.FC<PrivacyToggleProps> = ({
       return response.json();
     },
     onMutate: async () => {
-      // optimistic update
+      // optimistic update: capture previous value so we can roll back on error
+      const previous = isPublic;
       setIsPublic((v) => !v);
+      return { previous };
     },
     onSuccess: (data) => {
       setIsPublic(Boolean(data.isPublic));
@@ -70,8 +72,12 @@ const PrivacyToggle: React.FC<PrivacyToggleProps> = ({
         // ignore router refresh failures
       }
     },
-    onError: (error) => {
+    onError: (error, _variables, context: any) => {
       console.error('Error toggling privacy:', error);
+      // revert optimistic update if we have previous value
+      if (context && typeof context.previous === 'boolean') {
+        setIsPublic(context.previous);
+      }
     },
   });
 

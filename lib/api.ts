@@ -13,6 +13,16 @@ const HISTORICAL_DATA_POINTS = 5760;
 type CacheEntry = { expires: number; value: any };
 const _cache = new Map<string, CacheEntry>();
 
+// Map of in-flight loader promises to dedupe concurrent loads for the same key.
+const _pendingLoads = new Map<string, Promise<any>>();
+
+// Jitter: add small jitter to spread revalidation load slightly.
+// Note: this uses a multiplier in range [0.9, 1.1], so a 60s TTL may expire
+// between ~54s and ~66s. This intentionally allows some early/late expiry
+// to reduce stampeding under high concurrency.
+const _JITTER_MIN = 0.9;
+const _JITTER_RANGE = 0.2;
+
 async function getCached<T>(
   key: string,
   ttlSeconds: number,
@@ -21,14 +31,36 @@ async function getCached<T>(
   const now = Date.now();
   const entry = _cache.get(key);
   if (entry && entry.expires > now) return entry.value as T;
-  const value = await loader();
-  // add small jitter to spread revalidation load slightly
-  const jitter = 0.9 + Math.random() * 0.2;
-  _cache.set(key, {
-    expires: now + Math.round(ttlSeconds * 1000 * jitter),
-    value,
-  });
-  return value;
+
+  // If a load for this key is already in-flight, await and reuse it.
+  const pending = _pendingLoads.get(key);
+  if (pending) {
+    // debug-level log to help trace duplicate-load scenarios during testing
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('[cache] waiting for pending load', key);
+      return (await pending) as T;
+    } catch {
+      // If pending failed, fall through to attempt a fresh load
+    }
+  }
+
+  const loadPromise = (async () => {
+    const value = await loader();
+    const jitter = _JITTER_MIN + Math.random() * _JITTER_RANGE;
+    _cache.set(key, {
+      expires: Date.now() + Math.round(ttlSeconds * 1000 * jitter),
+      value,
+    });
+    return value;
+  })();
+
+  _pendingLoads.set(key, loadPromise);
+  try {
+    return (await loadPromise) as T;
+  } finally {
+    _pendingLoads.delete(key);
+  }
 }
 
 function cacheDelete(key: string) {
@@ -36,6 +68,9 @@ function cacheDelete(key: string) {
 }
 
 function cacheDeletePrefix(prefix: string) {
+  // Snapshot keys first to avoid issues deleting while iterating. This is
+  // slightly more memory-heavy but safe for correctness; if performance
+  // becomes an issue, consider a bounded cache or LRU implementation.
   for (const k of Array.from(_cache.keys())) {
     if (k.startsWith(prefix)) _cache.delete(k);
   }
@@ -52,8 +87,63 @@ function cacheGet(key: string): CacheEntry | undefined {
   return entry;
 }
 
+// Periodic incremental cleanup to remove expired entries even if they are
+// never accessed again. This keeps memory bounded for long-running processes.
+// These values are intentionally hard-coded for predictable behavior in
+// single-host deployments: run every 60s and process 500 keys per tick.
+const CACHE_CLEANUP_INTERVAL_MS = 60_000;
+const CACHE_CLEANUP_BATCH = 500;
+let _cleanupIterator: Iterator<[string, CacheEntry]> | null = null;
+
+function _cacheCleanupTick() {
+  const now = Date.now();
+  if (!_cleanupIterator) _cleanupIterator = _cache.entries();
+
+  let processed = 0;
+  while (processed < CACHE_CLEANUP_BATCH) {
+    const next = _cleanupIterator.next();
+    if (next.done) {
+      _cleanupIterator = null;
+      break;
+    }
+    const [k, entry] = next.value;
+    if (entry.expires <= now) {
+      _cache.delete(k);
+    }
+    processed++;
+  }
+  // debug-level log for visibility during testing
+  // eslint-disable-next-line no-console
+  console.debug('[cache] cleanup tick processed', processed);
+}
+
+const _cleanupTimer = setInterval(_cacheCleanupTick, CACHE_CLEANUP_INTERVAL_MS);
+_cleanupTimer.unref();
+
 // Export cache helpers for testing and controlled eviction in other modules
 export { getCached, cacheDelete, cacheDeletePrefix, cacheGet };
+
+// Test/debug helpers (safe to export for local testing). These are lightweight
+// helpers to populate the cache and inspect current state without changing
+// production behavior. They are intended for local debugging and tests.
+export function cacheSet(key: string, value: any, ttlSeconds: number) {
+  const jitter = _JITTER_MIN + Math.random() * _JITTER_RANGE;
+  _cache.set(key, {
+    expires: Date.now() + Math.round(ttlSeconds * 1000 * jitter),
+    value,
+  });
+}
+
+export function getCacheStats() {
+  return {
+    size: _cache.size,
+    pendingLoads: _pendingLoads.size,
+  };
+}
+
+export function runCacheCleanupNow() {
+  _cacheCleanupTick();
+}
 
 export type PoolStatsInput = Omit<PoolStats, 'id' | 'timestamp'>;
 
