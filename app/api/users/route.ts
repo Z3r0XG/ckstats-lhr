@@ -41,14 +41,13 @@ export async function POST(request: Request) {
     });
 
     if (recentUsersCount >= 10) {
-      console.log('Too many users created recently, user must wait.');
       return NextResponse.json(
         { error: 'Too many users created recently, please try again later.' },
         { status: 429 }
       );
     }
 
-    console.log('Adding user:', address);
+    // adding user (address)
 
     const user = userRepository.create({
       address,
@@ -59,9 +58,7 @@ export async function POST(request: Request) {
 
     await userRepository.save(user);
 
-    console.log(
-      `User ${address} added to database, updating stats in background.`
-    );
+    // user added to database; updating stats in background
     updateSingleUser(address);
 
     // Convert BigInt fields to strings for JSON serialization
