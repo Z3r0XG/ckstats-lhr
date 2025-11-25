@@ -49,13 +49,8 @@ export function formatHashrate(num: string | bigint | number, showLessThanOne: b
 
   // Optional debug logging to diagnose formatting issues in production/test builds.
   // Set the environment variable DEBUG_HASHRATE_FORMAT=1 when you need logs.
-  try {
-    if (process && process.env && process.env.DEBUG_HASHRATE_FORMAT === '1') {
-      console.log('[formatHashrate] input:', num, 'parsed:', numberValue, 'showLessThanOne:', showLessThanOne);
-    }
-  } catch (e) {
-    // ignore in environments without console
-  }
+  // No debug logging in production-ready code; use an external logger
+  // or set of tests when diagnosing formatting issues.
 
   for (const unit of isoUnits) {
     if (absNum >= unit.threshold) {
@@ -71,20 +66,14 @@ export function formatHashrate(num: string | bigint | number, showLessThanOne: b
   }
 
   if (numberValue === 0) {
-    const out = '0 H/s';
-    if (process && process.env && process.env.DEBUG_HASHRATE_FORMAT === '1') console.log('[formatHashrate] ->', out);
-    return out;
+    return '0 H/s';
   }
 
   if (absNum < 1 && showLessThanOne) {
-    const out = '<1 H/s';
-    if (process && process.env && process.env.DEBUG_HASHRATE_FORMAT === '1') console.log('[formatHashrate] ->', out);
-    return out;
+    return '<1 H/s';
   }
 
-  const out = numberValue.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' H/s';
-  if (process && process.env && process.env.DEBUG_HASHRATE_FORMAT === '1') console.log('[formatHashrate] ->', out);
-  return out;
+  return numberValue.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' H/s';
 }
 
 export function convertHashrate(value: string): bigint {

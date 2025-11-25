@@ -6,6 +6,7 @@ import { getUserWithWorkersAndStats } from '../../../../lib/api';
 import { getDb } from '../../../../lib/db';
 import { User } from '../../../../lib/entities/User';
 import { UserStats } from '../../../../lib/entities/UserStats';
+import { Worker } from '../../../../lib/entities/Worker';
 
 // Lightweight snapshot endpoint with If-Modified-Since handling.
 export async function GET(request: NextRequest) {
@@ -33,6 +34,14 @@ export async function GET(request: NextRequest) {
       select: ['updatedAt'],
     });
 
+    // If the user doesn't exist, return 404 early to avoid unnecessary
+    // work (no point querying stats or workers).
+    if (!userRow) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Query MAX timestamps for user stats and workers to compute a correct
+    // Last-Modified value that covers all related data.
     const statsMax = await db
       .getRepository(UserStats)
       .createQueryBuilder('s')
@@ -40,14 +49,29 @@ export async function GET(request: NextRequest) {
       .where('s.userAddress = :address', { address })
       .getRawOne();
 
-    const userUpdatedAt = userRow?.updatedAt
+    const workersMax = await db
+      .getRepository(Worker)
+      .createQueryBuilder('w')
+      .select('MAX(w.lastUpdate)', 'maxW')
+      .where('w.userAddress = :address', { address })
+      .getRawOne();
+
+    const userUpdatedAt = userRow.updatedAt
       ? new Date(userRow.updatedAt).getTime()
       : 0;
     const statsUpdatedAt = statsMax?.maxTs
       ? new Date(statsMax.maxTs).getTime()
       : 0;
+    const workersUpdatedAt = workersMax?.maxW
+      ? new Date(workersMax.maxW).getTime()
+      : 0;
+
     // Normalize to seconds precision to match HTTP Last-Modified header granularity
-    const rawLastModifiedTs = Math.max(userUpdatedAt, statsUpdatedAt);
+    const rawLastModifiedTs = Math.max(
+      userUpdatedAt,
+      statsUpdatedAt,
+      workersUpdatedAt
+    );
     const lastModifiedTs =
       Math.floor((rawLastModifiedTs || Date.now()) / 1000) * 1000;
 

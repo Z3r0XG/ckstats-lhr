@@ -23,7 +23,7 @@ describe('in-memory cache helpers', () => {
     // Make jitter deterministic (1.0)
     jest.spyOn(global.Math, 'random').mockImplementation(() => 0.5);
 
-    jest.useFakeTimers('modern');
+    jest.useFakeTimers();
     const start = Date.now();
     jest.setSystemTime(start);
 

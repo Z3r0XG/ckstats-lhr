@@ -35,10 +35,8 @@ async function getCached<T>(
   // If a load for this key is already in-flight, await and reuse it.
   const pending = _pendingLoads.get(key);
   if (pending) {
-    // debug-level log to help trace duplicate-load scenarios during testing
+    // If a load for this key is already in-flight, await and reuse it.
     try {
-      // eslint-disable-next-line no-console
-      console.debug('[cache] waiting for pending load', key);
       return (await pending) as T;
     } catch {
       // If pending failed, fall through to attempt a fresh load
@@ -112,9 +110,7 @@ function _cacheCleanupTick() {
     }
     processed++;
   }
-  // debug-level log for visibility during testing
-  // eslint-disable-next-line no-console
-  console.debug('[cache] cleanup tick processed', processed);
+  // intentionally silent in production; no debug logging here
 }
 
 const _cleanupTimer = setInterval(_cacheCleanupTick, CACHE_CLEANUP_INTERVAL_MS);
@@ -360,7 +356,7 @@ export async function updateSingleUser(address: string): Promise<void> {
     throw new Error('API_URL is not defined in environment variables');
   }
 
-  console.log('Attempting to update user stats for:', address);
+  // updating user stats for: <address>
 
   try {
     let userData;
@@ -379,8 +375,7 @@ export async function updateSingleUser(address: string): Promise<void> {
       } else throw error;
     }
 
-    console.log('API URL:', apiUrl);
-    console.log('Response:', userData);
+    // fetched user data from apiUrl
 
     const db = await getDb();
     await db.transaction(async (manager) => {
@@ -459,12 +454,15 @@ export async function updateSingleUser(address: string): Promise<void> {
         }
       }
     });
-    console.log(`Updated user and workers for: ${address}`);
+    // updated user and workers for address
     // Evict caches related to this user so future reads are fresh
     cacheDelete(`userWithWorkers:${address}`);
     cacheDelete(`userHistorical:${address}`);
     // evict top lists (coarse)
     cacheDeletePrefix('topUser');
+    // evict cached per-worker entries for this user to avoid serving stale
+    // worker stats until the short TTL expires
+    cacheDeletePrefix(`workerWithStats:${address}:`);
   } catch (error) {
     console.error(`Error updating user ${address}:`, error);
     throw error;

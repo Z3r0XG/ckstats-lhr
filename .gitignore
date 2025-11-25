@@ -46,3 +46,6 @@ next-env.d.ts
 .clinic
 .wsl-backup/
 *.bak
+
+# Local run outputs (do not commit)
+.run_outputs/
