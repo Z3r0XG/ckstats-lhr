@@ -17,7 +17,10 @@ export async function main(opts?: { dryRun?: boolean }) {
   let updated = 0;
   let wouldUpdate = 0;
   let errors = 0;
-  const CONCURRENCY = 10; // default concurrency for batch processing
+  // Tuned fixed concurrency: balances parallelism and resource usage.
+  // Chosen value: 16 — high enough to utilize I/O concurrency without
+  // overwhelming typical API/DB endpoints for medium-to-large pools.
+  const CONCURRENCY = 16;
 
   try {
     // Reuse the existing `updateSingleUser` logic for each address.
