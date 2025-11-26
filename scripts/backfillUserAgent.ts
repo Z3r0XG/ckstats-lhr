@@ -27,9 +27,12 @@ export async function main(opts?: { dryRun?: boolean }) {
   const db = await getDb();
   const repo = db.getRepository(Worker);
   let updated = 0;
-  let skipped = 0;
+  let skippedFiles = 0;
+  let skippedWorkers = 0;
   let wouldUpdate = 0;
-  for (const f of files) {
+
+  try {
+    for (const f of files) {
     const filePath = path.join(logDir, f);
     let raw: string;
     try {
@@ -49,21 +52,41 @@ export async function main(opts?: { dryRun?: boolean }) {
 
     const address = path.basename(f);
     if (!data?.worker || !Array.isArray(data.worker)) {
-      skipped++;
+      skippedFiles++;
       continue;
     }
+
+    // Batch-load workers for this address to avoid N+1 queries
+    let addressWorkers: Worker[] = [];
+    try {
+      addressWorkers = await repo.find({ where: { userAddress: address } });
+    } catch (err) {
+      console.error('Failed to load workers for address', address, err);
+      skippedFiles++;
+      continue;
+    }
+    const workerMap = new Map(addressWorkers.map((w) => [w.name, w]));
 
     for (const w of data.worker) {
       try {
         const workerName = String(w.workername ?? '').split('.')[1];
-        if (!workerName) continue;
+        if (!workerName) {
+          skippedWorkers++;
+          continue;
+        }
         const rawUa = String(w.useragent ?? '').trim();
-        if (!rawUa) continue;
+        if (!rawUa) {
+          skippedWorkers++;
+          continue;
+        }
         const token = normalizeUa(rawUa);
-        const existing = await repo.findOne({ where: { userAddress: address, name: workerName } });
-        if (!existing) continue;
+        const existing = workerMap.get(workerName);
+        if (!existing) {
+          skippedWorkers++;
+          continue;
+        }
         if (existing.userAgentRaw === rawUa && existing.userAgent === token) {
-          skipped++;
+          skippedWorkers++;
           continue;
         }
         if (dryRun) {
@@ -77,14 +100,23 @@ export async function main(opts?: { dryRun?: boolean }) {
         console.error('Error processing worker in', filePath, err);
       }
     }
+    }
+  }
+  } finally {
+    // ensure DB connection is closed
+    try {
+      if (db && (db as any).isInitialized) await (db as any).destroy();
+    } catch (err) {
+      // ignore cleanup errors but log
+      console.error('Error closing DB connection', err);
+    }
   }
 
   if (dryRun) {
-    console.log(`Dry-run complete. Would update: ${wouldUpdate}, Skipped: ${skipped}`);
+    console.log(`Dry-run complete. Would update: ${wouldUpdate}, Skipped files: ${skippedFiles}, Skipped workers: ${skippedWorkers}`);
   } else {
-    console.log(`Backfill complete. Updated: ${updated}, Skipped: ${skipped}`);
+    console.log(`Backfill complete. Updated: ${updated}, Skipped files: ${skippedFiles}, Skipped workers: ${skippedWorkers}`);
   }
-  process.exit(0);
 }
 
 if (require.main === module) {
