@@ -18,6 +18,7 @@
     "migration:run": "ts-node -P tsconfig.scripts.json ./scripts/migration.ts",
     "migration:run:skip": "ts-node -P tsconfig.scripts.json ./scripts/migration.ts --skip-initial",
     "postinstall": "node ./scripts/checkAndMaybeFixPnpmLinks.js || true"
+    ,"backfill:useragent": "ts-node -P tsconfig.scripts.json scripts/backfillUserAgent.ts"
   },
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",

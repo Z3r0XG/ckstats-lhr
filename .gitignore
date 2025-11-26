@@ -1,4 +1,12 @@
-# Dependencies
+/.env
+/node_modules/
+/.next/
+/dist/
+/npm-debug.log
+/pnpm-lock.yaml
+/yarn.lock
+/package-lock.json
+/.run_outputs/# Dependencies
 node_modules
 /.pnp
 .pnp.js

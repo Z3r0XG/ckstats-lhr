@@ -71,8 +71,11 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         return sortOrder === 'asc' ? Number(aVal - bVal) : Number(bVal - aVal);
       }
 
-      if (a[sortField] < b[sortField]) return sortOrder === 'asc' ? -1 : 1;
-      if (a[sortField] > b[sortField]) return sortOrder === 'asc' ? 1 : -1;
+      const aField = a[sortField];
+      const bField = b[sortField];
+      if (aField == null || bField == null) return 0;
+      if (aField < bField) return sortOrder === 'asc' ? -1 : 1;
+      if (aField > bField) return sortOrder === 'asc' ? 1 : -1;
     }
 
     return 0;
@@ -93,6 +96,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
               <th onClick={() => handleSort('name')} className="cursor-pointer">
                 Name{renderSortIcon('name')}
               </th>
+              <th className="cursor-pointer">Client</th>
               <th
                 onClick={() => handleSort('hashrate5m')}
                 className="cursor-pointer"
@@ -203,6 +207,11 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                     >
                       {worker.name || <span className="italic">Unnamed</span>}
                     </Link>
+                  </td>
+                  <td title={worker.userAgentRaw || ''}>
+                    {worker.userAgent && String(worker.userAgent).trim() !== ''
+                      ? worker.userAgent
+                      : 'N/A'}
                   </td>
                   <td className={cls5m}>{renderHr(hr5mRaw, hr5m)}</td>
                   <td className={cls1hr}>{renderHr(hr1hrRaw, hr1hr)}</td>
