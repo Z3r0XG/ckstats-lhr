@@ -3,8 +3,6 @@ export interface ISOUnit {
   iso: string;
 }
 
-// An array of all ISO units we support for formatting large numbers.
-// Make sure you check for 0 if you use this.
 const isoUnits: ISOUnit[] = [
   { threshold: 1e21, iso: 'Z' },
   { threshold: 1e18, iso: 'E' },
@@ -15,8 +13,6 @@ const isoUnits: ISOUnit[] = [
   { threshold: 1e3, iso: 'k' },
 ] as const;
 
-// Map of unit suffix (case-sensitive) to multiplier.
-// We intentionally include common variants (uppercase/lowercase and ascii 'u' for micro).
 const unitMultipliers: { [unit: string]: number } = {
   Z: 1e21,
   E: 1e18,
@@ -47,10 +43,6 @@ export function formatHashrate(num: string | bigint | number, showLessThanOne: b
   const numberValue = Number(num);
   const absNum = Math.abs(numberValue);
 
-  // Optional debug logging to diagnose formatting issues in production/test builds.
-  // Set the environment variable DEBUG_HASHRATE_FORMAT=1 when you need logs.
-  // No debug logging in production-ready code; use an external logger
-  // or set of tests when diagnosing formatting issues.
 
   for (const unit of isoUnits) {
     if (absNum >= unit.threshold) {
@@ -58,9 +50,6 @@ export function formatHashrate(num: string | bigint | number, showLessThanOne: b
     }
   }
 
-  // Exact zero should display as "0 H/s". If the value is positive but
-  // less than 1 and the caller requested the "<1" treatment, show "<1 H/s".
-  // Handle non-finite or NaN inputs gracefully
   if (!Number.isFinite(numberValue)) {
     return '0 H/s';
   }
@@ -79,7 +68,6 @@ export function formatHashrate(num: string | bigint | number, showLessThanOne: b
 export function convertHashrate(value: string): bigint {
   if (!value) return BigInt(0);
 
-  // Match unit-suffixed values like "1.5M", "2k", "370u" (supports signed, decimal and scientific notation)
   const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/);
   if (match) {
     const [, num, unit] = match;
@@ -90,7 +78,6 @@ export function convertHashrate(value: string): bigint {
     return BigInt(Math.round(val));
   }
 
-  // If it's a plain integer string (no dot, no exponent), use BigInt to preserve very large values
   if (/^[+-]?\d+$/.test(value.trim())) {
     try {
       return BigInt(value);
@@ -99,22 +86,17 @@ export function convertHashrate(value: string): bigint {
     }
   }
 
-  // Fallback: parse as a decimal/scientific number (e.g., "0.5", "1e3"); apply floor/rounding rules
   const parsed = Number(value);
   if (Number.isNaN(parsed)) return BigInt(0);
   if (parsed < 1) return BigInt(0);
   const rounded = Math.round(parsed);
-  // safety: ensure we never return a negative bigint
   if (rounded <= 0) return BigInt(0);
   return BigInt(rounded);
 };
 
-// Preserve fractional hashrate as a floating number (H/s). Returns a number.
 export function convertHashrateFloat(value: string): number {
   if (!value) return 0;
 
-  // Match unit-suffixed values like "1.5M", "2k", "370u"
-  // Accept an optional sign, integer or decimal, and optional exponent (e or E with optional sign)
   const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/);
   if (match) {
     const [, num, unit] = match;
@@ -189,12 +171,7 @@ export function calculatePercentageChange(currentValue: number, pastValue: numbe
   return Number(percentageChange.toFixed(2));
 }
 
-/**
- * Select the nth-most-recent historical sample (default 120 -> index 119)
- * and compute a percentage change between `stats[key]` and that sample.
- * Returns the same result types as `calculatePercentageChange` and applies
- * the same guards (returns 'N/A' when insufficient samples or past value is 0).
- */
+
 export function getHistoricalPercentageChange(
   stats: any,
   historical: any[] | null | undefined,
@@ -216,13 +193,10 @@ export function getPercentageChangeColor(change: number | 'N/A'): string {
   return change > 0 ? 'text-success' : change < 0 ? 'text-error' : 'text-base-content';
 }
 
-// Difficulty is assumed to be in T, hashrate in H/s
 export function calculateAverageTimeToBlock(hashRate: number | bigint, difficulty: number | bigint, units?: string): number {
-  // Accept number or bigint for hashRate. Convert to number safely for double-precision calculations.
   const hashesPerDifficulty = Math.pow(2, 32);
   let diffNum: number;
   if (typeof difficulty === 'bigint') {
-    // difficulty stored as bigint: convert to number (may lose precision for astronomic values)
     diffNum = Number(difficulty);
   } else {
     if (units === 'T') {
@@ -235,14 +209,10 @@ export function calculateAverageTimeToBlock(hashRate: number | bigint, difficult
   const hr = typeof hashRate === 'bigint' ? Number(hashRate) : hashRate;
   if (!Number.isFinite(hr) || hr === 0 || !Number.isFinite(diffNum) || diffNum === 0) return Infinity;
 
-  // expected seconds = difficulty * 2^32 / hashRate
   return (diffNum * hashesPerDifficulty) / hr;
 }
 
-// Difficulty is assumed to be a % of network, hashrate in H/s
 export function calculateBlockChances(hashRate: number | bigint, difficulty: number, accepted: bigint): { [key: string]: string } {
-  // Convert accepted and difficulty into a probability per hash. This function prefers number math
-  // because we use fractional hashrates. For very large integers, precision might be limited.
   const acceptedNum = Number(accepted);
   const networkDiff = Number(difficulty);
   if (!Number.isFinite(acceptedNum) || !Number.isFinite(networkDiff) || networkDiff === 0) {
@@ -255,8 +225,6 @@ export function calculateBlockChances(hashRate: number | bigint, difficulty: num
     };
   }
 
-  // Estimate probability per hash. Note: original code used a derived network difficulty from accepted and difficulty.
-  // We approximate similarly but remain in floating arithmetic.
   const hashesPerDifficulty = Math.pow(2, 32);
   const networkFactor = (acceptedNum / (networkDiff * 100));
   const probabilityPerHash = 1 / (networkFactor * hashesPerDifficulty);
@@ -283,13 +251,8 @@ export function calculateBlockChances(hashRate: number | bigint, difficulty: num
   return Object.entries(periodsInSeconds).reduce((chances, [period, seconds]) => {
     const lambda = hashesPerSecond * seconds * probabilityPerHash;
     const probability = 1 - Math.exp(-lambda);
-    // Use a smaller threshold for very small probabilities so UX can show
-    // a more granular "<0.0001%" instead of the previous "<0.001%".
     const pct = probability * 100;
     if (pct > 0.0001) {
-      // For tiny but non-negligible probabilities, show more precision
-      // (up to 6 decimal places). For larger percentages the fixed 3
-      // decimal display is sufficient for readability.
       chances[period] = pct < 0.1 ? `${pct.toFixed(6)}%` : `${pct.toFixed(3)}%`;
     } else {
       chances[period] = `<0.0001%`;

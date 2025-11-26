@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/no-unresolved
 import 'dotenv/config';
 import 'reflect-metadata';
 import * as fs from 'fs';
@@ -197,7 +196,6 @@ async function main() {
       console.log('No active users found');
     }
 
-    // Process users in batches
     for (let i = 0; i < users.length; i += BATCH_SIZE) {
       const batch = users.slice(i, i + BATCH_SIZE);
       console.log(`Processing batch ${i / BATCH_SIZE + 1} of ${Math.ceil(users.length / BATCH_SIZE)}`);
@@ -228,5 +226,4 @@ async function main() {
   }
 }
 
-// Run the script
 main().catch(console.error);
