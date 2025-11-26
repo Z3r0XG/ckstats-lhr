@@ -61,13 +61,11 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
    
    These cronjobs will run the `seed` and `update-users` scripts every 1 minute to populate the database and clean up old statistics every 2 hours.
 
-12. (Optional) Backfill historical user-agent data
-   - Use case: populate missing client/firmware identifiers so older/imported worker rows show a user-agent in the UI.
-   - Recommended (safe) workflow:
+12. (Optional) Backfill user-agent data
+   - This version of ckstats captures client/firmware identifiers from versions of ckpool that provide this information. For active users who check their User stats page, it will naturally update and display this information for their individual workers. If you prefer to manually update all existing workers with available info, you can:
      1. Preview: `pnpm run backfill:useragent -- --dry-run` (no writes)
      2. Apply: `pnpm run backfill:useragent`
-   - Notes: this can touch many rows and take time — run during a maintenance window. Active users who visit the site
-     will have user-agent values captured automatically; use the backfill only to accelerate coverage for historical data.
+   - Note: this can touch many rows and take time to complete — running during a maintenance window is recommended.
 
 
 ## Scripts
@@ -84,10 +82,7 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
 - `pnpm test:watch`: Run tests in watch mode
 - `pnpm migration:run`: Run TypeORM database migrations
 - `pnpm migration:run:skip`: Run TypeORM database migrations skipping the initial migration
- - `pnpm migration:run:skip`: Run TypeORM database migrations skipping the initial migration
- - `pnpm run backfill:useragent`: Optional — fills missing client/firmware identifiers (`userAgent`/`userAgentRaw`) for
-   existing Worker rows using local miner logs. Preview with `pnpm run backfill:useragent -- --dry-run`, then apply with
-   `pnpm run backfill:useragent`. Not required for normal operation; primarily useful after importing historical data.
+ - `pnpm run backfill:useragent`: Fills missing client/firmware identifiers 
 
 
 ## License

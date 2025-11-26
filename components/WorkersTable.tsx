@@ -96,7 +96,12 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
               <th onClick={() => handleSort('name')} className="cursor-pointer">
                 Name{renderSortIcon('name')}
               </th>
-              <th className="cursor-pointer">Client</th>
+              <th
+                onClick={() => handleSort('userAgent')}
+                className="cursor-pointer"
+              >
+                Client{renderSortIcon('userAgent')}
+              </th>
               <th
                 onClick={() => handleSort('hashrate5m')}
                 className="cursor-pointer"

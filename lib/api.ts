@@ -6,6 +6,14 @@ import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
 import { Worker } from './entities/Worker';
 import { convertHashrateFloat } from '../utils/helpers';
+function normalizeUserAgent(rawUa: string | undefined): string {
+  if (!rawUa) return '';
+  return String(rawUa)
+    .split('/')[0]
+    .split(' ')[0]
+    .replace(/[^\x20-\x7E]/g, '')
+    .slice(0, 64);
+}
 
 const HISTORICAL_DATA_POINTS = 5760;
 
@@ -426,22 +434,10 @@ export async function updateSingleUser(address: string): Promise<void> {
           },
         });
         if (worker) {
-          // normalize and store useragent if provided
-          try {
-            const rawUa = (workerData.useragent ?? '').trim();
-            const token = rawUa
-              ? String(rawUa)
-                  .split('/')[0]
-                  .split(' ')[0]
-                  .replace(/[^\x20-\x7E]/g, '')
-                  .slice(0, 64)
-              : '';
-            worker.userAgent = token;
-            worker.userAgentRaw = rawUa || null;
-          } catch {
-            worker.userAgent = '';
-            worker.userAgentRaw = null;
-          }
+          const rawUa = (workerData.useragent ?? '').trim();
+          const token = normalizeUserAgent(rawUa);
+          worker.userAgent = token;
+          worker.userAgentRaw = rawUa || null;
           worker.hashrate1m = convertHashrateFloat(workerData.hashrate1m);
           worker.hashrate5m = convertHashrateFloat(workerData.hashrate5m);
           worker.hashrate1hr = convertHashrateFloat(workerData.hashrate1hr);
@@ -454,13 +450,7 @@ export async function updateSingleUser(address: string): Promise<void> {
           await workerRepository.save(worker);
         } else {
           const rawUa = (workerData.useragent ?? '').trim();
-          const token = rawUa
-            ? String(rawUa)
-                .split('/')[0]
-                .split(' ')[0]
-                .replace(/[^\x20-\x7E]/g, '')
-                .slice(0, 64)
-            : '';
+          const token = normalizeUserAgent(rawUa);
           await workerRepository.insert({
             userAddress: address,
             name: workerName,
