@@ -17,32 +17,48 @@ export async function main(opts?: { dryRun?: boolean }) {
   let updated = 0;
   let wouldUpdate = 0;
   let errors = 0;
+  const CONCURRENCY = 10; // default concurrency for batch processing
 
   try {
     // Reuse the existing `updateSingleUser` logic for each address.
-    let addrRows: Array<{ userAddress: string }> = [];
+    let addrRows: Array<{ address: string }> = [];
     try {
-      addrRows = await db.query('SELECT DISTINCT "userAddress" FROM "Worker"');
+      addrRows = await db.query('SELECT DISTINCT "userAddress" as address FROM "Worker"');
     } catch (err) {
       console.error('Failed to query distinct userAddress from DB', err);
       throw err;
     }
 
-    for (const r of addrRows) {
-      const address = (r as any).userAddress || (r as any).useraddress || Object.values(r)[0];
-      if (dryRun) {
-        wouldUpdate++;
-        console.log(`Would update user ${address}`);
-        continue;
-      }
+    const addresses = addrRows.map((r: any) => String(r.address));
 
-      try {
-        await updateSingleUser(address);
-        updated++;
-      } catch (err) {
-        errors++;
-        console.error('Error updating user', address, err);
-      }
+    // Process in batches to limit concurrency and avoid overloading API/DB
+    for (let i = 0; i < addresses.length; i += CONCURRENCY) {
+      const batch = addresses.slice(i, i + CONCURRENCY);
+      await Promise.all(
+        batch.map(async (address) => {
+          if (dryRun) {
+            try {
+              await updateSingleUser(address, { dryRun: true });
+              wouldUpdate++;
+              console.log(`Would update user ${address}`);
+            } catch (err) {
+              errors++;
+              console.error(`Would NOT update user ${address} (validation failed):`, err);
+            }
+            return;
+          }
+
+          try {
+            await updateSingleUser(address);
+            updated++;
+          } catch (err) {
+            errors++;
+            console.error('Error updating user', address, err);
+          }
+        })
+      );
+      // basic progress logging
+      console.log(`Processed ${Math.min(i + CONCURRENCY, addresses.length)}/${addresses.length} addresses`);
     }
   } finally {
     // ensure DB connection is closed

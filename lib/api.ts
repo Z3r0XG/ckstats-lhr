@@ -351,7 +351,7 @@ export async function resetUserActive(address: string): Promise<void> {
   await userRepository.update(address, { isActive: true });
 }
 
-export async function updateSingleUser(address: string): Promise<void> {
+export async function updateSingleUser(address: string, opts?: { dryRun?: boolean }): Promise<void> {
   // Perform a last minute check to prevent directory traversal vulnerabilities
   if (/[^a-zA-Z0-9]/.test(address)) {
     throw new Error('updateSingleUser(): address contains invalid characters');
@@ -381,6 +381,15 @@ export async function updateSingleUser(address: string): Promise<void> {
       if (error.cause?.code == 'ERR_INVALID_URL') {
         userData = JSON.parse(fs.readFileSync(apiUrl, 'utf-8'));
       } else throw error;
+    }
+
+    // If dryRun is requested, validate fetched data and return without writing.
+    if (opts?.dryRun) {
+      if (!userData || !Array.isArray(userData.worker)) {
+        throw new Error('Invalid user data fetched during dry-run');
+      }
+      // Basic validation passed — return early
+      return;
     }
 
     // fetched user data from apiUrl
