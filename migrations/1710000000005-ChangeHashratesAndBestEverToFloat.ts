@@ -4,7 +4,6 @@ export class ChangeHashratesAndBestEverToFloat1710000000005 implements Migration
   name = 'ChangeHashratesAndBestEverToFloat1710000000005';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // PoolStats hashrates and bestshare
     await queryRunner.query(`ALTER TABLE "PoolStats" ALTER COLUMN "hashrate1m" TYPE double precision USING "hashrate1m"::double precision;`);
     await queryRunner.query(`ALTER TABLE "PoolStats" ALTER COLUMN "hashrate5m" TYPE double precision USING "hashrate5m"::double precision;`);
     await queryRunner.query(`ALTER TABLE "PoolStats" ALTER COLUMN "hashrate15m" TYPE double precision USING "hashrate15m"::double precision;`);
@@ -14,7 +13,6 @@ export class ChangeHashratesAndBestEverToFloat1710000000005 implements Migration
     await queryRunner.query(`ALTER TABLE "PoolStats" ALTER COLUMN "hashrate7d" TYPE double precision USING "hashrate7d"::double precision;`);
     await queryRunner.query(`ALTER TABLE "PoolStats" ALTER COLUMN "bestshare" TYPE double precision USING "bestshare"::double precision;`);
 
-    // UserStats bestEver and hashrates
     await queryRunner.query(`ALTER TABLE "UserStats" ALTER COLUMN "hashrate1m" TYPE double precision USING "hashrate1m"::double precision;`);
     await queryRunner.query(`ALTER TABLE "UserStats" ALTER COLUMN "hashrate5m" TYPE double precision USING "hashrate5m"::double precision;`);
     await queryRunner.query(`ALTER TABLE "UserStats" ALTER COLUMN "hashrate1hr" TYPE double precision USING "hashrate1hr"::double precision;`);
@@ -22,7 +20,6 @@ export class ChangeHashratesAndBestEverToFloat1710000000005 implements Migration
     await queryRunner.query(`ALTER TABLE "UserStats" ALTER COLUMN "hashrate7d" TYPE double precision USING "hashrate7d"::double precision;`);
     await queryRunner.query(`ALTER TABLE "UserStats" ALTER COLUMN "bestEver" TYPE double precision USING "bestEver"::double precision;`);
 
-    // Worker hashrates and bestEver
     await queryRunner.query(`ALTER TABLE "Worker" ALTER COLUMN "hashrate1m" TYPE double precision USING "hashrate1m"::double precision;`);
     await queryRunner.query(`ALTER TABLE "Worker" ALTER COLUMN "hashrate5m" TYPE double precision USING "hashrate5m"::double precision;`);
     await queryRunner.query(`ALTER TABLE "Worker" ALTER COLUMN "hashrate1hr" TYPE double precision USING "hashrate1hr"::double precision;`);
@@ -30,7 +27,6 @@ export class ChangeHashratesAndBestEverToFloat1710000000005 implements Migration
     await queryRunner.query(`ALTER TABLE "Worker" ALTER COLUMN "hashrate7d" TYPE double precision USING "hashrate7d"::double precision;`);
     await queryRunner.query(`ALTER TABLE "Worker" ALTER COLUMN "bestEver" TYPE double precision USING "bestEver"::double precision;`);
 
-    // WorkerStats hashrates and bestEver
     await queryRunner.query(`ALTER TABLE "WorkerStats" ALTER COLUMN "hashrate1m" TYPE double precision USING "hashrate1m"::double precision;`);
     await queryRunner.query(`ALTER TABLE "WorkerStats" ALTER COLUMN "hashrate5m" TYPE double precision USING "hashrate5m"::double precision;`);
     await queryRunner.query(`ALTER TABLE "WorkerStats" ALTER COLUMN "hashrate1hr" TYPE double precision USING "hashrate1hr"::double precision;`);
@@ -40,7 +36,6 @@ export class ChangeHashratesAndBestEverToFloat1710000000005 implements Migration
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Revert columns back to bigint where appropriate
     await queryRunner.query(`ALTER TABLE "WorkerStats" ALTER COLUMN "bestEver" TYPE bigint USING round("bestEver")::bigint;`);
     await queryRunner.query(`ALTER TABLE "WorkerStats" ALTER COLUMN "hashrate7d" TYPE bigint USING round("hashrate7d")::bigint;`);
     await queryRunner.query(`ALTER TABLE "WorkerStats" ALTER COLUMN "hashrate1d" TYPE bigint USING round("hashrate1d")::bigint;`);

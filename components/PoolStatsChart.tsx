@@ -130,7 +130,6 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
     },
   ];
 
-  // Calculate the maximum hashrate
   const maxHashrate = Math.max(
     ...data.flatMap((stat) => [
       Number(stat.hashrate1m),
@@ -143,14 +142,11 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
     ])
   );
 
-  // Find out the nearest ISO unit
   const hashrateUnit: ISOUnit = findISOUnit(Number(maxHashrate));
   const hashrateDivisor: number = hashrateUnit.threshold;
 
-  // Reverse the data array
   const reversedData = [...data].reverse();
 
-  // Format the reversed data for the charts
   const formattedData = reversedData.map((item) => ({
     ...item,
     timestamp: new Date(item.timestamp).toLocaleString('en-US', {

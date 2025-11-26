@@ -29,7 +29,6 @@ function makeHistorical(len: number, valueAt119: number) {
   return arr;
 }
 
-// Use the public helper to compute historical percent change.
 function computePercentForKey(stats: any, historical: any[], key: string) {
   return getHistoricalPercentageChange(stats, historical, key);
 }

@@ -1,7 +1,6 @@
 import { updateSingleUser } from '../../lib/api';
 import * as dbModule from '../../lib/db';
 
-// Mock global fetch
 const mockUserData = {
   authorised: true,
   lastshare: 1690000000,
@@ -32,7 +31,6 @@ const mockUserData = {
 
 describe('updateSingleUser (mocked DB + fetch)', () => {
   beforeEach(() => {
-    // @ts-ignore
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => mockUserData });
 
     const fakeUserRepo = {
@@ -70,13 +68,10 @@ describe('updateSingleUser (mocked DB + fetch)', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-    // @ts-ignore
     delete global.fetch;
   });
 
   it('creates user stats and workers with expected types', async () => {
     await expect(updateSingleUser('someaddress')).resolves.not.toThrow();
-    // We mainly assert that the function runs without throwing when DB and fetch are mocked.
-    // Detailed assertions for repository calls are handled via the mocked repos above if needed.
   });
 });

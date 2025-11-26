@@ -101,7 +101,6 @@ export class InitialMigration1710000000000 implements MigrationInterface {
             )
         `);
 
-    // Add foreign key constraints
     await queryRunner.query(`
             ALTER TABLE "UserStats"
             ADD CONSTRAINT "FK_UserStats_User"
@@ -126,7 +125,6 @@ export class InitialMigration1710000000000 implements MigrationInterface {
             ON DELETE CASCADE
         `);
 
-    // Create indexes
     await queryRunner.query(
       `CREATE INDEX "IDX_PoolStats_Timestamp" ON "PoolStats" ("timestamp")`
     );
@@ -163,7 +161,6 @@ export class InitialMigration1710000000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop indexes
     await queryRunner.query(`DROP INDEX "WorkerStats_workerId_idx"`);
     await queryRunner.query(`DROP INDEX "WorkerStats_timestamp_idx"`);
 
@@ -180,7 +177,6 @@ export class InitialMigration1710000000000 implements MigrationInterface {
 
     await queryRunner.query(`DROP INDEX "IDX_PoolStats_Timestamp"`);
 
-    // Drop foreign key constraints
     await queryRunner.query(
       `ALTER TABLE "WorkerStats" DROP CONSTRAINT "FK_WorkerStats_Worker"`
     );
@@ -191,7 +187,6 @@ export class InitialMigration1710000000000 implements MigrationInterface {
       `ALTER TABLE "UserStats" DROP CONSTRAINT "FK_UserStats_User"`
     );
 
-    // Drop tables
     await queryRunner.query(`DROP TABLE "WorkerStats"`);
     await queryRunner.query(`DROP TABLE "Worker"`);
     await queryRunner.query(`DROP TABLE "UserStats"`);

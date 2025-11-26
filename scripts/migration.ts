@@ -26,7 +26,6 @@ async function runMigrations() {
       console.log('\nNewly applied migrations:');
       migrations.forEach((m: any) => console.log(`- ${m.name}`));
 
-      // If the AddUserAgent migration was applied, print an operator note
       const addedUserAgent = migrations.some((m: any) => String(m.name).includes('AddUserAgentToWorker'));
       if (addedUserAgent) {
         console.log('\nNOTE: Client/firmware identifiers are now available in the database.');

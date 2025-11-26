@@ -22,7 +22,6 @@ describe('convertHashrateFloat', () => {
 describe('convertHashrate (bigint)', () => {
   test('returns BigInt for large units and 0 for sub-1 values', () => {
     expect(convertHashrate('370M').toString()).toBe('370000000');
-    // micro values below 1 H/s should round to 0 for bigint conversion
     expect(convertHashrate('370u').toString()).toBe('0');
     expect(convertHashrate('1.5k').toString()).toBe('1500');
   });

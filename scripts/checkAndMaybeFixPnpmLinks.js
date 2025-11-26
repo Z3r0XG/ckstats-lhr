@@ -1,7 +1,4 @@
 #!/usr/bin/env node
-// Interactive checker that previews top-level link operations created by fixPnpmLinks.js
-// and prompts the user to confirm. Respects env overrides: FIX_PNPM_LINKS=1 (auto-fix),
-// FIX_PNPM_LINKS=0 (skip), DRY_RUN=1 (preview only).
 
 const { spawnSync } = require('child_process');
 const path = require('path');
@@ -11,7 +8,6 @@ const fixer = path.join(__dirname, 'fixPnpmLinks.js');
 
 console.log('Note: links will be created under node_modules/.');
 
-// Run a dry run of the fixer to show planned operations
 const dry = spawnSync(process.execPath, [fixer], {
   env: { ...process.env, DRY_RUN: '1' },
   encoding: 'utf8'
@@ -39,7 +35,6 @@ if (process.env.FIX_PNPM_LINKS === '1') {
   process.exit(r.status || 0);
 }
 
-// Prompt the user
 const prompt = 'Create these top-level links in this repository now? (these will be created under node_modules/ in the current project) (y/N): ';
 
 function ask(question, cb) {

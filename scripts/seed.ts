@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/no-unresolved
 import 'dotenv/config';
 import * as fs from 'fs';
 import { getDb } from '../lib/db';
@@ -81,7 +80,6 @@ async function seed() {
 
     if (DRY_RUN) {
       console.log('DRY_RUN enabled — would save the following PoolStats object:');
-      // Convert bigints to strings for readable output
       const printable = Object.fromEntries(
         Object.entries(poolStats).map(([k, v]) => [k, typeof v === 'bigint' ? v.toString() : v])
       );

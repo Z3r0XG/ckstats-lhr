@@ -151,7 +151,6 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                     const bi = BigInt(s);
                     return bi === BigInt(0) ? 0 : Number(s);
                   } catch {
-                    // fallthrough
                   }
                 }
                 const n = Number(s);

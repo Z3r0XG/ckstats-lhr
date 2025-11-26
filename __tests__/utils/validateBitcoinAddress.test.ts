@@ -37,7 +37,6 @@ describe('validateBitcoinAddress', () => {
     expect(validateBitcoinAddress('invalid_address')).toBe(false);
   });
 
-  // Additional tests
   test('rejects empty string', () => {
     expect(validateBitcoinAddress('')).toBe(false);
   });

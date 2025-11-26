@@ -20,7 +20,6 @@ export async function POST(request: Request) {
     const db = await getDb();
     const userRepository = db.getRepository(User);
 
-    // Check if user with the given address already exists
     const existingUser = await userRepository.findOne({
       where: { address },
     });
@@ -32,7 +31,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check the number of new users created in the last 3 minutes
     const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
     const recentUsersCount = await userRepository.count({
       where: {
@@ -47,7 +45,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // adding user (address)
 
     const user = userRepository.create({
       address,
@@ -58,10 +55,8 @@ export async function POST(request: Request) {
 
     await userRepository.save(user);
 
-    // user added to database; updating stats in background
     updateSingleUser(address);
 
-    // Convert BigInt fields to strings for JSON serialization
     const serializedUser = JSON.parse(
       JSON.stringify(user, (key, value) =>
         typeof value === 'bigint' ? value.toString() : value
@@ -71,7 +66,6 @@ export async function POST(request: Request) {
     return NextResponse.json(serializedUser);
   } catch (error) {
     console.error('Error adding user:', error);
-    // Check for unique constraint violation
     if (error.code === '23505' && error.detail?.includes('address')) {
       return NextResponse.json(
         { error: 'Bitcoin address already exists' },

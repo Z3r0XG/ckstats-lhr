@@ -4,7 +4,6 @@ export class UpdateTimestampColumns1710000000001 implements MigrationInterface {
   name = 'UpdateTimestampColumns1710000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Convert existing timestamps to timestamptz
     await queryRunner.query(`
             ALTER TABLE "PoolStats" 
             ALTER COLUMN "timestamp" TYPE TIMESTAMPTZ 

@@ -2,9 +2,7 @@ import { getCached, cacheDelete, cacheDeletePrefix } from '../../lib/api';
 
 describe('in-memory cache helpers', () => {
   beforeEach(() => {
-    // ensure a clean fake-timer state per test
     jest.useRealTimers();
-    // restore Math.random in case other tests mock it
     jest.spyOn(global.Math, 'random').mockRestore();
   });
 
@@ -20,7 +18,6 @@ describe('in-memory cache helpers', () => {
   });
 
   test('cache expires after TTL and loader is called again', async () => {
-    // Make jitter deterministic (1.0)
     jest.spyOn(global.Math, 'random').mockImplementation(() => 0.5);
 
     jest.useFakeTimers();
@@ -32,7 +29,6 @@ describe('in-memory cache helpers', () => {
     const first = await getCached('test:key2', 1, loader); // 1s ttl
     expect(loader).toHaveBeenCalledTimes(1);
 
-    // Advance time past TTL (jitter 1.0 -> expires at ~1000ms)
     jest.setSystemTime(start + 1500);
 
     const second = await getCached('test:key2', 1, loader);
