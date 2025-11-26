@@ -305,3 +305,12 @@ export function serializeData(data: any) {
     )
   );
 }
+
+export function normalizeUserAgent(rawUa: string | undefined): string {
+  if (!rawUa) return '';
+  return String(rawUa)
+    .split('/')[0]
+    .split(' ')[0]
+    .replace(/[^\x20-\x7E]/g, '')
+    .slice(0, 64);
+}

@@ -5,15 +5,7 @@ import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
 import { Worker } from './entities/Worker';
-import { convertHashrateFloat } from '../utils/helpers';
-export function normalizeUserAgent(rawUa: string | undefined): string {
-  if (!rawUa) return '';
-  return String(rawUa)
-    .split('/')[0]
-    .split(' ')[0]
-    .replace(/[^\x20-\x7E]/g, '')
-    .slice(0, 64);
-}
+import { convertHashrateFloat, normalizeUserAgent } from '../utils/helpers';
 
 const HISTORICAL_DATA_POINTS = 5760;
 

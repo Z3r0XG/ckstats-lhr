@@ -7,12 +7,13 @@ import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
 import { WorkerStats } from '../lib/entities/WorkerStats';
-import { convertHashrate, convertHashrateFloat } from '../utils/helpers';
+import { convertHashrate, convertHashrateFloat, normalizeUserAgent } from '../utils/helpers';
 
 const BATCH_SIZE = 10;
 
 interface WorkerData {
   workername: string;
+  useragent?: string;
   hashrate1m: number;
   hashrate5m: number;
   hashrate1hr: number;
@@ -111,22 +112,11 @@ async function updateUser(address: string): Promise<void> {
       const workerStatsRepository = manager.getRepository(WorkerStats);
       
       for (const workerData of userData.worker) {
-        // Normalize worker name coming from ckpool. ckpool uses formats like
-        // "<address>.<worker>" for multi-worker users and the plain address
-        // for single-worker users. Historically the DB stored an empty name
-        // for single-worker users, so map address-only names to an empty
-        // string to avoid creating mismatched/duplicate rows.
-        const rawName = workerData.workername || '';
-        let workerName: string;
-        if (rawName === address) {
-          workerName = '';
-        } else if (rawName.includes('.')) {
-          workerName = rawName.split('.')[1];
-        } else if (rawName.includes('_')) {
-          workerName = rawName.split('_')[1];
-        } else {
-          workerName = rawName;
-        }
+        const workerName = workerData.workername.includes('.')
+          ? workerData.workername.split('.')[1]
+          : workerData.workername.includes('_')
+            ? workerData.workername.split('_')[1]
+            : workerData.workername;
 
         const worker = await workerRepository.findOne({
           where: {
@@ -135,7 +125,12 @@ async function updateUser(address: string): Promise<void> {
           },
         });
 
+        const rawUa = (workerData.useragent ?? '').trim();
+        const token = normalizeUserAgent(rawUa);
+
         const workerValues = {
+          userAgent: token,
+          userAgentRaw: rawUa || null,
           hashrate1m: safeConvertFloat(workerData.hashrate1m),
           hashrate5m: safeConvertFloat(workerData.hashrate5m),
           hashrate1hr: safeConvertFloat(workerData.hashrate1hr),
