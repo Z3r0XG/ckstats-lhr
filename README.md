@@ -35,7 +35,7 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
    DB_PASSWORD="password"
    DB_NAME="database"
    SITE_NAME="Custom Title"
-   MEMPOOL_LINK_TAG="your_sig"
+   MEMPOOL_LINK_TAG="pool_sig"
    ```
    Replace `username`, `password`, `server`, `port`, `database` with your actual PostgreSQL credentials, server details, and database names.
    You can also set the DB_SSL to true if you want to use SSL and set the DB_SSL_REJECT_UNAUTHORIZED to true if you want to reject untrusted SSL certificates (like self-signed certificates).
@@ -63,8 +63,8 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
 
 12. (Optional) Backfill user-agent data
    - This version of ckstats captures client/firmware identifiers from versions of ckpool that provide this information. For active users who check their User stats page, it will naturally update and display this information for their individual workers. If you prefer to manually update all existing workers with available info, you can:
-     1. Preview: `pnpm run backfill:useragent -- --dry-run` (no writes)
-     2. Apply: `pnpm run backfill:useragent`
+     1. Preview: `pnpm backfill:useragent -- --dry-run` (no writes)
+     2. Apply: `pnpm backfill:useragent`
    - Note: this can touch many rows and take time to complete — running during a maintenance window is recommended.
 
 
@@ -82,7 +82,7 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
 - `pnpm test:watch`: Run tests in watch mode
 - `pnpm migration:run`: Run TypeORM database migrations
 - `pnpm migration:run:skip`: Run TypeORM database migrations skipping the initial migration
- - `pnpm run backfill:useragent`: Fills missing client/firmware identifiers 
+- `pnpm backfill:useragent`: Fills missing client/firmware identifiers 
 
 
 ## License
