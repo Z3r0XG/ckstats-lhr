@@ -101,7 +101,6 @@ export async function main(opts?: { dryRun?: boolean }) {
       }
     }
     }
-  }
   } finally {
     // ensure DB connection is closed
     try {
