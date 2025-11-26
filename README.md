@@ -62,10 +62,10 @@ ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
    These cronjobs will run the `seed` and `update-users` scripts every 1 minute to populate the database and clean up old statistics every 2 hours.
 
 12. (Optional) Backfill user-agent data
-   - This version of ckstats captures client/firmware identifiers from versions of ckpool that provide this information. For active users who check their User stats page, it will naturally update and display this information for their individual workers. If you prefer to manually update all existing workers with available info, you can:
-     1. Preview: `pnpm backfill:useragent -- --dry-run` (no writes)
-     2. Apply: `pnpm backfill:useragent`
-   - Note: this can touch many rows and take time to complete — running during a maintenance window is recommended.
+   - This version of ckstats captures client/firmware identifiers from versions of ckpool that provide this information. For new users who check their User stats page, it will naturally update and display this information for their individual workers. For existing users, you will need to manually update their info:
+     1. Preview: `pnpm backfill:useragent -- --dry-run` 
+     2. Apply:   `pnpm backfill:useragent`
+   - Note: for large pools with many users this can be a resource heavy task - plan accordingly.
 
 
 ## Scripts
