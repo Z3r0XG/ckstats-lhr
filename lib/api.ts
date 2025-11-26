@@ -351,7 +351,7 @@ export async function resetUserActive(address: string): Promise<void> {
   await userRepository.update(address, { isActive: true });
 }
 
-export async function updateSingleUser(address: string, opts?: { dryRun?: boolean }): Promise<void> {
+export async function updateSingleUser(address: string, opts?: { dryRun?: boolean }): Promise<boolean> {
   // Perform a last minute check to prevent directory traversal vulnerabilities
   if (/[^a-zA-Z0-9]/.test(address)) {
     throw new Error('updateSingleUser(): address contains invalid characters');
@@ -383,33 +383,67 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
       } else throw error;
     }
 
-    // If dryRun is requested, validate fetched data and return without writing.
+    // If dryRun is requested, validate fetched data and compute whether an
+    // update would be necessary. Return `true` if the apply-mode would make
+    // any changes, otherwise `false`.
     if (opts?.dryRun) {
       if (!userData || !Array.isArray(userData.worker)) {
         throw new Error('Invalid user data fetched during dry-run');
       }
-      // Basic validation passed — return early
-      return;
+
+      const db = await getDb();
+      const userRepository = db.getRepository(User);
+      const workerRepository = db.getRepository(Worker);
+
+      const existingUser = await userRepository.findOne({ where: { address }, relations: { workers: true } });
+
+      // If user doesn't exist it would be created -> update necessary
+      if (!existingUser) return true;
+
+      // If authorised flag would change, update necessary
+      if (String(existingUser.authorised) !== String(userData.authorised)) return true;
+
+      // Check workers: if any worker would be inserted or its user-agent differs
+      for (const workerData of userData.worker) {
+        const workerName = workerData.workername.split('.')[1];
+        const existing = existingUser.workers.find((w) => w.name === workerName);
+        if (!existing) return true;
+        const rawUa = (workerData.useragent ?? '').trim();
+        const token = normalizeUserAgent(rawUa);
+        const existingRaw = existing.userAgentRaw ?? '';
+        const existingToken = existing.userAgent ?? '';
+        if ((existingRaw || '') !== (rawUa || '')) return true;
+        if ((existingToken || '') !== (token || '')) return true;
+      }
+
+      // No detectable changes for user/worker user-agent or create -> no update
+      return false;
     }
 
     // fetched user data from apiUrl
 
     const db = await getDb();
+    let anyChanged = false;
     await db.transaction(async (manager) => {
       // Update or create user
       const userRepository = manager.getRepository(User);
       const user = await userRepository.findOne({ where: { address } });
-      if (user) {
-        user.authorised = userData.authorised;
-        user.isActive = true;
-        await userRepository.save(user);
+        if (user) {
+        const newAuthorised = String(userData.authorised);
+        if (String(user.authorised) !== newAuthorised || user.isActive !== true) {
+          user.authorised = newAuthorised;
+          user.isActive = true;
+          await userRepository.save(user);
+          anyChanged = true;
+        }
       } else {
         await userRepository.insert({
           address,
-          authorised: userData.authorised,
+          authorised: String(userData.authorised),
           isActive: true,
           updatedAt: new Date().toISOString(),
         });
+        anyChanged = true;
       }
 
       // Create a new UserStats entry
@@ -442,24 +476,50 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
             name: workerName,
           },
         });
+        const rawUa = (workerData.useragent ?? '').trim();
+        const token = normalizeUserAgent(rawUa);
+
         if (worker) {
-          const rawUa = (workerData.useragent ?? '').trim();
-          const token = normalizeUserAgent(rawUa);
-          worker.userAgent = token;
-          worker.userAgentRaw = rawUa || null;
-          worker.hashrate1m = convertHashrateFloat(workerData.hashrate1m);
-          worker.hashrate5m = convertHashrateFloat(workerData.hashrate5m);
-          worker.hashrate1hr = convertHashrateFloat(workerData.hashrate1hr);
-          worker.hashrate1d = convertHashrateFloat(workerData.hashrate1d);
-          worker.hashrate7d = convertHashrateFloat(workerData.hashrate7d);
-          worker.lastUpdate = new Date(workerData.lastshare * 1000);
-          worker.shares = workerData.shares;
-          worker.bestShare = parseFloat(workerData.bestshare);
-          worker.bestEver = parseFloat(workerData.bestever) || 0;
-          await workerRepository.save(worker);
+          // Only persist if at least one relevant field changed (including UA)
+          const newHashrate1m = convertHashrateFloat(workerData.hashrate1m);
+          const newHashrate5m = convertHashrateFloat(workerData.hashrate5m);
+          const newHashrate1hr = convertHashrateFloat(workerData.hashrate1hr);
+          const newHashrate1d = convertHashrateFloat(workerData.hashrate1d);
+          const newHashrate7d = convertHashrateFloat(workerData.hashrate7d);
+          const newLastUpdate = new Date(workerData.lastshare * 1000);
+          const newShares = workerData.shares;
+          const newBestShare = parseFloat(workerData.bestshare);
+          const newBestEver = parseFloat(workerData.bestever) || 0;
+
+          const changed =
+            (worker.userAgent || '') !== (token || '') ||
+            (worker.userAgentRaw || '') !== (rawUa || '') ||
+            Number(worker.hashrate1m || 0) !== Number(newHashrate1m || 0) ||
+            Number(worker.hashrate5m || 0) !== Number(newHashrate5m || 0) ||
+            Number(worker.hashrate1hr || 0) !== Number(newHashrate1hr || 0) ||
+            Number(worker.hashrate1d || 0) !== Number(newHashrate1d || 0) ||
+            Number(worker.hashrate7d || 0) !== Number(newHashrate7d || 0) ||
+            Number(worker.shares || 0) !== Number(newShares || 0) ||
+            Number(worker.bestShare || 0) !== Number(newBestShare || 0) ||
+            Number(worker.bestEver || 0) !== Number(newBestEver || 0) ||
+            (worker.lastUpdate?.getTime() || 0) !== newLastUpdate.getTime();
+
+          if (changed) {
+            worker.userAgent = token;
+            worker.userAgentRaw = rawUa || null;
+            worker.hashrate1m = newHashrate1m;
+            worker.hashrate5m = newHashrate5m;
+            worker.hashrate1hr = newHashrate1hr;
+            worker.hashrate1d = newHashrate1d;
+            worker.hashrate7d = newHashrate7d;
+            worker.lastUpdate = newLastUpdate;
+            worker.shares = newShares;
+            worker.bestShare = newBestShare;
+            worker.bestEver = newBestEver;
+            await workerRepository.save(worker);
+            anyChanged = true;
+          }
         } else {
-          const rawUa = (workerData.useragent ?? '').trim();
-          const token = normalizeUserAgent(rawUa);
           await workerRepository.insert({
             userAddress: address,
             name: workerName,
@@ -476,10 +536,11 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
             userAgentRaw: rawUa || null,
             updatedAt: new Date().toISOString(),
           });
+          anyChanged = true;
         }
       }
     });
-    // updated user and workers for address
+
     // Evict caches related to this user so future reads are fresh
     cacheDelete(`userWithWorkers:${address}`);
     cacheDelete(`userHistorical:${address}`);
@@ -488,6 +549,8 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
     // evict cached per-worker entries for this user to avoid serving stale
     // worker stats until the short TTL expires
     cacheDeletePrefix(`workerWithStats:${address}:`);
+    // Return whether any changes were persisted.
+    return anyChanged;
   } catch (error) {
     console.error(`Error updating user ${address}:`, error);
     throw error;

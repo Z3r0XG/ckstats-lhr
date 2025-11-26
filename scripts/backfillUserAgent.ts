@@ -17,6 +17,7 @@ export async function main(opts?: { dryRun?: boolean }) {
   let updated = 0;
   let wouldUpdate = 0;
   let errors = 0;
+  let processedCount = 0;
   // Tuned fixed concurrency: balances parallelism and resource usage.
   // Chosen value: 16 — high enough to utilize I/O concurrency without
   // overwhelming typical API/DB endpoints for medium-to-large pools.
@@ -41,27 +42,30 @@ export async function main(opts?: { dryRun?: boolean }) {
         batch.map(async (address) => {
           if (dryRun) {
             try {
-              await updateSingleUser(address, { dryRun: true });
-              wouldUpdate++;
-              console.log(`Would update user ${address}`);
+              const would = await updateSingleUser(address, { dryRun: true });
+              if (would) wouldUpdate++;
             } catch (err) {
               errors++;
-              console.error(`Would NOT update user ${address} (validation failed):`, err);
             }
             return;
           }
 
           try {
-            await updateSingleUser(address);
-            updated++;
+            const changed = await updateSingleUser(address);
+            if (changed) updated++;
           } catch (err) {
             errors++;
-            console.error('Error updating user', address, err);
           }
         })
       );
-      // basic progress logging
-      console.log(`Processed ${Math.min(i + CONCURRENCY, addresses.length)}/${addresses.length} addresses`);
+
+      processedCount += batch.length;
+
+      const summary = dryRun
+        ? `Processed ${processedCount}/${addresses.length} — would update ${wouldUpdate} — errors ${errors}`
+        : `Processed ${processedCount}/${addresses.length} — updated ${updated} — errors ${errors}`;
+
+      console.log(summary);
     }
   } finally {
     // ensure DB connection is closed
