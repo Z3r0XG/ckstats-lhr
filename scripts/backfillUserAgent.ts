@@ -1,105 +1,71 @@
 import 'dotenv/config';
-import path from 'path';
-import fs from 'fs/promises';
+// local file access removed; script is API-only and reuses the app API
 import { getDb } from '../lib/db';
-import { Worker } from '../lib/entities/Worker';
+import { updateSingleUser } from '../lib/api';
 
-function normalizeUa(raw: string): string {
-  const s = String(raw ?? '').trim();
-  if (!s) return '';
-  const token = s.split('/')[0].split(' ')[0];
-  return token.replace(/[^\x20-\x7E]/g, '').slice(0, 64);
-}
+// use canonical normalization from lib/api
 
 export async function main(opts?: { dryRun?: boolean }) {
   const dryRun = opts?.dryRun === true || process.argv.includes('--dry-run') || process.argv.includes('-n');
-  const logDir = process.env.CKPOOL_USER_LOG_DIR || '/var/log/ckpool-lhr/users';
-  console.log('Backfill userAgent from logs in', logDir, dryRun ? '(dry-run mode)' : '');
 
-  let files: string[];
-  try {
-    files = await fs.readdir(logDir);
-  } catch (err: any) {
-    console.error('Failed to read log dir:', err && err.message ? err.message : err);
-    process.exit(2);
-  }
+  // Delegate to `updateSingleUser` which knows how to fetch user data.
+  // This script intentionally does not require `API_URL` or any log
+  // directory — it simply iterates DB addresses and calls the app's
+  // update logic which handles fetching from configured sources.
 
   const db = await getDb();
-  const repo = db.getRepository(Worker);
   let updated = 0;
-  let skippedFiles = 0;
-  let skippedWorkers = 0;
   let wouldUpdate = 0;
+  let errors = 0;
+  let processedCount = 0;
+  // Tuned fixed concurrency: balances parallelism and resource usage.
+  // Chosen value: 16 — high enough to utilize I/O concurrency without
+  // overwhelming typical API/DB endpoints for medium-to-large pools.
+  const CONCURRENCY = 16;
 
   try {
-    for (const f of files) {
-    const filePath = path.join(logDir, f);
-    let raw: string;
+    // Reuse the existing `updateSingleUser` logic for each address.
+    let addrRows: Array<{ address: string }> = [];
     try {
-      raw = await fs.readFile(filePath, 'utf-8');
+      addrRows = await db.query('SELECT DISTINCT "userAddress" as address FROM "Worker"');
     } catch (err) {
-      console.error('Failed to read file', filePath, err);
-      continue;
+      console.error('Failed to query distinct userAddress from DB', err);
+      throw err;
     }
 
-    let data: any;
-    try {
-      data = JSON.parse(raw);
-    } catch (err) {
-      console.error('Invalid JSON in', filePath);
-      continue;
-    }
+    const addresses = addrRows.map((r: any) => String(r.address));
 
-    const address = path.basename(f);
-    if (!data?.worker || !Array.isArray(data.worker)) {
-      skippedFiles++;
-      continue;
-    }
+    // Process in batches to limit concurrency and avoid overloading API/DB
+    for (let i = 0; i < addresses.length; i += CONCURRENCY) {
+      const batch = addresses.slice(i, i + CONCURRENCY);
+      await Promise.all(
+        batch.map(async (address) => {
+          if (dryRun) {
+            try {
+              const would = await updateSingleUser(address, { dryRun: true });
+              if (would) wouldUpdate++;
+            } catch (err) {
+              errors++;
+            }
+            return;
+          }
 
-    // Batch-load workers for this address to avoid N+1 queries
-    let addressWorkers: Worker[] = [];
-    try {
-      addressWorkers = await repo.find({ where: { userAddress: address } });
-    } catch (err) {
-      console.error('Failed to load workers for address', address, err);
-      skippedFiles++;
-      continue;
-    }
-    const workerMap = new Map(addressWorkers.map((w) => [w.name, w]));
+          try {
+            const changed = await updateSingleUser(address);
+            if (changed) updated++;
+          } catch (err) {
+            errors++;
+          }
+        })
+      );
 
-    for (const w of data.worker) {
-      try {
-        const workerName = String(w.workername ?? '').split('.')[1];
-        if (!workerName) {
-          skippedWorkers++;
-          continue;
-        }
-        const rawUa = String(w.useragent ?? '').trim();
-        if (!rawUa) {
-          skippedWorkers++;
-          continue;
-        }
-        const token = normalizeUa(rawUa);
-        const existing = workerMap.get(workerName);
-        if (!existing) {
-          skippedWorkers++;
-          continue;
-        }
-        if (existing.userAgentRaw === rawUa && existing.userAgent === token) {
-          skippedWorkers++;
-          continue;
-        }
-        if (dryRun) {
-          wouldUpdate++;
-          console.log(`Would update worker id=${existing.id} addr=${address} name=${workerName} -> userAgent='${token}'`);
-        } else {
-          await repo.update({ id: existing.id }, { userAgent: token, userAgentRaw: rawUa });
-          updated++;
-        }
-      } catch (err) {
-        console.error('Error processing worker in', filePath, err);
-      }
-    }
+      processedCount += batch.length;
+
+      const summary = dryRun
+        ? `Processed ${processedCount}/${addresses.length} — would update ${wouldUpdate} — errors ${errors}`
+        : `Processed ${processedCount}/${addresses.length} — updated ${updated} — errors ${errors}`;
+
+      console.log(summary);
     }
   } finally {
     // ensure DB connection is closed
@@ -112,9 +78,9 @@ export async function main(opts?: { dryRun?: boolean }) {
   }
 
   if (dryRun) {
-    console.log(`Dry-run complete. Would update: ${wouldUpdate}, Skipped files: ${skippedFiles}, Skipped workers: ${skippedWorkers}`);
+    console.log(`Dry-run complete. Addresses: ${wouldUpdate}`);
   } else {
-    console.log(`Backfill complete. Updated: ${updated}, Skipped files: ${skippedFiles}, Skipped workers: ${skippedWorkers}`);
+    console.log(`Backfill complete. Updated: ${updated}, Errors: ${errors}`);
   }
 }
 
