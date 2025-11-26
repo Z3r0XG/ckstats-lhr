@@ -6,7 +6,7 @@ import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
 import { Worker } from './entities/Worker';
 import { convertHashrateFloat } from '../utils/helpers';
-function normalizeUserAgent(rawUa: string | undefined): string {
+export function normalizeUserAgent(rawUa: string | undefined): string {
   if (!rawUa) return '';
   return String(rawUa)
     .split('/')[0]
