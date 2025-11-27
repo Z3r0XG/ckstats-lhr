@@ -115,7 +115,6 @@ export default function Header() {
         <ThemeController />
       </div>
 
-      {}
       <dialog ref={modalRef} className="modal modal-bottom sm:modal-middle">
         <form method="dialog" className="modal-box">
           <h3
