@@ -45,7 +45,6 @@ export async function POST(request: Request) {
       );
     }
 
-
     const user = userRepository.create({
       address,
       isActive: true,

@@ -24,7 +24,7 @@ const unitMultipliers: { [unit: string]: number } = {
   K: 1e3,
   m: 1e-3, // milli
   u: 1e-6, // micro (ascii 'u')
-  'µ': 1e-6, // micro (unicode mu)
+  µ: 1e-6, // micro (unicode mu)
 };
 
 export function formatNumber(num: number | bigint | string): string {
@@ -39,14 +39,23 @@ export function formatNumber(num: number | bigint | string): string {
   return num.toLocaleString();
 }
 
-export function formatHashrate(num: string | bigint | number, showLessThanOne: boolean = false): string {
+export function formatHashrate(
+  num: string | bigint | number,
+  showLessThanOne: boolean = false
+): string {
   const numberValue = Number(num);
   const absNum = Math.abs(numberValue);
 
-
   for (const unit of isoUnits) {
     if (absNum >= unit.threshold) {
-      return (numberValue / unit.threshold).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' ' + unit.iso + 'H/s';
+      return (
+        (numberValue / unit.threshold).toLocaleString(undefined, {
+          maximumFractionDigits: 2,
+        }) +
+        ' ' +
+        unit.iso +
+        'H/s'
+      );
     }
   }
 
@@ -62,17 +71,27 @@ export function formatHashrate(num: string | bigint | number, showLessThanOne: b
     return '<1 H/s';
   }
 
-  return numberValue.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' H/s';
+  return (
+    numberValue.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' H/s'
+  );
 }
 
 export function convertHashrate(value: string): bigint {
   if (!value) return BigInt(0);
 
-  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/);
+  const match = value.match(
+    /^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/
+  );
   if (match) {
     const [, num, unit] = match;
     const parsedNum = Number(num);
-    const factor = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()] ?? (isoUnits.find((u) => u.iso.toUpperCase() === unit.toUpperCase())?.threshold ?? 1);
+    const factor =
+      unitMultipliers[unit] ??
+      unitMultipliers[unit.toUpperCase()] ??
+      unitMultipliers[unit.toLowerCase()] ??
+      isoUnits.find((u) => u.iso.toUpperCase() === unit.toUpperCase())
+        ?.threshold ??
+      1;
     const val = parsedNum * factor;
     if (val < 1) return BigInt(0);
     return BigInt(Math.round(val));
@@ -81,7 +100,7 @@ export function convertHashrate(value: string): bigint {
   if (/^[+-]?\d+$/.test(value.trim())) {
     try {
       return BigInt(value);
-    } catch (_err) {
+    } catch {
       return BigInt(0);
     }
   }
@@ -92,16 +111,24 @@ export function convertHashrate(value: string): bigint {
   const rounded = Math.round(parsed);
   if (rounded <= 0) return BigInt(0);
   return BigInt(rounded);
-};
+}
 
 export function convertHashrateFloat(value: string): number {
   if (!value) return 0;
 
-  const match = value.match(/^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/);
+  const match = value.match(
+    /^([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)([ZEPTGMKkmuµ])$/
+  );
   if (match) {
     const [, num, unit] = match;
     const parsedNum = Number(num);
-    const factor = unitMultipliers[unit] ?? unitMultipliers[unit.toUpperCase()] ?? unitMultipliers[unit.toLowerCase()] ?? (isoUnits.find((u) => u.iso.toUpperCase() === unit.toUpperCase())?.threshold ?? 1);
+    const factor =
+      unitMultipliers[unit] ??
+      unitMultipliers[unit.toUpperCase()] ??
+      unitMultipliers[unit.toLowerCase()] ??
+      isoUnits.find((u) => u.iso.toUpperCase() === unit.toUpperCase())
+        ?.threshold ??
+      1;
     const val = parsedNum * factor;
     return Number(val);
   }
@@ -116,24 +143,28 @@ export function findISOUnit(num: number): ISOUnit {
 
   for (const unit of isoUnits) {
     if (absNum >= unit.threshold) {
-      return(unit);
+      return unit;
     }
   }
 
-  return {threshold: 1, iso: ''};
+  return { threshold: 1, iso: '' };
 }
 
-export function formatTimeAgo(date: Date | number | string, minDiff: number = 1): string {
+export function formatTimeAgo(
+  date: Date | number | string,
+  minDiff: number = 1
+): string {
   const now = new Date();
   const lastUpdate = new Date(date);
   const diffMs = now.getTime() - lastUpdate.getTime();
   const diffMinutes = Math.floor(diffMs / 60000);
-  
+
   if (diffMinutes < minDiff) {
-    return "Recently";
+    return 'Recently';
   } else if (diffMinutes < 60) {
     return `${diffMinutes} min${diffMinutes > 1 ? 's' : ''} ago`;
-  } else if (diffMinutes < 1440) { // Less than 24 hours
+  } else if (diffMinutes < 1440) {
+    // Less than 24 hours
     const hours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
     return `${hours} hour${hours > 1 ? 's' : ''} ${minutes} min${minutes > 1 ? 's' : ''} ago`;
@@ -164,13 +195,15 @@ export function formatDuration(seconds: number): string {
   return parts.length > 0 ? parts.join(' ') : '0m';
 }
 
-export function calculatePercentageChange(currentValue: number, pastValue: number): number | 'N/A' {
+export function calculatePercentageChange(
+  currentValue: number,
+  pastValue: number
+): number | 'N/A' {
   if (pastValue === 0) return 'N/A';
 
   const percentageChange = ((currentValue - pastValue) / pastValue) * 100;
   return Number(percentageChange.toFixed(2));
 }
-
 
 export function getHistoricalPercentageChange(
   stats: any,
@@ -190,10 +223,18 @@ export function getHistoricalPercentageChange(
 
 export function getPercentageChangeColor(change: number | 'N/A'): string {
   if (change === 'N/A') return 'text-base-content';
-  return change > 0 ? 'text-success' : change < 0 ? 'text-error' : 'text-base-content';
+  return change > 0
+    ? 'text-success'
+    : change < 0
+      ? 'text-error'
+      : 'text-base-content';
 }
 
-export function calculateAverageTimeToBlock(hashRate: number | bigint, difficulty: number | bigint, units?: string): number {
+export function calculateAverageTimeToBlock(
+  hashRate: number | bigint,
+  difficulty: number | bigint,
+  units?: string
+): number {
   const hashesPerDifficulty = Math.pow(2, 32);
   let diffNum: number;
   if (typeof difficulty === 'bigint') {
@@ -207,15 +248,29 @@ export function calculateAverageTimeToBlock(hashRate: number | bigint, difficult
   }
 
   const hr = typeof hashRate === 'bigint' ? Number(hashRate) : hashRate;
-  if (!Number.isFinite(hr) || hr === 0 || !Number.isFinite(diffNum) || diffNum === 0) return Infinity;
+  if (
+    !Number.isFinite(hr) ||
+    hr === 0 ||
+    !Number.isFinite(diffNum) ||
+    diffNum === 0
+  )
+    return Infinity;
 
   return (diffNum * hashesPerDifficulty) / hr;
 }
 
-export function calculateBlockChances(hashRate: number | bigint, difficulty: number, accepted: bigint): { [key: string]: string } {
+export function calculateBlockChances(
+  hashRate: number | bigint,
+  difficulty: number,
+  accepted: bigint
+): { [key: string]: string } {
   const acceptedNum = Number(accepted);
   const networkDiff = Number(difficulty);
-  if (!Number.isFinite(acceptedNum) || !Number.isFinite(networkDiff) || networkDiff === 0) {
+  if (
+    !Number.isFinite(acceptedNum) ||
+    !Number.isFinite(networkDiff) ||
+    networkDiff === 0
+  ) {
     return {
       '1h': '<0.001%',
       '1d': '<0.001%',
@@ -226,10 +281,11 @@ export function calculateBlockChances(hashRate: number | bigint, difficulty: num
   }
 
   const hashesPerDifficulty = Math.pow(2, 32);
-  const networkFactor = (acceptedNum / (networkDiff * 100));
+  const networkFactor = acceptedNum / (networkDiff * 100);
   const probabilityPerHash = 1 / (networkFactor * hashesPerDifficulty);
 
-  const hashesPerSecond = typeof hashRate === 'bigint' ? Number(hashRate) : hashRate;
+  const hashesPerSecond =
+    typeof hashRate === 'bigint' ? Number(hashRate) : hashRate;
   if (!Number.isFinite(hashesPerSecond) || hashesPerSecond <= 0) {
     return {
       '1h': '<0.001%',
@@ -248,17 +304,21 @@ export function calculateBlockChances(hashRate: number | bigint, difficulty: num
     '1y': 31536000, // 365 days
   };
 
-  return Object.entries(periodsInSeconds).reduce((chances, [period, seconds]) => {
-    const lambda = hashesPerSecond * seconds * probabilityPerHash;
-    const probability = 1 - Math.exp(-lambda);
-    const pct = probability * 100;
-    if (pct > 0.0001) {
-      chances[period] = pct < 0.1 ? `${pct.toFixed(6)}%` : `${pct.toFixed(3)}%`;
-    } else {
-      chances[period] = `<0.0001%`;
-    }
-    return chances;
-  }, {} as { [key: string]: string });
+  return Object.entries(periodsInSeconds).reduce(
+    (chances, [period, seconds]) => {
+      const lambda = hashesPerSecond * seconds * probabilityPerHash;
+      const probability = 1 - Math.exp(-lambda);
+      const pct = probability * 100;
+      if (pct > 0.0001) {
+        chances[period] =
+          pct < 0.1 ? `${pct.toFixed(6)}%` : `${pct.toFixed(3)}%`;
+      } else {
+        chances[period] = `<0.0001%`;
+      }
+      return chances;
+    },
+    {} as { [key: string]: string }
+  );
 }
 
 export function serializeData(data: any) {
@@ -274,6 +334,6 @@ export function normalizeUserAgent(rawUa: string | undefined): string {
   return String(rawUa)
     .split('/')[0]
     .split(' ')[0]
-    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/[^\x20-\x7E]/g, '')
     .slice(0, 64);
 }

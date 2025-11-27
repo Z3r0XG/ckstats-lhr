@@ -150,7 +150,11 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                   try {
                     const bi = BigInt(s);
                     return bi === BigInt(0) ? 0 : Number(s);
-                  } catch {
+                  } catch (e) {
+                    console.debug(
+                      'BigInt conversion failed in parseHashrateToNumber',
+                      e
+                    );
                   }
                 }
                 const n = Number(s);

@@ -64,7 +64,8 @@ const PrivacyToggle: React.FC<PrivacyToggleProps> = ({
       setIsPublic(Boolean(data.isPublic));
       try {
         router.refresh();
-      } catch {
+      } catch (e) {
+        console.debug('router.refresh failed', e);
       }
     },
     onError: (error, _variables, context: any) => {

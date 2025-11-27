@@ -1,12 +1,13 @@
 import 'dotenv/config';
 import 'reflect-metadata';
 import * as fs from 'fs';
+
 import { getDb } from '../lib/db';
 import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
 import { WorkerStats } from '../lib/entities/WorkerStats';
-import { convertHashrate, convertHashrateFloat, normalizeUserAgent } from '../utils/helpers';
+import { convertHashrateFloat, normalizeUserAgent } from '../utils/helpers';
 
 const BATCH_SIZE = 10;
 
@@ -45,7 +46,8 @@ async function updateUser(address: string): Promise<void> {
     throw new Error('updateUser(): address contains invalid characters');
   }
 
-  const apiUrl = (process.env.API_URL || 'https://solo.ckpool.org') + `/users/${address}`;
+  const apiUrl =
+    (process.env.API_URL || 'https://solo.ckpool.org') + `/users/${address}`;
 
   console.log('Attempting to update user stats for:', address);
   const db = await getDb();
@@ -54,17 +56,17 @@ async function updateUser(address: string): Promise<void> {
     try {
       const response = await fetch(apiUrl);
 
-       if (!response.ok) {
-         throw new Error(`HTTP error! status: ${response.status}`);
-       }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      userData = await response.json() as UserData;
+      userData = (await response.json()) as UserData;
     } catch (error: any) {
       if (error.cause?.code == 'ERR_INVALID_URL') {
         userData = JSON.parse(fs.readFileSync(apiUrl, 'utf-8')) as UserData;
       } else throw error;
     }
-    
+
     await db.transaction(async (manager) => {
       const userRepository = manager.getRepository(User);
       const user = await userRepository.findOne({ where: { address } });
@@ -77,7 +79,7 @@ async function updateUser(address: string): Promise<void> {
           address,
           authorised: userData.authorised.toString(),
           isActive: true,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         });
       }
 
@@ -92,24 +94,26 @@ async function updateUser(address: string): Promise<void> {
         }
       };
 
-        const userStats = userStatsRepository.create({
+      const userStats = userStatsRepository.create({
         userAddress: address,
         hashrate1m: safeConvertFloat(userData.hashrate1m),
         hashrate5m: safeConvertFloat(userData.hashrate5m),
         hashrate1hr: safeConvertFloat(userData.hashrate1hr),
         hashrate1d: safeConvertFloat(userData.hashrate1d),
         hashrate7d: safeConvertFloat(userData.hashrate7d),
-        lastShare: BigInt(Math.floor(Number(userData.lastshare || 0))).toString(),
+        lastShare: BigInt(
+          Math.floor(Number(userData.lastshare || 0))
+        ).toString(),
         workerCount: userData.workers,
         shares: BigInt(String(userData.shares)).toString(),
         bestShare: parseFloat(userData.bestshare),
-        bestEver: parseFloat(userData.bestever) || 0
+        bestEver: parseFloat(userData.bestever) || 0,
       });
       await userStatsRepository.save(userStats);
 
       const workerRepository = manager.getRepository(Worker);
       const workerStatsRepository = manager.getRepository(WorkerStats);
-      
+
       for (const workerData of userData.worker) {
         const workerName = workerData.workername.includes('.')
           ? workerData.workername.split('.')[1]
@@ -182,7 +186,7 @@ async function updateUser(address: string): Promise<void> {
 
 async function main() {
   let db;
-  
+
   try {
     db = await getDb();
     const userRepository = db.getRepository(User);
@@ -198,8 +202,10 @@ async function main() {
 
     for (let i = 0; i < users.length; i += BATCH_SIZE) {
       const batch = users.slice(i, i + BATCH_SIZE);
-      console.log(`Processing batch ${i / BATCH_SIZE + 1} of ${Math.ceil(users.length / BATCH_SIZE)}`);
-      
+      console.log(
+        `Processing batch ${i / BATCH_SIZE + 1} of ${Math.ceil(users.length / BATCH_SIZE)}`
+      );
+
       await Promise.all(
         batch.map(async (user) => {
           try {
@@ -210,7 +216,6 @@ async function main() {
         })
       );
     }
-
   } catch (error) {
     console.error('Error in main loop:', error);
     throw error;

@@ -3,8 +3,6 @@ import * as bitcoin from 'bitcoinjs-lib';
 
 bitcoin.initEccLib(ecc);
 
-
-
 export function validateBitcoinAddress(address: string): boolean {
   if (typeof address !== 'string') return false;
   if (address.length === 0) return false;

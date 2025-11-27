@@ -31,7 +31,9 @@ const mockUserData = {
 
 describe('updateSingleUser (mocked DB + fetch)', () => {
   beforeEach(() => {
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => mockUserData });
+    (global as any).fetch = jest
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => mockUserData });
 
     const fakeUserRepo = {
       findOne: jest.fn().mockResolvedValue(null),
@@ -68,7 +70,7 @@ describe('updateSingleUser (mocked DB + fetch)', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-    delete global.fetch;
+    delete (global as any).fetch;
   });
 
   it('creates user stats and workers with expected types', async () => {

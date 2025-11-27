@@ -1,5 +1,5 @@
-
-const siteName = process.env.SITE_NAME || process.env.NEXT_PUBLIC_SITE_NAME || 'CKstats';
+const siteName =
+  process.env.SITE_NAME || process.env.NEXT_PUBLIC_SITE_NAME || 'CKstats';
 
 const nextConfig = {
   webpack: (config) => {
@@ -15,7 +15,9 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_SITE_NAME: siteName,
     NEXT_PUBLIC_MEMPOOL_LINK_TAG:
-      process.env.MEMPOOL_LINK_TAG || process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG || 'solock',
+      process.env.MEMPOOL_LINK_TAG ||
+      process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG ||
+      'solock',
   },
 };
 

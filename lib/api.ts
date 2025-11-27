@@ -30,7 +30,8 @@ async function getCached<T>(
   if (pending) {
     try {
       return (await pending) as T;
-    } catch {
+    } catch (e) {
+      console.debug('pending load failed', e);
     }
   }
 
@@ -316,7 +317,10 @@ export async function resetUserActive(address: string): Promise<void> {
   await userRepository.update(address, { isActive: true });
 }
 
-export async function updateSingleUser(address: string, opts?: { dryRun?: boolean }): Promise<boolean> {
+export async function updateSingleUser(
+  address: string,
+  opts?: { dryRun?: boolean }
+): Promise<boolean> {
   if (/[^a-zA-Z0-9]/.test(address)) {
     throw new Error('updateSingleUser(): address contains invalid characters');
   }
@@ -327,7 +331,6 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
   if (!apiUrl) {
     throw new Error('API_URL is not defined in environment variables');
   }
-
 
   try {
     let userData;
@@ -353,17 +356,22 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
 
       const db = await getDb();
       const userRepository = db.getRepository(User);
-      const workerRepository = db.getRepository(Worker);
 
-      const existingUser = await userRepository.findOne({ where: { address }, relations: { workers: true } });
+      const existingUser = await userRepository.findOne({
+        where: { address },
+        relations: { workers: true },
+      });
 
       if (!existingUser) return true;
 
-      if (String(existingUser.authorised) !== String(userData.authorised)) return true;
+      if (String(existingUser.authorised) !== String(userData.authorised))
+        return true;
 
       for (const workerData of userData.worker) {
         const workerName = workerData.workername.split('.')[1];
-        const existing = existingUser.workers.find((w) => w.name === workerName);
+        const existing = existingUser.workers.find(
+          (w) => w.name === workerName
+        );
         if (!existing) return true;
         const rawUa = (workerData.useragent ?? '').trim();
         const token = normalizeUserAgent(rawUa);
@@ -376,15 +384,17 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
       return false;
     }
 
-
     const db = await getDb();
     let anyChanged = false;
     await db.transaction(async (manager) => {
       const userRepository = manager.getRepository(User);
       const user = await userRepository.findOne({ where: { address } });
-        if (user) {
+      if (user) {
         const newAuthorised = String(userData.authorised);
-        if (String(user.authorised) !== newAuthorised || user.isActive !== true) {
+        if (
+          String(user.authorised) !== newAuthorised ||
+          user.isActive !== true
+        ) {
           user.authorised = newAuthorised;
           user.isActive = true;
           await userRepository.save(user);

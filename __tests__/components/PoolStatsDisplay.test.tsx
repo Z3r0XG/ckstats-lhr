@@ -1,4 +1,7 @@
-import { calculatePercentageChange, getHistoricalPercentageChange } from '../../utils/helpers';
+import {
+  calculatePercentageChange,
+  getHistoricalPercentageChange,
+} from '../../utils/helpers';
 
 const latestStats = {
   hashrate1m: 4_000_000,
@@ -42,6 +45,9 @@ test('computes percent using index 119 baseline when >=120 samples', () => {
   const baseline = 2_000_000;
   const hist = makeHistorical(200, baseline);
   const pct = computePercentForKey(latestStats, hist, 'hashrate1m');
-  const expected = calculatePercentageChange(Number(latestStats.hashrate1m), baseline);
+  const expected = calculatePercentageChange(
+    Number(latestStats.hashrate1m),
+    baseline
+  );
   expect(pct).toBe(expected);
 });

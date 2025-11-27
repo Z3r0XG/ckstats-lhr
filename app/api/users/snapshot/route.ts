@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
 
     const ifModifiedSince = request.headers.get('if-modified-since');
 
-
     const db = await getDb();
 
     const userRepo = db.getRepository(User);
