@@ -25,14 +25,11 @@ export default function PoolStatsDisplay({
   stats,
   historicalStats,
 }: PoolStatsDisplayProps) {
-  // Helper function to format values
   const formatValue = (key: string, value: any): string => {
     if (key.startsWith('hashrate')) {
       return formatHashrate(value);
     } else if (key === 'diff') {
       return `${formatNumber(value)}%`;
-      // const networkDiff = (stats.accepted * BigInt(10000)) / BigInt(Math.round(Number(stats.diff) * 100));
-      // return `${(Number(networkDiff) / 1e12).toFixed(2)}T`;
     } else if (
       typeof value === 'bigint' ||
       typeof value === 'number' ||
@@ -45,9 +42,7 @@ export default function PoolStatsDisplay({
     return String(value);
   };
 
-  // Helper function to format keys
   const formatKey = (key: string): string => {
-    // Handle hashrate and SPS cases
     if (key.startsWith('hashrate') || key.startsWith('SPS')) {
       return key.replace(/^(hashrate|SPS)/, '').toUpperCase();
     } else if (key === 'diff') {
@@ -55,7 +50,6 @@ export default function PoolStatsDisplay({
     } else if (key === 'bestshare') {
       return 'Best Diff';
     }
-    // General case
     return key
       .replace(/([A-Z])/g, ' $1')
       .replace(/^./, (str) => str.toUpperCase());

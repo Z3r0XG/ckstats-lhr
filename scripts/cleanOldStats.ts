@@ -23,19 +23,16 @@ async function cleanOldStats() {
   try {
     const db = await getDb();
 
-    // Delete old pool stats
     const poolStatsResult = await db.getRepository(PoolStats).delete({
       timestamp: LessThan(oneWeekAgo),
     });
     console.log(`Deleted ${poolStatsResult.affected || 0} old pool stats`);
 
-    // Delete old user stats
     const userStatsResult = await db.getRepository(UserStats).delete({
       timestamp: LessThan(threeDaysAgo),
     });
     console.log(`Deleted ${userStatsResult.affected || 0} old user stats`);
 
-    // Delete old worker stats
     const workerStatsResult = await db.getRepository(WorkerStats).delete({
       timestamp: LessThan(oneDayAgo),
     });

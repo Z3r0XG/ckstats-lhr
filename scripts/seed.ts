@@ -1,9 +1,10 @@
 // eslint-disable-next-line import/no-unresolved
 import 'dotenv/config';
 import * as fs from 'fs';
+
 import { getDb } from '../lib/db';
 import { PoolStats } from '../lib/entities/PoolStats';
-import { convertHashrate, convertHashrateFloat } from '../utils/helpers';
+import { convertHashrateFloat } from '../utils/helpers';
 
 const DRY_RUN = Boolean(process.env.SEED_DRY_RUN || process.env.DRY_RUN);
 
@@ -33,7 +34,8 @@ interface PoolStatsData {
 async function fetchPoolStats(): Promise<Partial<PoolStatsData>> {
   let data: string;
   console.log('Fetching pool stats...');
-  const apiUrl = (process.env.API_URL || 'https://solo.ckpool.org') + '/pool/pool.status';
+  const apiUrl =
+    (process.env.API_URL || 'https://solo.ckpool.org') + '/pool/pool.status';
 
   try {
     const response = await fetch(apiUrl);
@@ -45,7 +47,10 @@ async function fetchPoolStats(): Promise<Partial<PoolStatsData>> {
   }
 
   const jsonLines = data.split('\n').filter(Boolean);
-  const parsedData = jsonLines.reduce((acc, line) => ({ ...acc, ...JSON.parse(line) }), {});
+  const parsedData = jsonLines.reduce(
+    (acc, line) => ({ ...acc, ...JSON.parse(line) }),
+    {}
+  );
   return parsedData as PoolStatsData;
 }
 
@@ -61,17 +66,17 @@ async function seed() {
       workers: parseInt(stats.Workers ?? '0'),
       idle: parseInt(stats.Idle ?? '0'),
       disconnected: stats.Disconnected ? parseInt(stats.Disconnected) : 0,
-  hashrate1m: convertHashrateFloat(stats.hashrate1m ?? ''),
-  hashrate5m: convertHashrateFloat(stats.hashrate5m ?? ''),
-  hashrate15m: convertHashrateFloat(stats.hashrate15m ?? ''),
-  hashrate1hr: convertHashrateFloat(stats.hashrate1hr ?? ''),
-  hashrate6hr: convertHashrateFloat(stats.hashrate6hr ?? ''),
-  hashrate1d: convertHashrateFloat(stats.hashrate1d ?? ''),
-  hashrate7d: convertHashrateFloat(stats.hashrate7d ?? ''),
+      hashrate1m: convertHashrateFloat(stats.hashrate1m ?? ''),
+      hashrate5m: convertHashrateFloat(stats.hashrate5m ?? ''),
+      hashrate15m: convertHashrateFloat(stats.hashrate15m ?? ''),
+      hashrate1hr: convertHashrateFloat(stats.hashrate1hr ?? ''),
+      hashrate6hr: convertHashrateFloat(stats.hashrate6hr ?? ''),
+      hashrate1d: convertHashrateFloat(stats.hashrate1d ?? ''),
+      hashrate7d: convertHashrateFloat(stats.hashrate7d ?? ''),
       diff: stats.diff,
       accepted: stats.accepted,
       rejected: stats.rejected,
-  bestshare: parseFloat(stats.bestshare ?? '') || 0,
+      bestshare: parseFloat(stats.bestshare ?? '') || 0,
       SPS1m: stats.SPS1m,
       SPS5m: stats.SPS5m,
       SPS15m: stats.SPS15m,
@@ -80,10 +85,14 @@ async function seed() {
     } as unknown as Partial<PoolStats>;
 
     if (DRY_RUN) {
-      console.log('DRY_RUN enabled — would save the following PoolStats object:');
-      // Convert bigints to strings for readable output
+      console.log(
+        'DRY_RUN enabled — would save the following PoolStats object:'
+      );
       const printable = Object.fromEntries(
-        Object.entries(poolStats).map(([k, v]) => [k, typeof v === 'bigint' ? v.toString() : v])
+        Object.entries(poolStats).map(([k, v]) => [
+          k,
+          typeof v === 'bigint' ? v.toString() : v,
+        ])
       );
       console.log(JSON.stringify(printable, null, 2));
       return;

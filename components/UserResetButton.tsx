@@ -27,8 +27,6 @@ const UserResetButton: React.FC<UserResetButtonProps> = ({ address }) => {
       }
     },
     onSuccess: () => {
-      // Optionally, you can handle the successful reset here
-      // For example, you could refresh the page or update the UI
       window.location.reload(); // This will refresh the page
     },
     onError: (error: Error) => {

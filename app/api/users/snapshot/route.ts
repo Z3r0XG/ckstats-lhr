@@ -8,7 +8,6 @@ import { User } from '../../../../lib/entities/User';
 import { UserStats } from '../../../../lib/entities/UserStats';
 import { Worker } from '../../../../lib/entities/Worker';
 
-// Lightweight snapshot endpoint with If-Modified-Since handling.
 export async function GET(request: NextRequest) {
   try {
     const address = request.nextUrl.searchParams.get('address');
@@ -21,27 +20,18 @@ export async function GET(request: NextRequest) {
 
     const ifModifiedSince = request.headers.get('if-modified-since');
 
-    // Attempt a lightweight DB check for last-modified before loading full
-    // snapshot (the full snapshot helper is cached). This avoids expensive
-    // joins when not necessary.
-
     const db = await getDb();
 
-    // Find latest timestamps cheaply using entity repositories
     const userRepo = db.getRepository(User);
     const userRow = await userRepo.findOne({
       where: { address },
       select: ['updatedAt'],
     });
 
-    // If the user doesn't exist, return 404 early to avoid unnecessary
-    // work (no point querying stats or workers).
     if (!userRow) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Query MAX timestamps for user stats and workers to compute a correct
-    // Last-Modified value that covers all related data.
     const statsMax = await db
       .getRepository(UserStats)
       .createQueryBuilder('s')
@@ -66,7 +56,6 @@ export async function GET(request: NextRequest) {
       ? new Date(workersMax.maxW).getTime()
       : 0;
 
-    // Normalize to seconds precision to match HTTP Last-Modified header granularity
     const rawLastModifiedTs = Math.max(
       userUpdatedAt,
       statsUpdatedAt,
@@ -77,13 +66,11 @@ export async function GET(request: NextRequest) {
 
     if (ifModifiedSince) {
       const sinceTs = Date.parse(ifModifiedSince);
-      // Allow a 1s tolerance for header rounding differences
       if (!isNaN(sinceTs) && sinceTs >= lastModifiedTs) {
         return new NextResponse(null, { status: 304 });
       }
     }
 
-    // Need to return full snapshot. Use existing helper which is cached.
     const snapshot = await getUserWithWorkersAndStats(address);
     if (!snapshot)
       return NextResponse.json({ error: 'User not found' }, { status: 404 });

@@ -18,7 +18,6 @@ const PrivacyToggle: React.FC<PrivacyToggleProps> = ({
   const [isPublic, setIsPublic] = React.useState(initialIsPublic);
   const [loadingState, setLoadingState] = React.useState(true);
 
-  // Fetch authoritative privacy state on mount (no-store so it bypasses server HTML cache)
   React.useEffect(() => {
     let mounted = true;
     (async () => {
@@ -33,7 +32,6 @@ const PrivacyToggle: React.FC<PrivacyToggleProps> = ({
           setIsPublic(Boolean(json.isPublic));
         }
       } catch (err) {
-        // keep initialIsPublic as fallback
         console.error('privacy fetch error', err);
       } finally {
         if (mounted) setLoadingState(false);
@@ -58,23 +56,20 @@ const PrivacyToggle: React.FC<PrivacyToggleProps> = ({
       return response.json();
     },
     onMutate: async () => {
-      // optimistic update: capture previous value so we can roll back on error
       const previous = isPublic;
       setIsPublic((v) => !v);
       return { previous };
     },
     onSuccess: (data) => {
       setIsPublic(Boolean(data.isPublic));
-      // refresh server components for the current route so SSR fragments update
       try {
         router.refresh();
-      } catch {
-        // ignore router refresh failures
+      } catch (e) {
+        console.debug('router.refresh failed', e);
       }
     },
     onError: (error, _variables, context: any) => {
       console.error('Error toggling privacy:', error);
-      // revert optimistic update if we have previous value
       if (context && typeof context.previous === 'boolean') {
         setIsPublic(context.previous);
       }

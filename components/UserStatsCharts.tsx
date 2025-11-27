@@ -17,7 +17,6 @@ import {
 import { UserStats } from '../lib/entities/UserStats';
 import { WorkerStats } from '../lib/entities/WorkerStats';
 
-// Add this function at the top of the file, outside the component
 function getHashrateUnit(maxHashrate: number): [string, number] {
   if (maxHashrate >= 1e16) return ['PH/s', 1e15];
   if (maxHashrate >= 1e13) return ['TH/s', 1e12];
@@ -35,7 +34,6 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
   const [hashrateUnit, setHashrateUnit] = useState<string>('PH/s');
 
   const chartData = useMemo(() => {
-    // Reverse the userStats array
     const reversedStats = [...userStats].reverse();
 
     const maxHashrate = Math.max(

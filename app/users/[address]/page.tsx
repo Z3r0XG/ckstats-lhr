@@ -116,7 +116,6 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">Last Share</div>
           <div className="stat-value text-3xl">
-            {/* We only update every 10 minutes, so show 'Recently' if less than 11 minutes */}
             {formatTimeAgo(Number(latestStats.lastShare) * 1000, 11)}
           </div>
         </div>

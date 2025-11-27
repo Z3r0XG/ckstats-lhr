@@ -5,29 +5,19 @@ import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
 import { Worker } from './entities/Worker';
-import { convertHashrateFloat } from '../utils/helpers';
-export function normalizeUserAgent(rawUa: string | undefined): string {
-  if (!rawUa) return '';
-  return String(rawUa)
-    .split('/')[0]
-    .split(' ')[0]
-    .replace(/[^\x20-\x7E]/g, '')
-    .slice(0, 64);
-}
+import {
+  convertHashrateFloat,
+  normalizeUserAgent,
+  parseWorkerName,
+} from '../utils/helpers';
 
 const HISTORICAL_DATA_POINTS = 5760;
 
-// Simple in-memory TTL cache suitable for single-instance deployments.
 type CacheEntry = { expires: number; value: any };
 const _cache = new Map<string, CacheEntry>();
 
-// Map of in-flight loader promises to dedupe concurrent loads for the same key.
 const _pendingLoads = new Map<string, Promise<any>>();
 
-// Jitter: add small jitter to spread revalidation load slightly.
-// Note: this uses a multiplier in range [0.9, 1.1], so a 60s TTL may expire
-// between ~54s and ~66s. This intentionally allows some early/late expiry
-// to reduce stampeding under high concurrency.
 const _JITTER_MIN = 0.9;
 const _JITTER_RANGE = 0.2;
 
@@ -40,14 +30,12 @@ async function getCached<T>(
   const entry = _cache.get(key);
   if (entry && entry.expires > now) return entry.value as T;
 
-  // If a load for this key is already in-flight, await and reuse it.
   const pending = _pendingLoads.get(key);
   if (pending) {
-    // If a load for this key is already in-flight, await and reuse it.
     try {
       return (await pending) as T;
-    } catch {
-      // If pending failed, fall through to attempt a fresh load
+    } catch (e) {
+      console.debug('pending load failed', e);
     }
   }
 
@@ -74,9 +62,6 @@ function cacheDelete(key: string) {
 }
 
 function cacheDeletePrefix(prefix: string) {
-  // Snapshot keys first to avoid issues deleting while iterating. This is
-  // slightly more memory-heavy but safe for correctness; if performance
-  // becomes an issue, consider a bounded cache or LRU implementation.
   for (const k of Array.from(_cache.keys())) {
     if (k.startsWith(prefix)) _cache.delete(k);
   }
@@ -93,10 +78,6 @@ function cacheGet(key: string): CacheEntry | undefined {
   return entry;
 }
 
-// Periodic incremental cleanup to remove expired entries even if they are
-// never accessed again. This keeps memory bounded for long-running processes.
-// These values are intentionally hard-coded for predictable behavior in
-// single-host deployments: run every 60s and process 500 keys per tick.
 const CACHE_CLEANUP_INTERVAL_MS = 60_000;
 const CACHE_CLEANUP_BATCH = 500;
 let _cleanupIterator: Iterator<[string, CacheEntry]> | null = null;
@@ -118,18 +99,13 @@ function _cacheCleanupTick() {
     }
     processed++;
   }
-  // intentionally silent in production; no debug logging here
 }
 
 const _cleanupTimer = setInterval(_cacheCleanupTick, CACHE_CLEANUP_INTERVAL_MS);
 _cleanupTimer.unref();
 
-// Export cache helpers for testing and controlled eviction in other modules
 export { getCached, cacheDelete, cacheDeletePrefix, cacheGet };
 
-// Test/debug helpers (safe to export for local testing). These are lightweight
-// helpers to populate the cache and inspect current state without changing
-// production behavior. They are intended for local debugging and tests.
 export function cacheSet(key: string, value: any, ttlSeconds: number) {
   const jitter = _JITTER_MIN + Math.random() * _JITTER_RANGE;
   _cache.set(key, {
@@ -156,7 +132,6 @@ export async function savePoolStats(stats: PoolStatsInput): Promise<PoolStats> {
   const repository = db.getRepository(PoolStats);
   const poolStats = repository.create(stats);
   const saved = await repository.save(poolStats);
-  // Evict pool stats caches so next reads are fresh
   cacheDelete('latestPoolStats');
   cacheDelete('historicalPoolStats');
   return saved;
@@ -201,10 +176,8 @@ export async function getUserWithWorkersAndStats(address: string) {
 
     if (!user) return null;
 
-    // Sort workers by hashrate
     user.workers.sort((a, b) => Number(b.hashrate5m) - Number(a.hashrate5m));
 
-    // Sort stats by timestamp and take the most recent
     user.stats.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
     return {
@@ -248,7 +221,6 @@ export async function getWorkerWithStats(
     });
 
     if (worker) {
-      // Sort stats by timestamp after loading
       worker.stats.sort(
         (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
       );
@@ -306,7 +278,6 @@ export async function getTopUserHashrates(limit: number = 10) {
     const db = await getDb();
     const repository = db.getRepository(UserStats);
 
-    // First get the latest stats for each user
     const topUsers = await repository
       .createQueryBuilder('userStats')
       .innerJoinAndSelect('userStats.user', 'user')
@@ -328,7 +299,6 @@ export async function getTopUserHashrates(limit: number = 10) {
       .addOrderBy('userStats.timestamp', 'DESC')
       .getMany();
 
-    // Then sort by hashrate and take the top N
     const sortedUsers = topUsers
       .sort((a, b) => Number(b.hashrate1hr) - Number(a.hashrate1hr))
       .slice(0, limit);
@@ -351,8 +321,10 @@ export async function resetUserActive(address: string): Promise<void> {
   await userRepository.update(address, { isActive: true });
 }
 
-export async function updateSingleUser(address: string, opts?: { dryRun?: boolean }): Promise<boolean> {
-  // Perform a last minute check to prevent directory traversal vulnerabilities
+export async function updateSingleUser(
+  address: string,
+  opts?: { dryRun?: boolean }
+): Promise<boolean> {
   if (/[^a-zA-Z0-9]/.test(address)) {
     throw new Error('updateSingleUser(): address contains invalid characters');
   }
@@ -363,8 +335,6 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
   if (!apiUrl) {
     throw new Error('API_URL is not defined in environment variables');
   }
-
-  // updating user stats for: <address>
 
   try {
     let userData;
@@ -383,9 +353,6 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
       } else throw error;
     }
 
-    // If dryRun is requested, validate fetched data and compute whether an
-    // update would be necessary. Return `true` if the apply-mode would make
-    // any changes, otherwise `false`.
     if (opts?.dryRun) {
       if (!userData || !Array.isArray(userData.worker)) {
         throw new Error('Invalid user data fetched during dry-run');
@@ -393,20 +360,22 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
 
       const db = await getDb();
       const userRepository = db.getRepository(User);
-      const workerRepository = db.getRepository(Worker);
 
-      const existingUser = await userRepository.findOne({ where: { address }, relations: { workers: true } });
+      const existingUser = await userRepository.findOne({
+        where: { address },
+        relations: { workers: true },
+      });
 
-      // If user doesn't exist it would be created -> update necessary
       if (!existingUser) return true;
 
-      // If authorised flag would change, update necessary
-      if (String(existingUser.authorised) !== String(userData.authorised)) return true;
+      if (String(existingUser.authorised) !== String(userData.authorised))
+        return true;
 
-      // Check workers: if any worker would be inserted or its user-agent differs
       for (const workerData of userData.worker) {
-        const workerName = workerData.workername.split('.')[1];
-        const existing = existingUser.workers.find((w) => w.name === workerName);
+        const workerName = parseWorkerName(workerData.workername, address);
+        const existing = existingUser.workers.find(
+          (w) => w.name === workerName
+        );
         if (!existing) return true;
         const rawUa = (workerData.useragent ?? '').trim();
         const token = normalizeUserAgent(rawUa);
@@ -416,21 +385,20 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
         if ((existingToken || '') !== (token || '')) return true;
       }
 
-      // No detectable changes for user/worker user-agent or create -> no update
       return false;
     }
-
-    // fetched user data from apiUrl
 
     const db = await getDb();
     let anyChanged = false;
     await db.transaction(async (manager) => {
-      // Update or create user
       const userRepository = manager.getRepository(User);
       const user = await userRepository.findOne({ where: { address } });
-        if (user) {
+      if (user) {
         const newAuthorised = String(userData.authorised);
-        if (String(user.authorised) !== newAuthorised || user.isActive !== true) {
+        if (
+          String(user.authorised) !== newAuthorised ||
+          user.isActive !== true
+        ) {
           user.authorised = newAuthorised;
           user.isActive = true;
           await userRepository.save(user);
@@ -446,30 +414,25 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
         anyChanged = true;
       }
 
-      // Create a new UserStats entry
       const userStatsRepository = manager.getRepository(UserStats);
       const userStats = userStatsRepository.create({
         userAddress: address,
-        // preserve fractional hashrates as numbers
         hashrate1m: convertHashrateFloat(userData.hashrate1m),
         hashrate5m: convertHashrateFloat(userData.hashrate5m),
         hashrate1hr: convertHashrateFloat(userData.hashrate1hr),
         hashrate1d: convertHashrateFloat(userData.hashrate1d),
         hashrate7d: convertHashrateFloat(userData.hashrate7d),
-        // lastShare and shares are counters - keep as strings for bigint safety
         lastShare: BigInt(userData.lastshare).toString(),
         workerCount: userData.workers,
         shares: BigInt(userData.shares).toString(),
         bestShare: parseFloat(userData.bestshare),
-        // store bestEver as a number (double precision) to preserve fractional difficulty
         bestEver: parseFloat(userData.bestever) || 0,
       });
       await userStatsRepository.save(userStats);
 
-      // Update or create workers
       const workerRepository = manager.getRepository(Worker);
       for (const workerData of userData.worker) {
-        const workerName = workerData.workername.split('.')[1];
+        const workerName = parseWorkerName(workerData.workername, address);
         const worker = await workerRepository.findOne({
           where: {
             userAddress: address,
@@ -480,7 +443,6 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
         const token = normalizeUserAgent(rawUa);
 
         if (worker) {
-          // Only persist if at least one relevant field changed (including UA)
           const newHashrate1m = convertHashrateFloat(workerData.hashrate1m);
           const newHashrate5m = convertHashrateFloat(workerData.hashrate5m);
           const newHashrate1hr = convertHashrateFloat(workerData.hashrate1hr);
@@ -541,15 +503,10 @@ export async function updateSingleUser(address: string, opts?: { dryRun?: boolea
       }
     });
 
-    // Evict caches related to this user so future reads are fresh
     cacheDelete(`userWithWorkers:${address}`);
     cacheDelete(`userHistorical:${address}`);
-    // evict top lists (coarse)
     cacheDeletePrefix('topUser');
-    // evict cached per-worker entries for this user to avoid serving stale
-    // worker stats until the short TTL expires
     cacheDeletePrefix(`workerWithStats:${address}:`);
-    // Return whether any changes were persisted.
     return anyChanged;
   } catch (error) {
     console.error(`Error updating user ${address}:`, error);
@@ -571,7 +528,6 @@ export async function toggleUserStatsPrivacy(
   const newIsPublic = !user.isPublic;
 
   await userRepository.update(address, { isPublic: newIsPublic });
-  // Evict caches for this user so reads reflect new privacy immediately
   cacheDelete(`userWithWorkers:${address}`);
   cacheDelete(`userHistorical:${address}`);
   cacheDeletePrefix('topUser');
