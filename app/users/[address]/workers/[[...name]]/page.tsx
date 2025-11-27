@@ -55,7 +55,6 @@ export default async function WorkerPage({
     <div className="container mx-auto p-4">
       <div className="flex items-center gap-2">
         <Link href={`/users/${params.address}`} className="text-sm btn">
-          {}
           <svg
             className="w-4 h-4"
             fill="none"

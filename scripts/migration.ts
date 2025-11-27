@@ -31,24 +31,7 @@ async function runMigrations() {
       console.log('\nNewly applied migrations:');
       migrations.forEach((m: any) => console.log(`- ${m.name}`));
 
-      const addedUserAgent = migrations.some((m: any) =>
-        String(m.name).includes('AddUserAgentToWorker')
-      );
-      if (addedUserAgent) {
-        console.log(
-          '\nNOTE: Client/firmware identifiers are now available in the database.'
-        );
-        console.log(
-          'To populate existing workers with available user-agent data, run the backfill:'
-        );
-        console.log('\n  1) Preview (dry-run, no writes):');
-        console.log('     pnpm backfill:useragent -- --dry-run');
-        console.log('\n  2) Apply (writes to the database):');
-        console.log('     pnpm backfill:useragent');
-        console.log(
-          '\nThis script may be resource heavy to run for pools with many users.'
-        );
-      }
+      // no-op: migration application summary printed above
     }
 
     console.log('\nMigration process completed');

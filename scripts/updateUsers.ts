@@ -7,7 +7,7 @@ import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
 import { WorkerStats } from '../lib/entities/WorkerStats';
-import { convertHashrateFloat, normalizeUserAgent } from '../utils/helpers';
+import { convertHashrateFloat, normalizeUserAgent, parseWorkerName } from '../utils/helpers';
 
 const BATCH_SIZE = 10;
 
@@ -115,11 +115,7 @@ async function updateUser(address: string): Promise<void> {
       const workerStatsRepository = manager.getRepository(WorkerStats);
 
       for (const workerData of userData.worker) {
-        const workerName = workerData.workername.includes('.')
-          ? workerData.workername.split('.')[1]
-          : workerData.workername.includes('_')
-            ? workerData.workername.split('_')[1]
-            : workerData.workername;
+        const workerName = parseWorkerName(workerData.workername, address);
 
         const worker = await workerRepository.findOne({
           where: {

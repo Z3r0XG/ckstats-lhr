@@ -337,3 +337,18 @@ export function normalizeUserAgent(rawUa: string | undefined): string {
     .replace(/[^\x20-\x7E]/g, '')
     .slice(0, 64);
 }
+
+export function parseWorkerName(rawName: string | undefined, address?: string): string {
+  const name = String(rawName ?? '');
+  if (!name) return '';
+  if (address && name === address) return '';
+  if (name.includes('.')) {
+    const parts = name.split('.');
+    return parts.length > 1 ? parts[1] : parts[0];
+  }
+  if (name.includes('_')) {
+    const parts = name.split('_');
+    return parts.length > 1 ? parts[1] : parts[0];
+  }
+  return name;
+}

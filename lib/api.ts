@@ -5,7 +5,11 @@ import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
 import { Worker } from './entities/Worker';
-import { convertHashrateFloat, normalizeUserAgent } from '../utils/helpers';
+import {
+  convertHashrateFloat,
+  normalizeUserAgent,
+  parseWorkerName,
+} from '../utils/helpers';
 
 const HISTORICAL_DATA_POINTS = 5760;
 
@@ -368,7 +372,7 @@ export async function updateSingleUser(
         return true;
 
       for (const workerData of userData.worker) {
-        const workerName = workerData.workername.split('.')[1];
+        const workerName = parseWorkerName(workerData.workername, address);
         const existing = existingUser.workers.find(
           (w) => w.name === workerName
         );
@@ -428,7 +432,7 @@ export async function updateSingleUser(
 
       const workerRepository = manager.getRepository(Worker);
       for (const workerData of userData.worker) {
-        const workerName = workerData.workername.split('.')[1];
+        const workerName = parseWorkerName(workerData.workername, address);
         const worker = await workerRepository.findOne({
           where: {
             userAddress: address,

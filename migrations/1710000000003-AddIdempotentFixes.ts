@@ -134,6 +134,13 @@ export class AddIdempotentFixes1710000000003 implements MigrationInterface {
   }
 
   public async down(_queryRunner: QueryRunner): Promise<void> {
+    /*
+     * Intentionally left as a no-op to avoid accidental destructive rollbacks.
+     * The parameter is prefixed with an underscore to indicate it's unused.
+     * Suppress the unused-variable lint warning for clarity.
+     */
+    /* eslint-disable @typescript-eslint/no-unused-vars */
     void _queryRunner;
+    /* eslint-enable @typescript-eslint/no-unused-vars */
   }
 }
