@@ -329,6 +329,67 @@ export function serializeData(data: any) {
   );
 }
 
+export type RejectedPercentResult = {
+  pct: number | null; // percent as a number (e.g. 0.75) or null when not applicable
+  formatted: string | null; // formatted string like '0.75%' or null for N/A
+  color: string; // css class for color mapping
+};
+
+export function computeRejectedPercent(
+  accepted: number | bigint | string | undefined,
+  rejected: number | bigint | string | undefined
+): RejectedPercentResult {
+  function toBigIntSafe(v: any): bigint {
+    if (typeof v === 'bigint') return v;
+    if (typeof v === 'number') return BigInt(Math.round(v));
+    if (typeof v === 'string') {
+      const s = v.trim();
+      if (s === '') return BigInt(0);
+      if (/^[+-]?\d+$/.test(s)) {
+        try {
+          return BigInt(s);
+        } catch {
+          return BigInt(Number(s) || 0);
+        }
+      }
+      const parsed = Number(s);
+      if (Number.isNaN(parsed)) return BigInt(0);
+      return BigInt(Math.round(parsed));
+    }
+    return BigInt(0);
+  }
+
+  const a = toBigIntSafe(accepted ?? 0);
+  const r = toBigIntSafe(rejected ?? 0);
+  const total = a + r;
+
+  if (total === BigInt(0)) {
+    return { pct: null, formatted: null, color: 'text-base-content' };
+  }
+
+  // compute hundredths of percent as integer: pct * 100 -> e.g. 0.75% => 75
+  // We'll compute (rejected * 10000) / total to get hundredths (i.e., 0.75% -> 75)
+  // Round to nearest hundredth. Using integer math to avoid precision loss:
+  // hundredths = round((r * 10000) / total)
+  const hundredths = Number((r * BigInt(10000) + total / BigInt(2)) / total); // value in [0..10000]
+  const pct = hundredths / 100;
+
+  let color = 'text-base-content';
+  if (hundredths <= 50) {
+    color = 'text-success';
+  } else if (hundredths <= 100) {
+    color = 'text-warning';
+  } else {
+    color = 'text-error';
+  }
+
+  return {
+    pct,
+    formatted: `${(hundredths / 100).toFixed(2)}%`,
+    color,
+  };
+}
+
 export function normalizeUserAgent(rawUa: string | undefined): string {
   if (!rawUa) return '';
   return String(rawUa)

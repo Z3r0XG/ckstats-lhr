@@ -10,6 +10,7 @@ import {
   getHistoricalPercentageChange,
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
+  computeRejectedPercent,
 } from '../utils/helpers';
 
 const CountdownTimer = dynamic(() => import('./CountdownTimer'), {
@@ -155,6 +156,21 @@ export default function PoolStatsDisplay({
                         Idle: {formatNumber(stats.idle)}
                       </div>
                     )}
+                    {key === 'rejected' &&
+                      (() => {
+                        const { formatted, color } = computeRejectedPercent(
+                          stats.accepted,
+                          stats.rejected
+                        );
+                        return (
+                          <div
+                            className={`stat-desc tooltip text-left ${color}`}
+                            data-tip="Rejected % vs total shares"
+                          >
+                            {formatted === null ? 'N/A' : formatted}
+                          </div>
+                        );
+                      })()}
                   </div>
                 ))}
               </div>
