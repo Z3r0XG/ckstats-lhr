@@ -57,10 +57,6 @@ async function getCached<T>(
   }
 }
 
-// Backwards-compatibility aliases
-export const getTopClients = getOnlineDevices;
-export const getTopClientsFromTable = getOnlineDevicesFromTable;
-
 function cacheDelete(key: string) {
   _cache.delete(key);
 }
