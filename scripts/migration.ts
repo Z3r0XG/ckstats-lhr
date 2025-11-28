@@ -88,7 +88,7 @@ async function runMigrations() {
       // If anything goes wrong listing migrations, continue to the generic warning/prompt.
       console.warn(
         'Could not enumerate pending migrations:',
-        err && err.message
+        err instanceof Error ? err.message : String(err)
       );
     }
 

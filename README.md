@@ -59,7 +59,7 @@ You can customize the mempool link with your tag, or if not included, will defau
   ```
   */1 * * * * cd /path/to/your/project && /usr/local/bin/pnpm seed
   */1 * * * * cd /path/to/your/project && /usr/local/bin/pnpm update-users
-    5 * * * * cd /path/to/your/project && /usr/local/bin/pnpm update-clients
+  5 * * * * cd /path/to/your/project && /usr/local/bin/pnpm update-clients
   5 */2 * * * cd /path/to/your/project && /usr/local/bin/pnpm cleanup
   ```
 - Save and exit the editor

@@ -19,15 +19,14 @@ export default async function TopClients({
   onlyActive = true,
 }: TopClientsProps) {
   try {
-    
     let rows;
     if (onlyActive) {
       rows = await getTopClients(limit, { windowMinutes });
     } else {
-      rows = await getTopClientsFromTable(1000, windowMinutes);
+      rows = await getTopClientsFromTable(limit, windowMinutes);
     }
 
-    const clients = rows.slice(0, limit);
+    const clients = rows;
 
     let title = '';
     if (onlyActive) {
@@ -66,27 +65,17 @@ export default async function TopClients({
               </thead>
               <tbody>
                 {clients.map((c, index) => (
-                  <tr key={c.client + index}>
+                  <tr key={`${c.client}-${index}`}>
                     <td>{c.rank ?? index + 1}</td>
                     <td className="break-words max-w-[18rem]">{c.client}</td>
 
-                    {onlyActive ? (
-                      <>
-                        <td>{c.activeWorkers}</td>
-                        <td className="text-accent">
-                          {formatHashrate(Number(c.hashrate1hr))}
-                        </td>
-                        <td>{formatNumber(Number(c.bestEver))}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td>{c.activeWorkers}</td>
-                        <td className="text-accent">
-                          {formatHashrate(Number(c.hashrate1hr))}
-                        </td>
-                        <td>{formatNumber(Number(c.bestEver))}</td>
-                      </>
-                    )}
+                    <>
+                      <td>{c.activeWorkers}</td>
+                      <td className="text-accent">
+                        {formatHashrate(Number(c.hashrate1hr))}
+                      </td>
+                      <td>{formatNumber(Number(c.bestEver))}</td>
+                    </>
                   </tr>
                 ))}
               </tbody>

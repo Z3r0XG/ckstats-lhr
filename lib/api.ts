@@ -325,9 +325,9 @@ export async function getTopClients(
   return getCached(key, 60, async () => {
     const db = await getDb();
     const repository = db.getRepository(Worker);
-
     // Aggregate by normalized userAgent token (stored in worker.userAgent).
     // Active criterion: worker.lastUpdate within the provided window.
+    const threshold = new Date(Date.now() - windowMinutes * 60 * 1000);
     const rows: Array<{
       client: string;
       activeworkers: string;
@@ -343,9 +343,7 @@ export async function getTopClients(
       .addSelect('MAX(COALESCE(worker.bestEver, 0))', 'bestever')
       .where('worker.userAgent IS NOT NULL')
       .andWhere("worker.userAgent <> ''")
-      .andWhere(
-        `worker.lastUpdate >= now() - interval '${windowMinutes} minutes'`
-      )
+      .andWhere('worker.lastUpdate >= :threshold', { threshold })
       .groupBy('worker.userAgent')
       .orderBy('totalhashrate1hr', 'DESC')
       .addOrderBy('client', 'ASC')

@@ -12,7 +12,11 @@ async function main() {
 
   const db = await getDb();
   try {
-    // Compute aggregates: active metrics based on recent lastUpdate, historical best_ever (not limited)
+    // Compute aggregates only from currently active workers (within windowMinutes).
+    // We intentionally compute `best_ever` from the active set — this is the best
+    // difficulty observed among devices that are currently online. We do NOT
+    // preserve or upsert historical (offline) peaks here because this script's
+    // purpose is to capture "Online Devices" snapshots only.
     const aggSql = `WITH all_clients AS (
       SELECT DISTINCT COALESCE(NULLIF("userAgent", ''), 'Unknown') AS client
       FROM "Worker"
@@ -20,25 +24,19 @@ async function main() {
     ), active AS (
       SELECT COALESCE(NULLIF("userAgent", ''), 'Unknown') AS client,
              COUNT(*) AS active_workers,
-             SUM(COALESCE(hashrate1hr,0)) AS total_hashrate1hr
-      FROM "Worker"
-      WHERE "userAgent" IS NOT NULL AND "userAgent" <> ''
-        AND "lastUpdate" >= now() - interval '${windowMinutes} minutes'
-      GROUP BY client
-    ), hist_best AS (
-      SELECT COALESCE(NULLIF("userAgent", ''), 'Unknown') AS client,
+             SUM(COALESCE(hashrate1hr,0)) AS total_hashrate1hr,
              COALESCE(MAX("bestEver"), 0) AS best_ever
       FROM "Worker"
       WHERE "userAgent" IS NOT NULL AND "userAgent" <> ''
+        AND "lastUpdate" >= now() - interval '1 minute' * $2
       GROUP BY client
     )
     SELECT c.client,
            COALESCE(a.active_workers, 0) AS active_workers,
            COALESCE(a.total_hashrate1hr, 0) AS total_hashrate1hr,
-           COALESCE(h.best_ever, 0) AS best_ever
+           COALESCE(a.best_ever, 0) AS best_ever
     FROM all_clients c
     LEFT JOIN active a USING (client)
-    LEFT JOIN hist_best h USING (client)
           ORDER BY COALESCE(a.total_hashrate1hr, 0) DESC,
             c.client ASC
     LIMIT $1;`;
@@ -48,20 +46,18 @@ async function main() {
       active_workers: string;
       total_hashrate1hr: string;
       best_ever: string;
-    }> = await db.query(aggSql, [limit]);
+    }> = await db.query(aggSql, [limit, windowMinutes]);
 
-    // Upsert strategy: insert or update. Preserve the historical best_ever by taking the greatest
-    // of the existing stored value and the newly computed value.
     await db.transaction(async (manager) => {
       let rank = 1;
       for (const r of rows) {
         await manager.query(
-          `INSERT INTO "top_clients" (client, active_workers, total_hashrate1hr, best_ever, window_minutes, rank, computed_at)
-           VALUES ($1, $2, $3, $4, $5, $6, now())
-           ON CONFLICT (client, window_minutes) DO UPDATE
-           SET active_workers = EXCLUDED.active_workers,
+            `INSERT INTO "top_clients" (client, active_workers, total_hashrate1hr, best_ever, window_minutes, rank, computed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, now())
+             ON CONFLICT (client, window_minutes) DO UPDATE
+             SET active_workers = EXCLUDED.active_workers,
                total_hashrate1hr = EXCLUDED.total_hashrate1hr,
-               best_ever = GREATEST("top_clients".best_ever, EXCLUDED.best_ever),
+               best_ever = EXCLUDED.best_ever,
                rank = EXCLUDED.rank,
                computed_at = now();`,
           [
