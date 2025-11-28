@@ -1,8 +1,8 @@
 export const revalidate = 60;
 
+import OnlineDevices from '../components/OnlineDevices';
 import PoolStatsChart from '../components/PoolStatsChart';
 import PoolStatsDisplay from '../components/PoolStatsDisplay';
-import TopClients from '../components/TopClients';
 import TopUserDifficulties from '../components/TopUserDifficulties';
 import TopUserHashrates from '../components/TopUserHashrates';
 import { getLatestPoolStats, getHistoricalPoolStats } from '../lib/api';
@@ -42,7 +42,7 @@ export default async function Home() {
           <TopUserHashrates />
         </div>
         <div className="mt-8">
-          <TopClients limit={10000} windowMinutes={60} onlyActive={true} />
+          <OnlineDevices limit={10000} windowMinutes={60} onlyActive={true} />
         </div>
       </main>
     );

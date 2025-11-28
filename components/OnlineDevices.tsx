@@ -2,10 +2,10 @@ export const revalidate = 60;
 
 import React from 'react';
 
-import { getTopClientsFromTable, getTopClients } from '../lib/api';
+import { getOnlineDevicesFromTable, getOnlineDevices } from '../lib/api';
 import { formatHashrate, formatNumber } from '../utils/helpers';
 
-interface TopClientsProps {
+interface OnlineDevicesProps {
   limit?: number;
   windowMinutes?: number;
   onlyActive?: boolean;
@@ -13,17 +13,17 @@ interface TopClientsProps {
 
 const SMALL_LIMIT = 10;
 
-export default async function TopClients({
+export default async function OnlineDevices({
   limit = SMALL_LIMIT,
   windowMinutes = 60,
   onlyActive = true,
-}: TopClientsProps) {
+}: OnlineDevicesProps) {
   try {
     let rows;
     if (onlyActive) {
-      rows = await getTopClients(limit, { windowMinutes });
+      rows = await getOnlineDevices(limit, { windowMinutes });
     } else {
-      rows = await getTopClientsFromTable(limit, windowMinutes);
+      rows = await getOnlineDevicesFromTable(limit, windowMinutes);
     }
 
     const clients = rows;
@@ -85,13 +85,13 @@ export default async function TopClients({
       </div>
     );
   } catch (error) {
-    console.error('Error fetching top clients:', error);
+    console.error('Error fetching online devices:', error);
     return (
       <div className="card bg-base-100 shadow-xl card-compact sm:card-normal">
         <div className="card-body">
-          <h2 className="card-title">Top {limit} Clients</h2>
+          <h2 className="card-title">Online Devices</h2>
           <p className="text-error">
-            Error loading top clients. Please try again later.
+            Error loading online devices. Please try again later.
           </p>
         </div>
       </div>
