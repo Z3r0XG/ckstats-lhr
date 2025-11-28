@@ -315,6 +315,83 @@ export async function getTopUserHashrates(limit: number = 10) {
   });
 }
 
+export async function getOnlineDevices(
+  limit: number = 10,
+  opts?: { windowMinutes?: number }
+) {
+  const windowMinutes = opts?.windowMinutes ?? 60;
+  const key = `onlineDevices:${limit}:${windowMinutes}`;
+
+  return getCached(key, 60, async () => {
+    const db = await getDb();
+    const repository = db.getRepository(Worker);
+    const threshold = new Date(Date.now() - windowMinutes * 60 * 1000);
+    const rows: Array<{
+      client: string;
+      activeworkers: string;
+      uniqueusers: string;
+      totalhashrate1hr: string;
+      bestever: string;
+    }> = await repository
+      .createQueryBuilder('worker')
+      .select("COALESCE(NULLIF(worker.userAgent, ''), 'Unknown')", 'client')
+      .addSelect('COUNT(*)', 'activeworkers')
+      .addSelect('COUNT(DISTINCT worker.userAddress)', 'uniqueusers')
+      .addSelect('SUM(COALESCE(worker.hashrate1hr, 0))', 'totalhashrate1hr')
+      .addSelect('MAX(COALESCE(worker.bestEver, 0))', 'bestever')
+      .where('worker.userAgent IS NOT NULL')
+      .andWhere("worker.userAgent <> ''")
+      .andWhere('worker.lastUpdate >= :threshold', { threshold })
+      .groupBy('worker.userAgent')
+      .orderBy('totalhashrate1hr', 'DESC')
+      .addOrderBy('client', 'ASC')
+      .limit(limit)
+      .getRawMany();
+
+    return rows.map((r) => ({
+      client: r.client,
+      activeWorkers: Number(r.activeworkers || 0),
+      uniqueUsers: Number(r.uniqueusers || 0),
+      hashrate1hr: Number(r.totalhashrate1hr || 0),
+      bestEver: Number(r.bestever || 0),
+    }));
+  });
+}
+
+export async function getOnlineDevicesFromTable(
+  limit: number = 10,
+  windowMinutes: number = 60
+) {
+  const key = `onlineDevicesTable:${limit}:${windowMinutes}`;
+  return getCached(key, 60, async () => {
+    const db = await getDb();
+    const rows: Array<{
+      client: string;
+      active_workers: number;
+      total_hashrate1hr: number;
+      best_active: number;
+      rank: number | null;
+      computed_at: string;
+    }> = await db.query(
+      `SELECT client, active_workers, total_hashrate1hr, best_active, rank, computed_at
+       FROM "online_devices"
+       WHERE window_minutes = $1
+       ORDER BY total_hashrate1hr DESC, client ASC
+       LIMIT $2;`,
+      [windowMinutes, limit]
+    );
+
+    return rows.map((r) => ({
+      client: r.client,
+      activeWorkers: Number(r.active_workers || 0),
+      hashrate1hr: Number(r.total_hashrate1hr || 0),
+      bestEver: Number(r.best_active || 0),
+      rank: r.rank ?? null,
+      computedAt: r.computed_at,
+    }));
+  });
+}
+
 export async function resetUserActive(address: string): Promise<void> {
   const db = await getDb();
   const userRepository = db.getRepository(User);
@@ -506,6 +583,7 @@ export async function updateSingleUser(
     cacheDelete(`userWithWorkers:${address}`);
     cacheDelete(`userHistorical:${address}`);
     cacheDeletePrefix('topUser');
+    cacheDeletePrefix('onlineDevices');
     cacheDeletePrefix(`workerWithStats:${address}:`);
     return anyChanged;
   } catch (error) {

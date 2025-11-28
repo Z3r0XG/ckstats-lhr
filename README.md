@@ -59,11 +59,12 @@ You can customize the mempool link with your tag, or if not included, will defau
   ```
   */1 * * * * cd /path/to/your/project && /usr/local/bin/pnpm seed
   */1 * * * * cd /path/to/your/project && /usr/local/bin/pnpm update-users
+  5 * * * * cd /path/to/your/project && /usr/local/bin/pnpm update-clients
   5 */2 * * * cd /path/to/your/project && /usr/local/bin/pnpm cleanup
   ```
 - Save and exit the editor
 
-These cronjobs will run the `seed` and `update-users` scripts every 1 minute to populate the database and clean up old statistics every 2 hours.
+These cronjobs will run the `seed` and `update-users` scripts every 1 minute and the `update-clients` script every 1 hour to populate the database, and the `cleanup` script every 2 hours to clean up old statistics.
 
 ## Scripts
 
@@ -74,6 +75,7 @@ These cronjobs will run the `seed` and `update-users` scripts every 1 minute to 
 - `pnpm lint:fix`: Run ESLint and fix issues
 - `pnpm seed`: Save/Update pool stats to database
 - `pnpm update-users`: Update user and worker information
+- `pnpm update-clients`: Update top client/device information
 - `pnpm cleanup`: Clean up old statistics
 - `pnpm test`: Run tests
 - `pnpm test:watch`: Run tests in watch mode
@@ -83,3 +85,4 @@ These cronjobs will run the `seed` and `update-users` scripts every 1 minute to 
 ## License
 
 GPL-3.0 license
+

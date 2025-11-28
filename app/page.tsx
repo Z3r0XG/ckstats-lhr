@@ -1,5 +1,6 @@
 export const revalidate = 60;
 
+import OnlineDevices from '../components/OnlineDevices';
 import PoolStatsChart from '../components/PoolStatsChart';
 import PoolStatsDisplay from '../components/PoolStatsDisplay';
 import TopUserDifficulties from '../components/TopUserDifficulties';
@@ -39,6 +40,9 @@ export default async function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
           <TopUserDifficulties />
           <TopUserHashrates />
+        </div>
+        <div className="mt-8">
+          <OnlineDevices limit={10000} windowMinutes={60} onlyActive={true} />
         </div>
       </main>
     );

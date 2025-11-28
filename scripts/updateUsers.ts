@@ -7,7 +7,11 @@ import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
 import { WorkerStats } from '../lib/entities/WorkerStats';
-import { convertHashrateFloat, normalizeUserAgent, parseWorkerName } from '../utils/helpers';
+import {
+  convertHashrateFloat,
+  normalizeUserAgent,
+  parseWorkerName,
+} from '../utils/helpers';
 
 const BATCH_SIZE = 10;
 
