@@ -50,15 +50,15 @@ export default async function OnlineDevices({
                   <th>Client</th>
                   {onlyActive ? (
                     <>
-                      <th>Currently Working</th>
-                      <th>Total Hash Rate</th>
-                      <th>Best Difficulty</th>
+                      <th>Active</th>
+                      <th>Hashrate</th>
+                      <th>Best Diff</th>
                     </>
                   ) : (
                     <>
-                      <th>Currently Working</th>
-                      <th>Total Hash Rate</th>
-                      <th>Best Difficulty</th>
+                      <th>Active</th>
+                      <th>Hashrate</th>
+                      <th>Best Diff</th>
                     </>
                   )}
                 </tr>
@@ -70,11 +70,13 @@ export default async function OnlineDevices({
                     <td className="break-words max-w-[18rem]">{c.client}</td>
 
                     <>
-                      <td>{c.activeWorkers}</td>
+                      <td className="text-accent">{c.activeWorkers}</td>
                       <td className="text-accent">
                         {formatHashrate(Number(c.hashrate1hr))}
                       </td>
-                      <td>{formatNumber(Number(c.bestEver))}</td>
+                      <td className="text-accent">
+                        {formatNumber(Number(c.bestEver))}
+                      </td>
                     </>
                   </tr>
                 ))}
