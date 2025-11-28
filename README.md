@@ -75,7 +75,7 @@ These cronjobs will run the `seed` and `update-users` scripts every 1 minute and
 - `pnpm lint:fix`: Run ESLint and fix issues
 - `pnpm seed`: Save/Update pool stats to database
 - `pnpm update-users`: Update user and worker information
-- `pnpm update-clients`: Update top client/device information
+- `pnpm update-clients`: Update online client/device information
 - `pnpm cleanup`: Clean up old statistics
 - `pnpm test`: Run tests
 - `pnpm test:watch`: Run tests in watch mode
