@@ -294,6 +294,8 @@ export async function getTopUserHashrates(limit: number = 10) {
       ])
       .where('user.isPublic = :isPublic', { isPublic: true })
       .andWhere('user.isActive = :isActive', { isActive: true })
+      // Only consider users whose latest stats show at least one active worker
+      .andWhere('userStats.workerCount > 0')
       .distinctOn(['userStats.userAddress'])
       .orderBy('userStats.userAddress', 'ASC')
       .addOrderBy('userStats.timestamp', 'DESC')

@@ -50,7 +50,7 @@ export default async function OnlineDevices({
                   <th>Client</th>
                   {onlyActive ? (
                     <>
-                      <th>Working Now</th>
+                      <th>Currently Working</th>
                       <th>Total Hash Rate</th>
                       <th>Best Difficulty</th>
                     </>
