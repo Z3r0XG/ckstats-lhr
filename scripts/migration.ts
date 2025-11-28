@@ -4,7 +4,6 @@ import * as readline from 'readline';
 import { getDb } from '../lib/db_migration';
 
 async function askConfirmation(message: string): Promise<boolean> {
-  // Allow non-interactive bypasses: CI, explicit env, or --yes flag
   if (
     process.env.CI ||
     process.env.SKIP_MIGRATION_CONFIRM === '1' ||
@@ -36,10 +35,8 @@ async function runMigrations() {
   try {
     const skipInitial = process.argv.includes('--skip-initial');
 
-    // Show which migrations are pending (if any) so the operator can decide.
+    let pending: string[] = [];
     try {
-      // Only query the migrations table if it exists. On a fresh DB the
-      // `migrations` table won't yet exist and `to_regclass` will return null.
       const existsRes: Array<{ rt: string | null }> = await ds.query(
         "SELECT to_regclass('public.migrations') AS rt"
       );
@@ -53,10 +50,8 @@ async function runMigrations() {
         );
         executed = new Set(executedRows.map((r) => r.name));
       } else {
-        // Fresh DB: no migrations table yet.
         executed = new Set();
       }
-      // Try to enumerate migration class names from the migration files on disk.
       const fs = await import('fs');
       const path = await import('path');
       const migrationsDir = path.resolve(__dirname, '..', 'migrations');
@@ -71,12 +66,11 @@ async function runMigrations() {
           if (m && m[1]) available.push(m[1]);
           else available.push(path.basename(f, path.extname(f)));
         } catch {
-          // fallback to filename if read fails
           available.push(path.basename(f, path.extname(f)));
         }
       }
-
-      const pending = available.filter((n: string) => !executed.has(n));
+      
+        pending = available.filter((n: string) => !executed.has(n));
 
       if (pending.length === 0) {
         console.log('\nNo pending migrations detected.');
@@ -85,15 +79,18 @@ async function runMigrations() {
         pending.forEach((p: string) => console.log(`- ${p}`));
       }
     } catch (err) {
-      // If anything goes wrong listing migrations, continue to the generic warning/prompt.
       console.warn(
         'Could not enumerate pending migrations:',
         err instanceof Error ? err.message : String(err)
       );
     }
 
-    // Warn operator before running potentially long-running migrations
-    // (for example, migrations that use CREATE INDEX CONCURRENTLY).
+      // If no pending migrations were found, skip the interactive prompt.
+      if (pending.length === 0) {
+        if (ds && ds.isInitialized) await ds.destroy();
+        console.log('\nNo pending migrations to run');
+        return;
+      }
     const warning =
       `WARNING: This script will update your database. On new deployments it should run very quickly.\n` +
       `For existing deployments, especially those with large data sets this can take significant time.\n` +
