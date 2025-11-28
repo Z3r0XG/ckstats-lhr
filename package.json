@@ -18,8 +18,7 @@
     "load-test": "next lint --fix && next build && clinic doctor --on-port 'autocannon -c 200 -d 10 localhost:$PORT' -- node ./node_modules/next/dist/bin/next start",
     "migration:run": "ts-node -r dotenv/config -P tsconfig.scripts.json ./scripts/migration.ts",
     "migration:run:skip": "ts-node -r dotenv/config -P tsconfig.scripts.json ./scripts/migration.ts --skip-initial",
-    "postinstall": "node ./scripts/checkAndMaybeFixPnpmLinks.js || true",
-    "backfill:useragent": "ts-node -r dotenv/config -P tsconfig.scripts.json scripts/backfillUserAgent.ts"
+    "postinstall": "node ./scripts/checkAndMaybeFixPnpmLinks.js || true"
   },
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",
