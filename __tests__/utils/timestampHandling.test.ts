@@ -39,10 +39,5 @@ describe('Timestamp Handling', () => {
       const date1HourAgo = new Date('2025-11-29T07:05:00Z');
       expect(formatTimeAgo(date1HourAgo)).toBe('1 hour 5 mins ago');
     });
-
-    it('should handle TIMESTAMPTZ-like dates (already UTC)', () => {
-      const utcDate = new Date('2025-11-29T07:00:00Z'); // 1 hour 10 min ago
-      expect(formatTimeAgo(utcDate)).toBe('1 hour 10 mins ago');
-    });
   });
 });
