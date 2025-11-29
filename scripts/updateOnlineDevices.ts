@@ -18,15 +18,13 @@ async function main() {
     const aggSql = `WITH all_clients AS (
       SELECT DISTINCT COALESCE(NULLIF("userAgent", ''), 'Unknown') AS client
       FROM "Worker"
-      WHERE "userAgent" IS NOT NULL AND "userAgent" <> ''
     ), active AS (
       SELECT COALESCE(NULLIF("userAgent", ''), 'Unknown') AS client,
              COUNT(*) AS active_workers,
              SUM(COALESCE(hashrate1hr,0)) AS total_hashrate1hr,
              COALESCE(MAX("bestEver"), 0) AS best_active
       FROM "Worker"
-      WHERE "userAgent" IS NOT NULL AND "userAgent" <> ''
-        AND "lastUpdate" >= now() - interval '1 minute' * $2
+      WHERE "lastUpdate" >= now() - interval '1 minute' * $2
       GROUP BY client
     )
     SELECT c.client,
