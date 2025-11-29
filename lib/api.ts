@@ -334,7 +334,7 @@ export async function getOnlineDevices(
   }> = await db.query(
     `SELECT client,
             COUNT(*) AS activeworkers,
-            COUNT(DISTINCT userAddress) AS uniqueusers,
+            COUNT(DISTINCT latest_stats."userAddress") AS uniqueusers,
             SUM(maxhashrate) AS totalhashrate1hr,
             MAX(bestever) AS bestever
      FROM (
