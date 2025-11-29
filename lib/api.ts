@@ -332,21 +332,14 @@ export async function getOnlineDevices(
     totalhashrate1hr: number;
     bestever: number;
   }> = await db.query(
-    `SELECT client,
-            COUNT(*) AS activeworkers,
-            COUNT(DISTINCT userAddress) AS uniqueusers,
-            SUM(maxhashrate) AS totalhashrate1hr,
-            MAX(bestever) AS bestever
-     FROM (
-       SELECT COALESCE(NULLIF(w."userAgent", ''), 'Unknown') AS client,
-              w."userAddress",
-              MAX(COALESCE(ws.hashrate1hr, 0)) AS maxhashrate,
-              MAX(COALESCE(w."bestEver", 0)) AS bestever
-       FROM "WorkerStats" ws
-       JOIN "Worker" w ON w.id = ws."workerId"
-       WHERE ws.timestamp >= $1
-       GROUP BY w.id, client, w."userAddress"
-     ) AS latest_stats
+    `SELECT COALESCE(NULLIF(w."userAgent", ''), 'Unknown') AS client,
+            COUNT(DISTINCT ws."workerId") AS activeworkers,
+            COUNT(DISTINCT w."userAddress") AS uniqueusers,
+            SUM(COALESCE(ws.hashrate1hr, 0)) AS totalhashrate1hr,
+            MAX(COALESCE(w."bestEver", 0)) AS bestever
+     FROM "WorkerStats" ws
+     JOIN "Worker" w ON w.id = ws."workerId"
+     WHERE ws.timestamp >= $1
      GROUP BY client
      ORDER BY totalhashrate1hr DESC, client ASC
      LIMIT $2;`,

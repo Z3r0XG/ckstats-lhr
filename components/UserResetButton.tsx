@@ -3,14 +3,12 @@
 import React from 'react';
 
 import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 
 interface UserResetButtonProps {
   address: string;
 }
 
 const UserResetButton: React.FC<UserResetButtonProps> = ({ address }) => {
-  const router = useRouter();
   const mutation = useMutation({
     mutationFn: async () => {
       try {
@@ -29,7 +27,7 @@ const UserResetButton: React.FC<UserResetButtonProps> = ({ address }) => {
       }
     },
     onSuccess: () => {
-      router.refresh(); // Re-fetch page data
+      window.location.reload(); // This will refresh the page
     },
     onError: (error: Error) => {
       console.error('Error resetting user:', error);
