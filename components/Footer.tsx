@@ -5,7 +5,7 @@ const Footer: React.FC = () => {
     <footer className="footer footer-center p-4 sm:p-6 bg-base-200 text-base-content rounded">
       <div className="flex flex-col items-center gap-2">
         <p className="break-all">
-          Donations: bc1qryh7hv7quzceehet75udcta0u6lkm4hjvrt9mw
+          Donations: bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5
           <p>
             Running Modified Version of CKStats (ckstats-lhr): Always free,
             always open source.
