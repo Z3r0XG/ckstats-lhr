@@ -1,6 +1,6 @@
 # CK Stats LHR (Low Hash Rate) Edition
 
-This project is forked from the original awesome CKStats code by mrv777 (https://github.com/mrv777/ckstats). CKStats is designed to display Pool and User statistics for CKPool. With low-hash-rate versions of CKPool being forked (primarily for nerdminers and other LHR devices), CKStats needed to be tweaked to be able to ingest and process values based on much smaller difficulties (less than 1), while still supporting normal difficulty tracking. This was tested against goldenguy's LHR version of CKPool (https://github.com/Z3r0XG/ckpool-lh) but may work with others. 
+This project is forked from the original awesome CKStats code by mrv777 (https://github.com/mrv777/ckstats). CKStats is designed to display Pool and User statistics for CKPool. With low-hash-rate versions of CKPool being forked (primarily for nerdminers and other LHR devices), CKStats needed to be tweaked to be able to ingest and process values based on much smaller difficulties (less than 1), while still supporting normal difficulty tracking. This was tested against ckpool-lhr (https://github.com/Z3r0XG/ckpool-lhr) but may work with others. 
 
 ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
 
