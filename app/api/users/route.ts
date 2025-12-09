@@ -56,15 +56,19 @@ export async function POST(request: Request) {
 
     updateSingleUser(address);
 
-    return NextResponse.json({
+    // Return user data without relationships to avoid circular references
+    const userResponse = {
       address: user.address,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      authorised: user.authorised?.toString() || '0', // Convert BigInt to string
       isActive: user.isActive,
       isPublic: user.isPublic,
-      message: 'User added successfully',
-    });
+    };
+
+    return NextResponse.json(userResponse);
   } catch (error) {
     console.error('Error adding user:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
     if (error.code === '23505' && error.detail?.includes('address')) {
       return NextResponse.json(
         { error: 'Bitcoin address already exists' },
@@ -72,7 +76,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: `Internal Server Error: ${errorMessage}` },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }
