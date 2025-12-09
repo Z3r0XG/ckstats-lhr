@@ -167,7 +167,7 @@ async function updateUser(address: string): Promise<void> {
           hashrate1hr: workerValues.hashrate1hr,
           hashrate1d: workerValues.hashrate1d,
           hashrate7d: workerValues.hashrate7d,
-          shares: BigInt(Math.floor(Number(workerData.shares || 0))).toString(),
+          shares: workerValues.shares,
           bestShare: workerValues.bestShare,
           bestEver: workerValues.bestEver,
         });
