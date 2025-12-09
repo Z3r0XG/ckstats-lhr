@@ -109,7 +109,7 @@ async function updateUser(address: string): Promise<void> {
           Math.floor(Number(userData.lastshare || 0))
         ).toString(),
         workerCount: userData.workers,
-        shares: BigInt(String(userData.shares)).toString(),
+        shares: BigInt(Math.floor(Number(userData.shares || 0))).toString(),
         bestShare: parseFloat(userData.bestshare),
         bestEver: parseFloat(userData.bestever) || 0,
       });
@@ -140,7 +140,7 @@ async function updateUser(address: string): Promise<void> {
           hashrate1d: safeConvertFloat(workerData.hashrate1d),
           hashrate7d: safeConvertFloat(workerData.hashrate7d),
           lastUpdate: new Date(workerData.lastshare * 1000),
-          shares: BigInt(String(workerData.shares || 0)).toString(),
+          shares: BigInt(Math.floor(Number(workerData.shares || 0))).toString(),
           bestShare: parseFloat(workerData.bestshare),
           bestEver: parseFloat(workerData.bestever) || 0,
         };
@@ -167,7 +167,7 @@ async function updateUser(address: string): Promise<void> {
           hashrate1hr: workerValues.hashrate1hr,
           hashrate1d: workerValues.hashrate1d,
           hashrate7d: workerValues.hashrate7d,
-          shares: workerValues.shares,
+          shares: BigInt(Math.floor(Number(workerData.shares || 0))).toString(),
           bestShare: workerValues.bestShare,
           bestEver: workerValues.bestEver,
         });
