@@ -69,7 +69,15 @@ export async function POST(request: Request) {
     return NextResponse.json(userResponse);
   } catch (error) {
     console.error('Error adding user:', error);
-    if (error.code === '23505' && error.detail?.includes('address')) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as any).code === '23505' &&
+      'detail' in error &&
+      typeof (error as any).detail === 'string' &&
+      (error as any).detail.includes('address')
+    ) {
       return NextResponse.json(
         { error: 'Bitcoin address already exists' },
         { status: 409 }

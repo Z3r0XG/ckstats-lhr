@@ -563,7 +563,9 @@ export async function updateSingleUser(
             hashrate1d: convertHashrateFloat(workerData.hashrate1d),
             hashrate7d: convertHashrateFloat(workerData.hashrate7d),
             lastUpdate: new Date(workerData.lastshare * 1000),
-            shares: workerData.shares,
+            shares: BigInt(
+              Math.floor(Number(workerData.shares || 0))
+            ).toString(),
             bestShare: parseFloat(workerData.bestshare),
             bestEver: parseFloat(workerData.bestever) || 0,
             userAgent: token,
