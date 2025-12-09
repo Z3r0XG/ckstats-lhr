@@ -56,15 +56,15 @@ export async function POST(request: Request) {
 
     updateSingleUser(address);
 
-    const serializedUser = JSON.parse(
-      JSON.stringify(user, (key, value) =>
-        typeof value === 'bigint' ? value.toString() : value
-      )
-    );
-
-    return NextResponse.json(serializedUser);
+    return NextResponse.json({
+      address: user.address,
+      isActive: user.isActive,
+      isPublic: user.isPublic,
+      message: 'User added successfully',
+    });
   } catch (error) {
     console.error('Error adding user:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     if (error.code === '23505' && error.detail?.includes('address')) {
       return NextResponse.json(
         { error: 'Bitcoin address already exists' },
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: 'Internal Server Error' },
+      { error: `Internal Server Error: ${errorMessage}` },
       { status: 500 }
     );
   }

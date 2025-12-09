@@ -24,7 +24,7 @@ interface WorkerData {
   hashrate1d: number;
   hashrate7d: number;
   lastshare: number;
-  shares: string;
+  shares: number | string;
   bestshare: string;
   bestever: string;
 }
@@ -38,7 +38,7 @@ interface UserData {
   hashrate7d: number;
   lastshare: number;
   workers: number;
-  shares: string;
+  shares: number | string;
   bestshare: string;
   bestever: string;
   worker: WorkerData[];
