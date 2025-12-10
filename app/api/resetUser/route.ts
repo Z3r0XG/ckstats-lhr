@@ -1,3 +1,4 @@
+import { revalidatePath } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { resetUserActive } from '../../../lib/api';
@@ -12,6 +13,8 @@ export async function POST(request: NextRequest) {
 
   try {
     await resetUserActive(address);
+    // Force revalidation of the user page cache
+    revalidatePath(`/users/${address}`);
     return NextResponse.json({
       message: 'User reset successfully',
       user: address,
