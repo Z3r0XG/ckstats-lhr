@@ -108,7 +108,7 @@ DB_SSL_REJECT_UNAUTHORIZED="true"
 - Examples:
   - Remote API: `https://solo.ckpool.org`
   - Local logs: `/var/log/ckpool`
-- Note: For local files, provide the path to CKPOOL's log directory
+- Note: For local files, provide the path to CKPool's log directory
 
 **DB_HOST**: PostgreSQL server address. **REQUIRED**
 - Type: String
