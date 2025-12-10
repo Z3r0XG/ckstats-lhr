@@ -33,7 +33,7 @@ Designed for CKPOOL instances supporting **fractional difficulty** (vardiff <1.0
 
 ## Technology Stack
 
-- **Next.js 14**: React framework with server-side rendering
+- **Next.js 14.2+**: React framework with server-side rendering
 - **TypeScript**: Type-safe development
 - **TypeORM**: Database ORM with PostgreSQL
 - **Tailwind CSS** + **daisyUI**: Responsive UI components
