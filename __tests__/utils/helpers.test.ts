@@ -3,6 +3,8 @@ import {
   formatHashrate,
   convertHashrate,
   convertHashrateFloat,
+  bigIntStringFromFloatLike,
+  safeParseFloat,
   formatTimeAgo,
   formatDuration,
   calculatePercentageChange,
@@ -22,6 +24,10 @@ describe('Helper Functions', () => {
       expect(formatNumber(1000000000000000000)).toBe('1.00 E');
       expect(formatNumber(1000000000000000000000)).toBe('1.00 Z');
       expect(formatNumber(999)).toBe('999');
+      // BigInt-like string formatting: should preserve digits without precision loss
+      expect(formatNumber('9007199254740993')).toBe('9,007,199,254,740,993');
+      // Numeric string within safe range should be unit formatted
+      expect(formatNumber('1283860')).toBe('1.28 M');
     });
   });
 
@@ -152,3 +158,20 @@ describe('Helper Functions', () => {
     });
   });
 });
+
+  describe('bigIntStringFromFloatLike', () => {
+    it('converts floats and strings to BigInt strings preserving integer part', () => {
+      expect(bigIntStringFromFloatLike('12345.678')).toBe('12345');
+      expect(bigIntStringFromFloatLike(190827.81)).toBe('190827');
+      expect(bigIntStringFromFloatLike('9007199254740993.5')).toBe('9007199254740993');
+      expect(bigIntStringFromFloatLike(undefined)).toBe('0');
+    });
+  });
+
+  describe('safeParseFloat', () => {
+    it('parses floats safely and returns fallback on invalid', () => {
+      expect(safeParseFloat(undefined, 0)).toBe(0);
+      expect(safeParseFloat('12.34', 0)).toBe(12.34);
+      expect(safeParseFloat('invalid', 0)).toBe(0);
+    });
+  });
