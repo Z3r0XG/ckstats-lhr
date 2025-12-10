@@ -1,61 +1,52 @@
 'use client';
 
-import React from 'react';
-
-import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
 
 interface UserResetButtonProps {
   address: string;
 }
 
 const UserResetButton: React.FC<UserResetButtonProps> = ({ address }) => {
-  const router = useRouter();
-  const mutation = useMutation({
-    mutationFn: async () => {
-      try {
-        const response = await fetch(`/api/resetUser?address=${address}`, {
-          method: 'POST',
-        });
-        if (!response.ok) {
-          throw new Error('Failed to reset user');
-        }
-        return response.json();
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          throw new Error(err.message || 'Failed to reset user');
-        }
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleClick = async () => {
+    if (isLoading) return;
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`/api/resetUser?address=${address}`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
         throw new Error('Failed to reset user');
       }
-    },
-    onSuccess: () => {
-      router.refresh(); // Re-fetch page data
-    },
-    onError: (error: Error) => {
-      console.error('Error resetting user:', error);
-    },
-  });
+
+      await response.json();
+      // Hard reload with cache-busting to ensure fresh data
+      const url = new URL(window.location.href);
+      url.searchParams.set('r', Date.now().toString());
+      window.location.href = url.toString();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to reset user';
+      setError(message);
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div>
       <button
         className="btn btn-error btn-sm"
-        onClick={() => mutation.mutate()}
-        disabled={mutation.isPending || mutation.isSuccess}
+        onClick={handleClick}
+        disabled={isLoading}
       >
-        {mutation.isPending
-          ? 'Resetting...'
-          : mutation.isSuccess
-            ? 'Reset Success'
-            : 'Reset User'}
+        {isLoading ? 'Resetting...' : 'Reset User'}
       </button>
-      {mutation.isError && (
-        <p className="text-error mt-2">
-          {mutation.error instanceof Error
-            ? mutation.error.message
-            : 'Failed to reset user. Please try again.'}
-        </p>
-      )}
+      {error && <p className="text-error mt-2">{error}</p>}
     </div>
   );
 };
