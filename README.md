@@ -29,7 +29,7 @@ that made this enhanced version possible.
 Designed for CKPOOL instances supporting **fractional difficulty** (vardiff <1.0):
 - **Recommended**: [ckpool-lhr](https://github.com/Z3r0XG/ckpool-lhr)
 - **Limited**: Original CKPOOL (difficulty tracking ≥1.0 only)
-- **Untested**: Other CKPOOL forks (may work with reduced functionality)
+- **Untested**: Other CKPool forks (may work with reduced functionality)
 
 ## Technology Stack
 
