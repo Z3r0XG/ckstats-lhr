@@ -28,15 +28,37 @@ const unitMultipliers: { [unit: string]: number } = {
 };
 
 export function formatNumber(num: number | bigint | string): string {
-  const absNum = Math.abs(Number(num));
+  // Handle BigInt-like digit-only strings without converting to Number (avoids precision loss)
+  if (typeof num === 'string' && /^[+-]?\d+$/.test(num)) {
+    const sign = num.startsWith('-') ? '-' : '';
+    const digits = num.replace(/[^\d]/g, '');
+    // If number length is within safe Number range (< 16 digits), convert to Number and use unit formatting
+    if (digits.length <= 15) {
+      const numberVal = Number(num);
+      const absNum = Math.abs(numberVal);
+      for (const unit of isoUnits) {
+        if (absNum >= unit.threshold) {
+          return (numberVal / unit.threshold).toFixed(2) + ' ' + unit.iso;
+        }
+      }
+      return sign + numberVal.toLocaleString();
+    }
+    // For extremely large digit-only strings, group digits without converting to Number to avoid precision loss
+    const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return sign + grouped;
+  }
+
+  const numberVal = Number(num);
+  const absNum = Math.abs(numberVal);
 
   for (const unit of isoUnits) {
     if (absNum >= unit.threshold) {
-      return (Number(num) / unit.threshold).toFixed(2) + ' ' + unit.iso;
+      return (numberVal / unit.threshold).toFixed(2) + ' ' + unit.iso;
     }
   }
 
-  return num.toLocaleString();
+  if (typeof num === 'bigint') return num.toString();
+  return numberVal.toLocaleString();
 }
 
 export function formatHashrate(
@@ -415,4 +437,27 @@ export function parseWorkerName(
     return parts.length > 1 ? parts[1] : parts[0];
   }
   return name;
+}
+
+/**
+ * Safely converts a potentially float value to a BigInt string, preserving precision for large numbers.
+ * Handles numbers, strings, and undefined values. Takes only the integer part before any decimal.
+ * @param value - The value to convert (number, string, or undefined)
+ * @returns BigInt string representation of the integer part
+ */
+export function bigIntStringFromFloatLike(value: number | string | undefined): string {
+  const s = String(value ?? '0');
+  const intPart = s.split(/[.,]/)[0].replace(/[^0-9-]/g, '') || '0';
+  return BigInt(intPart).toString();
+}
+
+/**
+ * Safely parses a float value with a fallback for invalid inputs.
+ * @param value - The value to parse
+ * @param fallback - The fallback value if parsing fails (default: 0)
+ * @returns The parsed float or the fallback value
+ */
+export function safeParseFloat(value: any, fallback: number = 0): number {
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
