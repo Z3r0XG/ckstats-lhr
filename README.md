@@ -83,7 +83,7 @@ pnpm install
 Create `.env` file with required settings:
 
 ```bash
-# CKPOOL API (required)
+# CKPool API (required)
 API_URL="https://solo.ckpool.org"
 
 # PostgreSQL connection (required)
