@@ -1,89 +1,218 @@
-# CK Stats LHR (Low Hash Rate) Edition
+# CKSTATS-LHR
 
-This project is forked from the original awesome CKStats code by mrv777 (https://github.com/mrv777/ckstats). CKStats is designed to display Pool and User statistics for CKPool. With low-hash-rate versions of CKPool being forked (primarily for nerdminers and other LHR devices), CKStats needed to be tweaked to be able to ingest and process values based on much smaller difficulties (less than 1), while still supporting normal difficulty tracking. This was tested against ckpool-lhr (https://github.com/Z3r0XG/ckpool-lhr) but may work with others. 
+Web-based statistics dashboard for CKPOOL with sub-"1" difficulty support for
+low hash rate miners (ESP32 devices, NerdMiners, and others).
 
-ORIGINAL (SLIGHTLY MODIFIED) INSTRUCTIONS:
+Production-ready Next.js application providing real-time and historical pool
+statistics, user metrics, and worker tracking for solo mining operations.
 
-## Features
+## Key Features
 
-- Real-time pool statistics
-- Historical data chart
-- Responsive design with themed display
-- User and worker information
+- **Low Hash Rate Compatibility**: Statistics display for sub-1.0 difficulties (0.0005 and above)
+- **Top User Hashrates**: Active miner leaderboard by current hashrate
+- **Top User Difficulties**: Historical tracking of highest difficulty shares ever submitted
+- **Online Devices Dashboard**: Real-time worker tracking by user agent and device type
+- **Rejected Share Percentage**: Color-coded rejection rates with visual indicators
+- **Privacy Controls**: User-controlled visibility toggle for public leaderboards
+- **Historical Charts**: Time-series pool and user statistics with configurable retention
 
-## Technologies Used
+## Acknowledgment
 
-- Next.js
-- Tailwind CSS
-- daisyUI
-- Recharts
-- TypeORM
+This software is a fork of CKStats by mrv777. The original project provided the
+foundation for CKPOOL statistics tracking. We honor and acknowledge mrv777's work
+that made this enhanced version possible.
 
-## Deployment
+**Original project:** https://github.com/mrv777/ckstats
 
-1. Clone the repository (git clone https://github.com/Z3r0XG/ckstats-lhr.git)
-2. Install pnpm: `curl -fsSL https://get.pnpm.io/install.sh | bash`
-3. Install packages if needed: `sudo apt install postgresql postgresql-contrib nodejs nginx`
-4. Go to the directory: `cd ckstats-lhr`
-5. Set up the environment variables in `.env`
+## Compatibility
 
-- Example:
+Designed for CKPOOL instances supporting **fractional difficulty** (vardiff <1.0):
+- **Recommended**: [ckpool-lhr](https://github.com/Z3r0XG/ckpool-lhr)
+- **Limited**: Original CKPOOL (difficulty tracking ≥1.0 only)
+- **Untested**: Other CKPOOL forks (may work with reduced functionality)
 
+## Technology Stack
+
+- **Next.js 14**: React framework with server-side rendering
+- **TypeScript**: Type-safe development
+- **TypeORM**: Database ORM with PostgreSQL
+- **Tailwind CSS** + **daisyUI**: Responsive UI components
+- **Recharts**: Data visualization
+- **Jest**: Testing framework
+
+---
+
+## Prerequisites
+
+- **PostgreSQL** 12+ database server
+- **Node.js** 18+ runtime environment
+- **pnpm** package manager
+- **CKPOOL-LHR** or compatible CKPOOL instance
+- **nginx** (optional, recommended for production)
+
+---
+
+## Installation
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/Z3r0XG/ckstats-lhr.git
+cd ckstats-lhr
 ```
+
+### 2. Install Dependencies
+
+Install pnpm if not already available:
+```bash
+curl -fsSL https://get.pnpm.io/install.sh | bash
+```
+
+Install system packages (Ubuntu/Debian):
+```bash
+sudo apt install postgresql postgresql-contrib nodejs nginx
+```
+
+Install Node.js dependencies:
+```bash
+pnpm install
+```
+
+### 3. Configure Environment
+
+Create `.env` file with required settings:
+
+```bash
+# CKPOOL API (required)
 API_URL="https://solo.ckpool.org"
-DB_HOST="server"
-DB_PORT="port"
+
+# PostgreSQL connection (required)
+DB_HOST="localhost"
+DB_PORT="5432"
 DB_USER="username"
 DB_PASSWORD="password"
-DB_NAME="database"
-SITE_NAME="Custom Title"
-MEMPOOL_LINK_TAG="pool_sig"
+DB_NAME="ckstats"
+
+# Optional settings
+SITE_NAME="My Solo Pool Stats"
+MEMPOOL_LINK_TAG="custom_tag"
+DB_SSL="false"
+DB_SSL_REJECT_UNAUTHORIZED="true"
 ```
 
-Replace `username`, `password`, `server`, `port`, `database` with your actual PostgreSQL credentials, server details, and database names.
-You can also set the DB_SSL to true if you want to use SSL and set the DB_SSL_REJECT_UNAUTHORIZED to true if you want to reject untrusted SSL certificates (like self-signed certificates).
-If PostgreSQL is running locally, you can make `DB_HOST` `/var/run/postgresql/` (which connects via a Unix socket). The username and password are then ignored (authentication is done based on the Unix user connection to the socket).
-If ckpool is running locally you can make `API_URL` the path to the logs directory. For example `/home/ckpool-testnet/solobtc/logs`.
-You can customize the title of the stats page, or if not included, will default to CKStats.
-You can customize the mempool link with your tag, or if not included, will default to solock.
+**Configuration Notes:**
 
-6. Install dependencies: `pnpm install`
-7. Run database migrations: `pnpm migration:run`
-8. Seed the database and test the connection: `pnpm seed`
-9. Build the application: `pnpm build`
-10. Start the production server: `pnpm start`
-11. Set up cronjobs for regular updates:
+**API_URL**: CKPOOL data source. **REQUIRED**
+- Type: String
+- Values: HTTPS URL or local filesystem path
+- Examples:
+  - Remote API: `https://solo.ckpool.org`
+  - Local logs: `/var/log/ckpool`
+- Note: For local files, provide the path to CKPOOL's log directory
 
-- Open the crontab editor: `crontab -e`
-- Add lines to run the scripts. Example:
-  ```
-  */1 * * * * cd /path/to/your/project && /usr/local/bin/pnpm seed
-  */1 * * * * cd /path/to/your/project && /usr/local/bin/pnpm update-users
-  */15 * * * * cd /path/to/your/project && /usr/local/bin/pnpm update-clients
-  5 */2 * * * cd /path/to/your/project && /usr/local/bin/pnpm cleanup
-  ```
-- Save and exit the editor
+**DB_HOST**: PostgreSQL server address. **REQUIRED**
+- Type: String
+- Values: Hostname, IP address, or Unix socket path
+- Default: `localhost`
+- Examples:
+  - TCP: `localhost` or `192.168.1.100`
+  - Unix socket: `/var/run/postgresql/`
+- Note: Unix socket ignores DB_USER and DB_PASSWORD (uses peer authentication)
 
-These cronjobs will run the `seed` and `update-users` scripts every 1 minute and the `update-clients` script every 15 minutes to populate the database, and the `cleanup` script every 2 hours to clean up old statistics.
-These can be adjusted depending on your use case, system resources and number of users.
+**SITE_NAME**: Custom title for statistics page. **OPTIONAL**
+- Type: String
+- Default: `CKStats`
 
-## Scripts
+**MEMPOOL_LINK_TAG**: Mempool.space signature tag. **OPTIONAL**
+- Type: String
+- Default: `solock`
+- Note: Links blocks to mempool.space with signature filtering
 
-- `pnpm dev`: Start the development server
-- `pnpm build`: Build the production application
-- `pnpm start`: Start the production server
-- `pnpm lint`: Run ESLint
-- `pnpm lint:fix`: Run ESLint and fix issues
-- `pnpm seed`: Save/Update pool stats to database
-- `pnpm update-users`: Update user and worker information
-- `pnpm update-clients`: Update online client/device information, should be run after update-users
-- `pnpm cleanup`: Clean up old statistics
-- `pnpm test`: Run tests
-- `pnpm test:watch`: Run tests in watch mode
-- `pnpm migration:run`: Run TypeORM database migrations
-- `pnpm migration:run:skip`: Run TypeORM database migrations skipping the initial migration
+### 4. Initialize Database
+
+Run migrations to create database schema:
+```bash
+pnpm migration:run
+```
+
+Seed initial data and verify connection:
+```bash
+pnpm seed
+```
+
+### 5. Build and Start
+
+Build production application:
+```bash
+pnpm build
+```
+
+Start production server:
+```bash
+pnpm start
+```
+
+Application runs on `http://localhost:3000` by default.
+
+### 6. Configure Automation
+
+Set up cron jobs for regular statistics updates.
+
+Open crontab editor:
+```bash
+crontab -e
+```
+
+Add scheduled tasks:
+```
+# Update pool statistics every 1 minute
+*/1 * * * * cd /path/to/ckstats-lhr && /usr/local/bin/pnpm seed
+
+# Update user and worker information every 1 minute
+*/1 * * * * cd /path/to/ckstats-lhr && /usr/local/bin/pnpm update-users
+
+# Update online device tracking every 15 minutes
+*/15 * * * * cd /path/to/ckstats-lhr && /usr/local/bin/pnpm update-clients
+
+# Clean up old statistics every 2 hours
+5 */2 * * * cd /path/to/ckstats-lhr && /usr/local/bin/pnpm cleanup
+```
+
+**Cron Schedule Notes:**
+- Adjust intervals based on pool size and server resources
+- Higher frequency = more current data but increased database load
+
+---
+
+## Available Scripts
+
+### Development
+- **`pnpm dev`**: Start development server with hot reload
+- **`pnpm lint`**: Run ESLint for code quality checks
+- **`pnpm lint:fix`**: Run ESLint and automatically fix issues
+- **`pnpm test`**: Run Jest test suite
+- **`pnpm test:watch`**: Run tests in watch mode for development
+
+### Production
+- **`pnpm build`**: Build optimized production application
+- **`pnpm start`**: Start production server
+
+### Database
+- **`pnpm migration:run`**: Run all pending TypeORM migrations
+- **`pnpm migration:run:skip`**: Run migrations, skipping initial migration
+
+### Data Collection (Cron Jobs)
+- **`pnpm seed`**: Update pool statistics from CKPOOL API
+- **`pnpm update-users`**: Update user and worker information
+- **`pnpm update-clients`**: Update online device tracking (run after update-users)
+- **`pnpm cleanup`**: Remove old statistics based on retention policy
+
+### Maintenance
+- **`pnpm vacuum`**: Run PostgreSQL VACUUM for database optimization
+
+---
 
 ## License
 
-GPL-3.0 license
+GNU Public license V3. See included LICENSE for details.
 
