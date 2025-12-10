@@ -4,7 +4,7 @@ import * as fs from 'fs';
 
 import { getDb } from '../lib/db';
 import { PoolStats } from '../lib/entities/PoolStats';
-import { convertHashrateFloat } from '../utils/helpers';
+import { convertHashrateFloat, safeParseFloat } from '../utils/helpers';
 
 const DRY_RUN = Boolean(process.env.SEED_DRY_RUN || process.env.DRY_RUN);
 
@@ -76,7 +76,7 @@ async function seed() {
       diff: stats.diff,
       accepted: stats.accepted,
       rejected: stats.rejected,
-      bestshare: parseFloat(stats.bestshare ?? '') || 0,
+      bestshare: safeParseFloat(stats.bestshare ?? '', 0),
       SPS1m: stats.SPS1m,
       SPS5m: stats.SPS5m,
       SPS15m: stats.SPS15m,

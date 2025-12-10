@@ -11,6 +11,8 @@ import {
   convertHashrateFloat,
   normalizeUserAgent,
   parseWorkerName,
+  bigIntStringFromFloatLike,
+  safeParseFloat,
 } from '../utils/helpers';
 
 const BATCH_SIZE = 10;
@@ -105,13 +107,11 @@ async function updateUser(address: string): Promise<void> {
         hashrate1hr: safeConvertFloat(userData.hashrate1hr),
         hashrate1d: safeConvertFloat(userData.hashrate1d),
         hashrate7d: safeConvertFloat(userData.hashrate7d),
-        lastShare: BigInt(
-          Math.floor(Number(userData.lastshare || 0))
-        ).toString(),
+        lastShare: bigIntStringFromFloatLike(userData.lastshare),
         workerCount: userData.workers,
-        shares: BigInt(Math.floor(Number(userData.shares || 0))).toString(),
-        bestShare: parseFloat(userData.bestshare),
-        bestEver: parseFloat(userData.bestever) || 0,
+        shares: bigIntStringFromFloatLike(userData.shares),
+        bestShare: safeParseFloat(userData.bestshare, 0),
+        bestEver: safeParseFloat(userData.bestever, 0),
       });
       await userStatsRepository.save(userStats);
 
@@ -140,9 +140,9 @@ async function updateUser(address: string): Promise<void> {
           hashrate1d: safeConvertFloat(workerData.hashrate1d),
           hashrate7d: safeConvertFloat(workerData.hashrate7d),
           lastUpdate: new Date(workerData.lastshare * 1000),
-          shares: BigInt(Math.floor(Number(workerData.shares || 0))).toString(),
-          bestShare: parseFloat(workerData.bestshare),
-          bestEver: parseFloat(workerData.bestever) || 0,
+          shares: bigIntStringFromFloatLike(workerData.shares),
+          bestShare: safeParseFloat(workerData.bestshare, 0),
+          bestEver: safeParseFloat(workerData.bestever, 0),
         };
 
         let workerId: number;

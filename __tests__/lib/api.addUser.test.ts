@@ -155,6 +155,35 @@ describe('addUser - Adding user address to site', () => {
     expect(typeof createCall.bestEver).toBe('number');
   });
 
+  it('should preserve large integer parts from large string shares', async () => {
+    const testAddress = 'bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5large';
+    // override global fetch to return very large shares as string
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        authorised: true,
+        lastshare: 1733800000,
+        workers: 2,
+        shares: '9007199254740993.5', // Number.MAX_SAFE_INTEGER + 1 as string
+        bestshare: '12.5',
+        bestever: '25.3',
+        hashrate1m: '2.5K',
+        hashrate5m: '2.3K',
+        hashrate1hr: '2.1K',
+        hashrate1d: '2.0K',
+        hashrate7d: '1.9K',
+        worker: [],
+      }),
+    });
+
+    fakeUserRepo.findOne.mockResolvedValue(null);
+
+    await updateSingleUser(testAddress);
+
+    const createCall = fakeUserStatsRepo.create.mock.calls.pop()[0];
+    expect(createCall.shares).toBe('9007199254740993');
+  });
+
   it('should create workers with float shares converted to BigInt', async () => {
     const testAddress = 'bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5';
 

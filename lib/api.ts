@@ -9,6 +9,8 @@ import {
   convertHashrateFloat,
   normalizeUserAgent,
   parseWorkerName,
+  bigIntStringFromFloatLike,
+  safeParseFloat,
 } from '../utils/helpers';
 
 const HISTORICAL_DATA_POINTS = 5760;
@@ -492,13 +494,11 @@ export async function updateSingleUser(
         hashrate1hr: convertHashrateFloat(userData.hashrate1hr),
         hashrate1d: convertHashrateFloat(userData.hashrate1d),
         hashrate7d: convertHashrateFloat(userData.hashrate7d),
-        lastShare: BigInt(
-          Math.floor(Number(userData.lastshare || 0))
-        ).toString(),
+        lastShare: bigIntStringFromFloatLike(userData.lastshare),
         workerCount: userData.workers,
-        shares: BigInt(Math.floor(Number(userData.shares || 0))).toString(),
-        bestShare: parseFloat(userData.bestshare),
-        bestEver: parseFloat(userData.bestever) || 0,
+        shares: bigIntStringFromFloatLike(userData.shares),
+        bestShare: safeParseFloat(userData.bestshare, 0),
+        bestEver: safeParseFloat(userData.bestever, 0),
       });
       await userStatsRepository.save(userStats);
 
@@ -522,8 +522,9 @@ export async function updateSingleUser(
           const newHashrate7d = convertHashrateFloat(workerData.hashrate7d);
           const newLastUpdate = new Date(workerData.lastshare * 1000);
           const newShares = workerData.shares;
-          const newBestShare = parseFloat(workerData.bestshare);
-          const newBestEver = parseFloat(workerData.bestever) || 0;
+          const newSharesStr = bigIntStringFromFloatLike(newShares);
+          const newBestShare = safeParseFloat(workerData.bestshare, 0);
+          const newBestEver = safeParseFloat(workerData.bestever, 0);
 
           const changed =
             (worker.userAgent || '') !== (token || '') ||
@@ -533,7 +534,7 @@ export async function updateSingleUser(
             Number(worker.hashrate1hr || 0) !== Number(newHashrate1hr || 0) ||
             Number(worker.hashrate1d || 0) !== Number(newHashrate1d || 0) ||
             Number(worker.hashrate7d || 0) !== Number(newHashrate7d || 0) ||
-            Number(worker.shares || 0) !== Number(newShares || 0) ||
+            (worker.shares || '0') !== newSharesStr ||
             Number(worker.bestShare || 0) !== Number(newBestShare || 0) ||
             Number(worker.bestEver || 0) !== Number(newBestEver || 0) ||
             (worker.lastUpdate?.getTime() || 0) !== newLastUpdate.getTime();
@@ -547,7 +548,7 @@ export async function updateSingleUser(
             worker.hashrate1d = newHashrate1d;
             worker.hashrate7d = newHashrate7d;
             worker.lastUpdate = newLastUpdate;
-            worker.shares = newShares;
+            worker.shares = newSharesStr;
             worker.bestShare = newBestShare;
             worker.bestEver = newBestEver;
             await workerRepository.save(worker);
@@ -563,11 +564,9 @@ export async function updateSingleUser(
             hashrate1d: convertHashrateFloat(workerData.hashrate1d),
             hashrate7d: convertHashrateFloat(workerData.hashrate7d),
             lastUpdate: new Date(workerData.lastshare * 1000),
-            shares: BigInt(
-              Math.floor(Number(workerData.shares || 0))
-            ).toString(),
-            bestShare: parseFloat(workerData.bestshare),
-            bestEver: parseFloat(workerData.bestever) || 0,
+            shares: bigIntStringFromFloatLike(workerData.shares),
+            bestShare: safeParseFloat(workerData.bestshare, 0),
+            bestEver: safeParseFloat(workerData.bestever, 0),
             userAgent: token,
             userAgentRaw: rawUa || null,
             updatedAt: new Date().toISOString(),
