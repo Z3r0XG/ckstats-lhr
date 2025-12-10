@@ -56,28 +56,16 @@ export async function POST(request: Request) {
 
     updateSingleUser(address);
 
-    // Return user data without relationships to avoid circular references
-    const userResponse = {
-      address: user.address,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      authorised: user.authorised?.toString() || '0', // Convert BigInt to string
-      isActive: user.isActive,
-      isPublic: user.isPublic,
-    };
+    const serializedUser = JSON.parse(
+      JSON.stringify(user, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      )
+    );
 
-    return NextResponse.json(userResponse);
+    return NextResponse.json(serializedUser);
   } catch (error) {
     console.error('Error adding user:', error);
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as any).code === '23505' &&
-      'detail' in error &&
-      typeof (error as any).detail === 'string' &&
-      (error as any).detail.includes('address')
-    ) {
+    if (error.code === '23505' && error.detail?.includes('address')) {
       return NextResponse.json(
         { error: 'Bitcoin address already exists' },
         { status: 409 }
