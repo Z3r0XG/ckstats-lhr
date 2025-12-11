@@ -178,6 +178,7 @@ async function updateUser(address: string): Promise<void> {
 
     console.log(`Updated user and workers for: ${address}`);
   } catch (error) {
+    console.error(`Failed to update user ${address}:`, error);
     throw error;
   }
 }
@@ -231,7 +232,6 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
           if (!obj || typeof obj !== 'object') return false;
           const anyObj = obj as any;
           if (!Array.isArray(anyObj.worker)) return false;
-          // Ensure worker array contains objects (fine-grained validation later)
           return anyObj.worker.every((w: any) => w && typeof w === 'object');
         };
 
