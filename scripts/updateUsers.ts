@@ -177,9 +177,6 @@ async function updateUser(address: string): Promise<void> {
 
     console.log(`Updated user and workers for: ${address}`);
   } catch (error) {
-    const userRepository = db.getRepository(User);
-    await userRepository.update({ address }, { isActive: false });
-    console.log(`Marked user ${address} as inactive`);
     throw error;
   }
 }
@@ -212,6 +209,14 @@ async function main() {
             await updateUser(user.address);
           } catch (error) {
             console.error(`Failed to update user ${user.address}:`, error);
+            // Try to mark user as inactive, but don't let this secondary operation fail the batch
+            try {
+              await userRepository.update({ address: user.address }, { isActive: false });
+              console.log(`Marked user ${user.address} as inactive`);
+            } catch (markError) {
+              console.error(`Could not mark user ${user.address} as inactive:`, markError);
+              // Silently continue - user will remain active with stale data
+            }
           }
         })
       );

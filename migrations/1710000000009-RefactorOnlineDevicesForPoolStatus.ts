@@ -38,9 +38,20 @@ export class RefactorOnlineDevicesForPoolStatus1710000000009
     await queryRunner.query(
       `ALTER TABLE "online_devices" ADD CONSTRAINT "online_devices_client_key" UNIQUE (client);`
     );
+
+    // Rename total_hashrate1hr to generic total_hashrate
+    // This decouples the column name from any specific time window
+    await queryRunner.query(
+      `ALTER TABLE "online_devices" RENAME COLUMN "total_hashrate1hr" TO "total_hashrate";`
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    // Restore original column name
+    await queryRunner.query(
+      `ALTER TABLE "online_devices" RENAME COLUMN "total_hashrate" TO "total_hashrate1hr";`
+    );
+
     // Remove UNIQUE constraint on client only
     await queryRunner.query(
       `ALTER TABLE "online_devices" DROP CONSTRAINT IF EXISTS "online_devices_client_key";`

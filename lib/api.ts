@@ -326,14 +326,14 @@ export async function getOnlineDevices(limit: number = 10) {
   const rows: Array<{
     client: string;
     active_workers: number;
-    total_hashrate1hr: number;
+    total_hashrate: number;
     bestshare: number;
     computed_at: string;
   }> = await db.query(
-    `SELECT client, active_workers, total_hashrate1hr, bestshare, computed_at
+    `SELECT client, active_workers, total_hashrate, bestshare, computed_at
      FROM "online_devices"
      WHERE active_workers > 0
-     ORDER BY total_hashrate1hr DESC, client ASC
+     ORDER BY total_hashrate DESC, client ASC
      LIMIT $1;`,
     [limit]
   );
@@ -342,7 +342,7 @@ export async function getOnlineDevices(limit: number = 10) {
     client: r.client,
     activeWorkers: Number(r.active_workers || 0),
     uniqueUsers: 0,
-    hashrate1hr: Number(r.total_hashrate1hr || 0),
+    hashrate1hr: Number(r.total_hashrate || 0),
     bestEver: Number(r.bestshare || 0),
   }));
 }

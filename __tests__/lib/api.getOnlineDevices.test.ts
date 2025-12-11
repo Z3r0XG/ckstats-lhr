@@ -11,7 +11,7 @@ describe('getOnlineDevices', () => {
       {
         client: 'NMMiner',
         active_workers: '8',
-        total_hashrate1hr: '123456',
+        total_hashrate: '123456',
         bestshare: 25.926,
         computed_at: new Date().toISOString(),
       },

@@ -106,11 +106,11 @@ async function updateOnlineDevices(
   try {
     await db.transaction(async (manager: any) => {
       await manager.query(
-        `INSERT INTO "online_devices" (client, active_workers, total_hashrate1hr, computed_at, bestshare)
+        `INSERT INTO "online_devices" (client, active_workers, total_hashrate, computed_at, bestshare)
          VALUES ${valuesSql.join(', ')}
          ON CONFLICT (client) DO UPDATE SET
            active_workers = EXCLUDED.active_workers,
-           total_hashrate1hr = EXCLUDED.total_hashrate1hr,
+           total_hashrate = EXCLUDED.total_hashrate,
            computed_at = EXCLUDED.computed_at,
            bestshare = EXCLUDED.bestshare;`,
         params
