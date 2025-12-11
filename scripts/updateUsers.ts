@@ -206,23 +206,9 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
       return;
     }
 
-    const userFiles = fs
-      .readdirSync(usersDir)
-      .filter((f) => {
-        // Only process files (not directories)
-        // Skip hidden files
-        if (f.startsWith('.')) {
-          return false;
-        }
-        const fullPath = path.join(usersDir, f);
-        try {
-          return fs.statSync(fullPath).isFile();
-        } catch {
-          return false;
-        }
-      });
-
-    console.log(`Found ${userFiles.length} user files`);
+    const dir = await fs.promises.opendir(usersDir);
+    let userFileCount = 0;
+    const threshold = Math.floor(Date.now() / 1000) - 60 * 60;
 
     // Aggregate stats by userAgent (device type)
     const deviceStats: Map<
@@ -236,21 +222,36 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
       }
     > = new Map();
 
-    for (const userFile of userFiles) {
-      const userFilePath = path.join(usersDir, userFile);
-
-      if (!fs.existsSync(userFilePath)) {
+    for await (const dirent of dir) {
+      // Skip hidden files and non-files
+      if (dirent.name.startsWith('.') || !dirent.isFile()) {
         continue;
       }
 
+      const userFilePath = path.join(usersDir, dirent.name);
+
       try {
-        const userData = JSON.parse(fs.readFileSync(userFilePath, 'utf-8')) as UserData;
+        const raw = await fs.promises.readFile(userFilePath, 'utf-8');
+        const userData = JSON.parse(raw) as UserData;
+
+        // Basic shape validation to avoid processing malformed files
+        if (!userData || !Array.isArray((userData as any).worker)) {
+          console.error(`Invalid user file (missing worker array): ${userFilePath}`);
+          continue;
+        }
+
+        const workers = (userData as any).worker.filter(
+          (w: any) => typeof w?.lastshare === 'number'
+        );
+
+        if (workers.length === 0) {
+          console.error(`User file has no valid workers: ${userFilePath}`);
+          continue;
+        }
 
         // Process each worker for online devices aggregation
         // Only count workers that have submitted shares in the last 60 minutes
-        const threshold = Math.floor(Date.now() / 1000) - (60 * 60);
-        
-        for (const workerData of userData.worker || []) {
+        for (const workerData of workers) {
           // Skip workers that haven't shared recently
           if (workerData.lastshare < threshold) {
             continue;
@@ -278,10 +279,14 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
           stat.bestEver = Math.max(stat.bestEver, bestEver);
           stat.lastShare = Math.max(stat.lastShare, lastShare);
         }
+
+        userFileCount += 1;
       } catch (error) {
         console.error(`Error parsing user file at ${userFilePath}:`, error);
       }
     }
+
+    console.log(`Processed ${userFileCount} user files`);
 
     console.log(`Found ${deviceStats.size} unique device types`);
 
@@ -297,15 +302,38 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
         (a, b) => b.totalHashrate1hr - a.totalHashrate1hr
       );
 
+      if (sortedDevices.length === 0) {
+        return;
+      }
+
+      const valuesSql: string[] = [];
+      const params: Array<string | number> = [];
+      let paramIndex = 1;
       let rank = 1;
+
       for (const device of sortedDevices) {
-        await manager.query(
-          `INSERT INTO "online_devices" (client, active_workers, total_hashrate1hr, best_active, window_minutes, rank, computed_at)
-           VALUES ($1, $2, $3, $4, $5, $6, now());`,
-          [device.userAgent, device.activeWorkers, device.totalHashrate1hr, device.bestEver, 60, rank]
+        valuesSql.push(
+          `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, now())`
         );
+
+        params.push(
+          device.userAgent,
+          device.activeWorkers,
+          device.totalHashrate1hr,
+          device.bestEver,
+          60,
+          rank
+        );
+
+        paramIndex += 6;
         rank += 1;
       }
+
+      await manager.query(
+        `INSERT INTO "online_devices" (client, active_workers, total_hashrate1hr, best_active, window_minutes, rank, computed_at)
+         VALUES ${valuesSql.join(', ')};`,
+        params
+      );
     });
 
     console.log(`Online devices updated: ${deviceStats.size} device types`);
@@ -333,6 +361,10 @@ if (require.main === module) {
       } else {
         console.log(`Updating ${users.length} active users...`);
 
+        let processedCount = 0;
+        let failedCount = 0;
+        let markedInactiveCount = 0;
+
         for (let i = 0; i < users.length; i += BATCH_SIZE) {
           const batch = users.slice(i, i + BATCH_SIZE);
           console.log(
@@ -343,15 +375,22 @@ if (require.main === module) {
             batch.map(async (user) => {
               try {
                 await updateUser(user.address);
+                processedCount += 1;
               } catch (error) {
                 console.error(`Failed to update user ${user.address}:`, error);
                 // Mark user as inactive if update fails
                 await userRepository.update({ address: user.address }, { isActive: false });
                 console.log(`Marked user ${user.address} as inactive`);
+                failedCount += 1;
+                markedInactiveCount += 1;
               }
             })
           );
         }
+
+        console.log(
+          `User update summary: processed=${processedCount}, failed=${failedCount}, marked_inactive=${markedInactiveCount}`
+        );
       }
 
       // Update online devices stats from all user files
