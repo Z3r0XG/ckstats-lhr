@@ -204,7 +204,7 @@ Add scheduled tasks:
 - **`pnpm cleanup`**: Remove old statistics based on retention policy
 
 ### Maintenance
-- **`pnpm vacuum`**: Run PostgreSQL VACUUM for database optimization
+- **`pnpm vacuum`**: Execute `VACUUM FULL ANALYZE` to reclaim dead row space, compact tables, and update query planner statistics. Locks tables during execution; best run during off-peak hours or planned maintenance
 
 ---
 
