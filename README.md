@@ -1,14 +1,14 @@
 # CKSTATS-LHR
 
-Web-based statistics dashboard for CKPOOL with sub-"1" difficulty support for
+Web-based statistics dashboard for CKPool with sub-"1" difficulty support for
 low hash rate miners (ESP32 devices, NerdMiners, and others).
 
 Production-ready Next.js application providing real-time and historical pool
 statistics, user metrics, and worker tracking for solo mining operations.
 
-## Key Features
+## Key Features/Additions
 
-- **Low Hash Rate Compatibility**: Statistics display for sub-1.0 difficulties (0.0005 and above)
+- **Low Hash Rate Compatibility**: Statistics display for sub-"1" difficulties
 - **Top User Hashrates**: Active miner leaderboard by current hashrate
 - **Top User Difficulties**: Historical tracking of highest difficulty shares ever submitted
 - **Online Devices Dashboard**: Real-time worker tracking by user agent and device type
@@ -19,21 +19,21 @@ statistics, user metrics, and worker tracking for solo mining operations.
 ## Acknowledgment
 
 This software is a fork of CKStats by mrv777. The original project provided the
-foundation for CKPOOL statistics tracking. We honor and acknowledge mrv777's work
+foundation for CKPool statistics tracking. We honor and acknowledge mrv777's work
 that made this enhanced version possible.
 
 **Original project:** https://github.com/mrv777/ckstats
 
 ## Compatibility
 
-Designed for CKPOOL instances supporting **fractional difficulty** (vardiff <1.0):
-- **Recommended**: [ckpool-lhr](https://github.com/Z3r0XG/ckpool-lhr)
-- **Limited**: Original CKPOOL (difficulty tracking ≥1.0 only)
-- **Untested**: Other CKPOOL forks (may work with reduced functionality)
+Designed for CKPool instances supporting **fractional difficulty** (sub-"1"):
+- **Recommended**: [CKPool-LHR](https://github.com/Z3r0XG/ckpool-lhr)
+- **Limited**: Original CKPool (difficulty tracking ≥1.0 only)
+- **Untested**: Other CKPool forks (may work with reduced functionality)
 
 ## Technology Stack
 
-- **Next.js 14**: React framework with server-side rendering
+- **Next.js 14.2+**: React framework with server-side rendering
 - **TypeScript**: Type-safe development
 - **TypeORM**: Database ORM with PostgreSQL
 - **Tailwind CSS** + **daisyUI**: Responsive UI components
@@ -47,7 +47,7 @@ Designed for CKPOOL instances supporting **fractional difficulty** (vardiff <1.0
 - **PostgreSQL** 12+ database server
 - **Node.js** 18+ runtime environment
 - **pnpm** package manager
-- **CKPOOL-LHR** or compatible CKPOOL instance
+- **CKPool-LHR** or compatible CKPool instance
 - **nginx** (optional, recommended for production)
 
 ---
@@ -83,7 +83,7 @@ pnpm install
 Create `.env` file with required settings:
 
 ```bash
-# CKPOOL API (required)
+# CKPool API (required)
 API_URL="https://solo.ckpool.org"
 
 # PostgreSQL connection (required)
@@ -102,13 +102,13 @@ DB_SSL_REJECT_UNAUTHORIZED="true"
 
 **Configuration Notes:**
 
-**API_URL**: CKPOOL data source. **REQUIRED**
+**API_URL**: CKPool data source. **REQUIRED**
 - Type: String
 - Values: HTTPS URL or local filesystem path
 - Examples:
   - Remote API: `https://solo.ckpool.org`
   - Local logs: `/var/log/ckpool`
-- Note: For local files, provide the path to CKPOOL's log directory
+- Note: For local files, provide the path to CKPool's log directory
 
 **DB_HOST**: PostgreSQL server address. **REQUIRED**
 - Type: String
