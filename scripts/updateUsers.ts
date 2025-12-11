@@ -180,9 +180,7 @@ async function updateUser(address: string): Promise<void> {
 
     console.log(`Updated user and workers for: ${address}`);
   } catch (error) {
-    const userRepository = globalDb.getRepository(User);
-    await userRepository.update({ address }, { isActive: false });
-    console.log(`Marked user ${address} as inactive`);
+    // Error handling now done at the batch level to avoid duplicate marking
     throw error;
   }
 }
@@ -293,19 +291,23 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
     // Note: registered users are already updated in the main loop above.
     // We just need to update online_devices table with all devices (sorted by hashrate)
     await globalDb.transaction(async (manager: any) => {
-      // Clear all stale entries for this window
-      await manager.query(
-        `DELETE FROM "online_devices" WHERE window_minutes = 60;`
-      );
+      // Capture timestamp for this update to mark old data for deletion
+      const updateTimestamp = new Date().toISOString();
 
       const sortedDevices = Array.from(deviceStats.values()).sort(
         (a, b) => b.totalHashrate1hr - a.totalHashrate1hr
       );
 
       if (sortedDevices.length === 0) {
+        // No new devices, but still clean old data with earlier timestamps
+        await manager.query(
+          `DELETE FROM "online_devices" WHERE window_minutes = 60 AND computed_at < $1;`,
+          [updateTimestamp]
+        );
         return;
       }
 
+      // INSERT new data with UPSERT to handle existing rows
       const valuesSql: string[] = [];
       const params: Array<string | number> = [];
       let paramIndex = 1;
@@ -313,7 +315,7 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
 
       for (const device of sortedDevices) {
         valuesSql.push(
-          `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, now())`
+          `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6})`
         );
 
         params.push(
@@ -322,17 +324,30 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
           device.totalHashrate1hr,
           device.bestEver,
           60,
-          rank
+          rank,
+          updateTimestamp
         );
 
-        paramIndex += 6;
+        paramIndex += 7;
         rank += 1;
       }
 
       await manager.query(
         `INSERT INTO "online_devices" (client, active_workers, total_hashrate1hr, best_active, window_minutes, rank, computed_at)
-         VALUES ${valuesSql.join(', ')};`,
+         VALUES ${valuesSql.join(', ')}
+         ON CONFLICT (client, window_minutes) DO UPDATE SET
+           active_workers = EXCLUDED.active_workers,
+           total_hashrate1hr = EXCLUDED.total_hashrate1hr,
+           best_active = EXCLUDED.best_active,
+           rank = EXCLUDED.rank,
+           computed_at = EXCLUDED.computed_at;`,
         params
+      );
+
+      // Delete old data with earlier timestamps (keep historical rows, hide old ones from API)
+      await manager.query(
+        `DELETE FROM "online_devices" WHERE window_minutes = 60 AND computed_at < $1;`,
+        [updateTimestamp]
       );
     });
 
