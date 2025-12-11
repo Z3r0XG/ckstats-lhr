@@ -168,11 +168,8 @@ Add scheduled tasks:
 # Update pool statistics every 1 minute
 */1 * * * * cd /path/to/ckstats-lhr && /usr/local/bin/pnpm seed
 
-# Update user and worker information every 1 minute
+# Update user, worker, and online device statistics every 1 minute
 */1 * * * * cd /path/to/ckstats-lhr && /usr/local/bin/pnpm update-users
-
-# Update online device tracking every 15 minutes
-*/15 * * * * cd /path/to/ckstats-lhr && /usr/local/bin/pnpm update-clients
 
 # Clean up old statistics every 2 hours
 5 */2 * * * cd /path/to/ckstats-lhr && /usr/local/bin/pnpm cleanup
@@ -203,12 +200,11 @@ Add scheduled tasks:
 
 ### Data Collection (Cron Jobs)
 - **`pnpm seed`**: Update pool statistics from CKPool API
-- **`pnpm update-users`**: Update user and worker information
-- **`pnpm update-clients`**: Update online device tracking (run after update-users)
+- **`pnpm update-users`**: Update user, worker, and online device statistics from log files
 - **`pnpm cleanup`**: Remove old statistics based on retention policy
 
 ### Maintenance
-- **`pnpm vacuum`**: Run PostgreSQL VACUUM for database optimization
+- **`pnpm vacuum`**: Execute `VACUUM FULL ANALYZE` to reclaim dead row space, compact tables, and update query planner statistics. Locks tables during execution; best run during off-peak hours or planned maintenance
 
 ---
 

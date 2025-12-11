@@ -57,3 +57,6 @@ next-env.d.ts
 
 # Local run outputs (do not commit)
 .run_outputs/
+
+# Local development files
+.local/

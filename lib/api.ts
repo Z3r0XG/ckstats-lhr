@@ -325,35 +325,32 @@ export async function getOnlineDevices(
   opts?: { windowMinutes?: number }
 ) {
   const windowMinutes = opts?.windowMinutes ?? 60;
-  const threshold = new Date(Date.now() - windowMinutes * 60 * 1000);
   const db = await getDb();
+
+  // Only show online_devices entries with active_workers > 0 and computed within windowMinutes
+  const threshold = new Date(Date.now() - windowMinutes * 60 * 1000);
 
   const rows: Array<{
     client: string;
-    activeworkers: number;
-    uniqueusers: number;
-    totalhashrate1hr: number;
-    bestever: number;
+    active_workers: number;
+    total_hashrate1hr: number;
+    best_active: number;
+    computed_at: string;
   }> = await db.query(
-    `SELECT COALESCE(NULLIF(worker."userAgent", ''), 'Unknown') AS client,
-            COUNT(*) AS activeworkers,
-            COUNT(DISTINCT worker."userAddress") AS uniqueusers,
-            SUM(COALESCE(worker.hashrate1hr, 0)) AS totalhashrate1hr,
-            MAX(COALESCE(worker."bestEver", 0)) AS bestever
-       FROM "Worker" worker
-       WHERE worker."lastUpdate" >= $1
-       GROUP BY client
-       ORDER BY totalhashrate1hr DESC, client ASC
-       LIMIT $2;`,
-    [threshold, limit]
+    `SELECT client, active_workers, total_hashrate1hr, best_active, computed_at
+     FROM "online_devices"
+     WHERE window_minutes = $1 AND active_workers > 0 AND computed_at >= $2
+     ORDER BY total_hashrate1hr DESC, client ASC
+     LIMIT $3;`,
+    [windowMinutes, threshold, limit]
   );
 
   return rows.map((r) => ({
     client: r.client,
-    activeWorkers: Number(r.activeworkers || 0),
-    uniqueUsers: Number(r.uniqueusers || 0),
-    hashrate1hr: Number(r.totalhashrate1hr || 0),
-    bestEver: Number(r.bestever || 0),
+    activeWorkers: Number(r.active_workers || 0),
+    uniqueUsers: 0, // Not tracked in online_devices
+    hashrate1hr: Number(r.total_hashrate1hr || 0),
+    bestEver: Number(r.best_active || 0),
   }));
 }
 
@@ -362,6 +359,9 @@ export async function getOnlineDevicesFromTable(
   windowMinutes: number = 60
 ) {
   const db = await getDb();
+  // Only show online_devices entries that were computed within the last windowMinutes
+  const threshold = new Date(Date.now() - windowMinutes * 60 * 1000);
+
   const rows: Array<{
     client: string;
     active_workers: number;
@@ -372,10 +372,10 @@ export async function getOnlineDevicesFromTable(
   }> = await db.query(
     `SELECT client, active_workers, total_hashrate1hr, best_active, rank, computed_at
      FROM "online_devices"
-     WHERE window_minutes = $1
+     WHERE window_minutes = $1 AND computed_at >= $2
      ORDER BY total_hashrate1hr DESC, client ASC
-     LIMIT $2;`,
-    [windowMinutes, limit]
+     LIMIT $3;`,
+    [windowMinutes, threshold, limit]
   );
 
   return rows.map((r) => ({
