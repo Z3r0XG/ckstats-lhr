@@ -8,7 +8,6 @@ export class CreateOnlineDevicesTable1710000000005 implements MigrationInterface
         client varchar(64) NOT NULL,
         active_workers integer NOT NULL DEFAULT 0,
         total_hashrate1hr double precision NOT NULL DEFAULT 0,
-        best_active double precision NOT NULL DEFAULT 0,
         window_minutes integer NOT NULL DEFAULT 60,
         rank integer,
         computed_at timestamptz NOT NULL DEFAULT now(),

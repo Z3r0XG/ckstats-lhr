@@ -320,71 +320,30 @@ export async function getTopUserHashrates(limit: number = 10) {
   });
 }
 
-export async function getOnlineDevices(
-  limit: number = 10,
-  opts?: { windowMinutes?: number }
-) {
-  const windowMinutes = opts?.windowMinutes ?? 60;
+export async function getOnlineDevices(limit: number = 10) {
   const db = await getDb();
-
-  // Only show online_devices entries with active_workers > 0 and computed within windowMinutes
-  const threshold = new Date(Date.now() - windowMinutes * 60 * 1000);
 
   const rows: Array<{
     client: string;
     active_workers: number;
     total_hashrate1hr: number;
-    best_active: number;
+    bestshare: number;
     computed_at: string;
   }> = await db.query(
-    `SELECT client, active_workers, total_hashrate1hr, best_active, computed_at
+    `SELECT client, active_workers, total_hashrate1hr, bestshare, computed_at
      FROM "online_devices"
-     WHERE window_minutes = $1 AND active_workers > 0 AND computed_at >= $2
+     WHERE active_workers > 0
      ORDER BY total_hashrate1hr DESC, client ASC
-     LIMIT $3;`,
-    [windowMinutes, threshold, limit]
+     LIMIT $1;`,
+    [limit]
   );
 
   return rows.map((r) => ({
     client: r.client,
     activeWorkers: Number(r.active_workers || 0),
-    uniqueUsers: 0, // Not tracked in online_devices
+    uniqueUsers: 0,
     hashrate1hr: Number(r.total_hashrate1hr || 0),
-    bestEver: Number(r.best_active || 0),
-  }));
-}
-
-export async function getOnlineDevicesFromTable(
-  limit: number = 10,
-  windowMinutes: number = 60
-) {
-  const db = await getDb();
-  // Only show online_devices entries that were computed within the last windowMinutes
-  const threshold = new Date(Date.now() - windowMinutes * 60 * 1000);
-
-  const rows: Array<{
-    client: string;
-    active_workers: number;
-    total_hashrate1hr: number;
-    best_active: number;
-    rank: number | null;
-    computed_at: string;
-  }> = await db.query(
-    `SELECT client, active_workers, total_hashrate1hr, best_active, rank, computed_at
-     FROM "online_devices"
-     WHERE window_minutes = $1 AND computed_at >= $2
-     ORDER BY total_hashrate1hr DESC, client ASC
-     LIMIT $3;`,
-    [windowMinutes, threshold, limit]
-  );
-
-  return rows.map((r) => ({
-    client: r.client,
-    activeWorkers: Number(r.active_workers || 0),
-    hashrate1hr: Number(r.total_hashrate1hr || 0),
-    bestEver: Number(r.best_active || 0),
-    rank: r.rank ?? null,
-    computedAt: r.computed_at,
+    bestEver: Number(r.bestshare || 0),
   }));
 }
 
