@@ -17,8 +17,6 @@ import {
 } from '../utils/helpers';
 
 const BATCH_SIZE = 10;
-
-// Store db reference at module level to pass between functions
 let globalDb: any = null;
 
 interface WorkerData {
@@ -180,7 +178,6 @@ async function updateUser(address: string): Promise<void> {
 
     console.log(`Updated user and workers for: ${address}`);
   } catch (error) {
-    // Error handling now done at the batch level to avoid duplicate marking
     throw error;
   }
 }
@@ -208,7 +205,6 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
     let userFileCount = 0;
     const threshold = Math.floor(Date.now() / 1000) - 60 * 60;
 
-    // Aggregate stats by userAgent (device type)
     const deviceStats: Map<
       string,
       {
@@ -221,7 +217,6 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
     > = new Map();
 
     for await (const dirent of dir) {
-      // Skip hidden files and non-files
       if (dirent.name.startsWith('.') || !dirent.isFile()) {
         continue;
       }
@@ -230,27 +225,31 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
 
       try {
         const raw = await fs.promises.readFile(userFilePath, 'utf-8');
-        const userData = JSON.parse(raw) as UserData;
+        const parsed: unknown = JSON.parse(raw);
 
-        // Basic shape validation to avoid processing malformed files
-        if (!userData || !Array.isArray((userData as any).worker)) {
+        const isUserData = (obj: unknown): obj is UserData => {
+          if (!obj || typeof obj !== 'object') return false;
+          const anyObj = obj as any;
+          if (!Array.isArray(anyObj.worker)) return false;
+          // Ensure worker array contains objects (fine-grained validation later)
+          return anyObj.worker.every((w: any) => w && typeof w === 'object');
+        };
+
+        if (!isUserData(parsed)) {
           console.error(`Invalid user file (missing worker array): ${userFilePath}`);
           continue;
         }
 
-        const workers = (userData as any).worker.filter(
-          (w: any) => typeof w?.lastshare === 'number'
-        );
+        const userData = parsed; // typed as UserData now
+
+        const workers = userData.worker.filter((w) => typeof w?.lastshare === 'number');
 
         if (workers.length === 0) {
           console.error(`User file has no valid workers: ${userFilePath}`);
           continue;
         }
 
-        // Process each worker for online devices aggregation
-        // Only count workers that have submitted shares in the last 60 minutes
         for (const workerData of workers) {
-          // Skip workers that haven't shared recently
           if (workerData.lastshare < threshold) {
             continue;
           }
@@ -288,10 +287,7 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
 
     console.log(`Found ${deviceStats.size} unique device types`);
 
-    // Note: registered users are already updated in the main loop above.
-    // We just need to update online_devices table with all devices (sorted by hashrate)
     await globalDb.transaction(async (manager: any) => {
-      // Capture timestamp for this update to mark old data for deletion
       const updateTimestamp = new Date().toISOString();
 
       const sortedDevices = Array.from(deviceStats.values()).sort(
@@ -299,7 +295,6 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
       );
 
       if (sortedDevices.length === 0) {
-        // No new devices, but still clean old data with earlier timestamps
         await manager.query(
           `DELETE FROM "online_devices" WHERE window_minutes = 60 AND computed_at < $1;`,
           [updateTimestamp]
@@ -307,7 +302,6 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
         return;
       }
 
-      // INSERT new data with UPSERT to handle existing rows
       const valuesSql: string[] = [];
       const params: Array<string | number> = [];
       let paramIndex = 1;
@@ -344,7 +338,6 @@ async function updateOnlineDevicesFromAllUsers(): Promise<void> {
         params
       );
 
-      // Delete old data with earlier timestamps (keep historical rows, hide old ones from API)
       await manager.query(
         `DELETE FROM "online_devices" WHERE window_minutes = 60 AND computed_at < $1;`,
         [updateTimestamp]
@@ -393,7 +386,6 @@ if (require.main === module) {
                 processedCount += 1;
               } catch (error) {
                 console.error(`Failed to update user ${user.address}:`, error);
-                // Mark user as inactive if update fails
                 await userRepository.update({ address: user.address }, { isActive: false });
                 console.log(`Marked user ${user.address} as inactive`);
                 failedCount += 1;
@@ -408,7 +400,6 @@ if (require.main === module) {
         );
       }
 
-      // Update online devices stats from all user files
       await updateOnlineDevicesFromAllUsers();
     } catch (error) {
       console.error('Error in main loop:', error);
