@@ -190,7 +190,7 @@ async function seed() {
     await poolStatsRepository.save(entity);
     console.log('Database seeded successfully');
 
-    const userCount = parseInt(stats.Users ?? '0') || 0;
+    const userCount = poolStats.users || 0;
 
     if (stats.UserAgents && stats.UserAgents.length > 0) {
       await updateOnlineDevices(db, stats.UserAgents);
