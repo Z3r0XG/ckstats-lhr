@@ -14,6 +14,12 @@ interface PoolStatsData {
   Workers: string;
   Idle: string;
   Disconnected: string;
+  UserAgents?: Array<{
+    ua: string;
+    devices: number;
+    hashrate5m: string;
+    bestshare?: number;
+  }>;
   hashrate1m: string;
   hashrate5m: string;
   hashrate15m: string;
@@ -52,6 +58,75 @@ async function fetchPoolStats(): Promise<Partial<PoolStatsData>> {
     {}
   );
   return parsedData as PoolStatsData;
+}
+
+async function updateOnlineDevices(
+  db: any,
+  userAgents?: Array<{ ua: string; devices: number; hashrate5m: string; bestshare?: number }>
+): Promise<void> {
+  if (!userAgents || userAgents.length === 0) {
+    console.log('No UserAgents data available for online_devices update');
+    return;
+  }
+
+  console.log(`Updating online_devices with ${userAgents.length} device types...`);
+
+  const sorted = [...userAgents].sort((a, b) => {
+    const hashA = convertHashrateFloat((a.hashrate5m ?? '0').trim());
+    const hashB = convertHashrateFloat((b.hashrate5m ?? '0').trim());
+    return hashB - hashA;
+  });
+
+  const updateTimestamp = new Date().toISOString();
+  const valuesSql: string[] = [];
+  const params: Array<string | number> = [];
+  let paramIndex = 1;
+
+  for (let i = 0; i < sorted.length; i++) {
+    const device = sorted[i];
+    const hashrate5mStr = (device.hashrate5m ?? '0').trim();
+    const hashrate5mNum = convertHashrateFloat(hashrate5mStr);
+    const bestshareNum = Number(device.bestshare ?? 0);
+
+    valuesSql.push(
+      `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4})`
+    );
+
+    params.push(
+      device.ua,
+      device.devices,
+      hashrate5mNum,
+      updateTimestamp,
+      bestshareNum
+    );
+
+    paramIndex += 5;
+  }
+
+  try {
+    await db.transaction(async (manager: any) => {
+      await manager.query(
+        `INSERT INTO "online_devices" (client, active_workers, total_hashrate, computed_at, bestshare)
+         VALUES ${valuesSql.join(', ')}
+         ON CONFLICT (client) DO UPDATE SET
+           active_workers = EXCLUDED.active_workers,
+           total_hashrate = EXCLUDED.total_hashrate,
+           computed_at = EXCLUDED.computed_at,
+           bestshare = EXCLUDED.bestshare;`,
+        params
+      );
+
+      await manager.query(
+        `DELETE FROM "online_devices" WHERE computed_at < $1;`,
+        [updateTimestamp]
+      );
+    });
+
+    console.log(`Online devices updated: ${userAgents.length} device types`);
+  } catch (error) {
+    console.error('Error updating online devices:', error);
+    throw error;
+  }
 }
 
 async function seed() {
@@ -104,6 +179,10 @@ async function seed() {
     const entity = poolStatsRepository.create(poolStats as Partial<PoolStats>);
     await poolStatsRepository.save(entity);
     console.log('Database seeded successfully');
+
+    if (stats.UserAgents) {
+      await updateOnlineDevices(db, stats.UserAgents);
+    }
   } catch (error) {
     console.error('Error seeding database:', error);
   } finally {

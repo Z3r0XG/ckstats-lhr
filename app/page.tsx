@@ -42,7 +42,7 @@ export default async function Home() {
           <TopUserHashrates />
         </div>
         <div className="mt-8">
-          <OnlineDevices limit={10000} windowMinutes={60} onlyActive={true} />
+          <OnlineDevices limit={10000} />
         </div>
       </main>
     );
