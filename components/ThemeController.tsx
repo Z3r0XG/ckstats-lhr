@@ -39,16 +39,34 @@ const themes = [
 
 export default function ThemeController() {
   const [theme, setTheme] = useState('dark');
+  const [storageReady, setStorageReady] = useState(false);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    setTheme(savedTheme);
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    if (typeof window === 'undefined') return;
+
+    try {
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      setTheme(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      setStorageReady(true);
+    } catch (err) {
+      console.debug('localStorage unavailable for theme', err);
+      setStorageReady(false);
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
   }, []);
 
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
+
+    try {
+      if (storageReady) {
+        localStorage.setItem('theme', newTheme);
+      }
+    } catch (err) {
+      console.debug('localStorage unavailable when setting theme', err);
+    }
+
     document.documentElement.setAttribute('data-theme', newTheme);
   };
 

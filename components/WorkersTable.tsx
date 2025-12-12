@@ -24,12 +24,21 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
   const [sortField, setSortField] = useState<SortField>('hashrate5m');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [hideInactive, setHideInactive] = useState(false);
+  const [storageReady, setStorageReady] = useState(false);
 
   // Load hideInactive preference from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('hideInactiveWorkers');
-    if (saved !== null) {
-      setHideInactive(saved === 'true');
+    if (typeof window === 'undefined') return;
+
+    try {
+      const saved = localStorage.getItem('hideInactiveWorkers');
+      if (saved !== null) {
+        setHideInactive(saved === 'true');
+      }
+      setStorageReady(true);
+    } catch (err) {
+      console.debug('localStorage unavailable for hideInactiveWorkers', err);
+      setStorageReady(false);
     }
   }, []);
 
@@ -37,7 +46,17 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
   const handleToggleHideInactive = () => {
     const newValue = !hideInactive;
     setHideInactive(newValue);
-    localStorage.setItem('hideInactiveWorkers', String(newValue));
+
+    if (!storageReady) return;
+
+    try {
+      localStorage.setItem('hideInactiveWorkers', String(newValue));
+    } catch (err) {
+      console.debug(
+        'localStorage unavailable when setting hideInactiveWorkers',
+        err
+      );
+    }
   };
 
   const isWorkerIdle = (worker: Worker): boolean => {
@@ -118,22 +137,19 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     <div className="bg-base-200 p-4 rounded-lg mt-8">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">Workers</h2>
-        <label className="flex items-center gap-3 cursor-pointer">
-          <span
-            className="text-sm"
-            data-tip={'Hide workers with no updates in the last 24 hours'}
-          >
-            Hide Inactive
-          </span>
-          <input
-            type="checkbox"
-            checked={hideInactive}
-            onChange={handleToggleHideInactive}
-            className={`toggle toggle-sm ${hideInactive ? 'toggle-success' : ''}`}
-            title="Toggle to show/hide workers with no updates in the last 24 hours."
-            aria-checked={hideInactive}
-          />
-        </label>
+        {storageReady && (
+          <label className="flex items-center gap-3 cursor-pointer">
+            <span className="text-sm">Hide Inactive</span>
+            <input
+              type="checkbox"
+              checked={hideInactive}
+              onChange={handleToggleHideInactive}
+              className={`toggle toggle-sm ${hideInactive ? 'toggle-success' : ''}`}
+              title="Toggle to show/hide workers with no updates in the last 24 hours."
+              aria-checked={hideInactive}
+            />
+          </label>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="table w-full table-sm sm:table-md">
