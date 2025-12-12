@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import Link from 'next/link';
 
@@ -23,6 +23,30 @@ type SortOrder = 'asc' | 'desc';
 const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
   const [sortField, setSortField] = useState<SortField>('hashrate5m');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [hideInactive, setHideInactive] = useState(false);
+
+  // Load hideInactive preference from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('hideInactiveWorkers');
+    if (saved !== null) {
+      setHideInactive(saved === 'true');
+    }
+  }, []);
+
+  // Save hideInactive preference to localStorage when it changes
+  const handleToggleHideInactive = () => {
+    const newValue = !hideInactive;
+    setHideInactive(newValue);
+    localStorage.setItem('hideInactiveWorkers', String(newValue));
+  };
+
+  const isWorkerIdle = (worker: Worker): boolean => {
+    if (!worker.lastUpdate) return true;
+    const lastUpdateTime = new Date(worker.lastUpdate).getTime();
+    const now = Date.now();
+    const hours24 = 24 * 60 * 60 * 1000;
+    return now - lastUpdateTime > hours24;
+  };
 
   const handleSort = (field: SortField) => {
     if (field === sortField) {
@@ -81,6 +105,10 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     return 0;
   });
 
+  const displayWorkers = hideInactive
+    ? sortedWorkers.filter((w) => !isWorkerIdle(w))
+    : sortedWorkers;
+
   const renderSortIcon = (field: SortField) => {
     if (sortField !== field) return null;
     return sortOrder === 'asc' ? ' ▲' : ' ▼';
@@ -88,7 +116,25 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
 
   return (
     <div className="bg-base-200 p-4 rounded-lg mt-8">
-      <h2 className="text-xl font-bold mb-4">Workers</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold">Workers</h2>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <span
+            className="text-sm"
+            data-tip={'Hide workers with no updates in the last 24 hours'}
+          >
+            Hide Inactive
+          </span>
+          <input
+            type="checkbox"
+            checked={hideInactive}
+            onChange={handleToggleHideInactive}
+            className={`toggle toggle-sm ${hideInactive ? 'toggle-success' : ''}`}
+            title="Toggle to show/hide workers with no updates in the last 24 hours."
+            aria-checked={hideInactive}
+          />
+        </label>
+      </div>
       <div className="overflow-x-auto">
         <table className="table w-full table-sm sm:table-md">
           <thead>
@@ -141,7 +187,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
             </tr>
           </thead>
           <tbody>
-            {sortedWorkers.map((worker) => {
+            {displayWorkers.map((worker) => {
               const parseHashrateToNumber = (raw: any): number => {
                 if (raw === undefined || raw === null) return 0;
                 if (typeof raw === 'bigint') return Number(raw);
