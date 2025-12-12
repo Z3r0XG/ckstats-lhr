@@ -129,6 +129,16 @@ async function updateOnlineDevices(
   }
 }
 
+async function clearOnlineDevices(db: any): Promise<void> {
+  try {
+    await db.query(`DELETE FROM "online_devices";`);
+    console.log('Cleared online_devices table (no active users reported)');
+  } catch (error) {
+    console.error('Error clearing online devices:', error);
+    throw error;
+  }
+}
+
 async function seed() {
   let db: any | null = null;
   try {
@@ -180,8 +190,17 @@ async function seed() {
     await poolStatsRepository.save(entity);
     console.log('Database seeded successfully');
 
-    if (stats.UserAgents) {
+    const userCount = parseInt(stats.Users ?? '0') || 0;
+
+    if (stats.UserAgents && stats.UserAgents.length > 0) {
       await updateOnlineDevices(db, stats.UserAgents);
+    } else if (userCount === 0) {
+      console.log('No active users in pool status; clearing online_devices');
+      await clearOnlineDevices(db);
+    } else {
+      console.warn(
+        'UserAgents missing but pool status reports active users; keeping existing online_devices (stale)'
+      );
     }
   } catch (error) {
     console.error('Error seeding database:', error);
