@@ -6,6 +6,7 @@ import {
 describe('getWorkerUserAgentDisplay', () => {
   it('returns the raw user agent when it is non-empty', () => {
     expect(getWorkerUserAgentDisplay('Nerd Miner/1.0')).toBe('Nerd Miner/1.0');
+    expect(getWorkerUserAgentDisplay('  Miner/1.0  ')).toBe('  Miner/1.0  ');
   });
 
   it('returns N/A for null or undefined values', () => {
