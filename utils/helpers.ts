@@ -160,6 +160,27 @@ export function convertHashrateFloat(value: string): number {
   return parsed;
 }
 
+export function normalizeWorkerUserAgent(raw?: string | null): string {
+  if (raw === null || raw === undefined) return '';
+  return String(raw).trim();
+}
+
+export function getWorkerUserAgentDisplay(raw?: string | null): string {
+  if (raw === null || raw === undefined) return 'N/A';
+  const trimmed = String(raw).trim();
+  return trimmed === '' ? 'N/A' : String(raw);
+}
+
+export function compareWorkerUserAgentStrings(
+  a?: string | null,
+  b?: string | null
+): number {
+  const normA = normalizeWorkerUserAgent(a);
+  const normB = normalizeWorkerUserAgent(b);
+  if (normA === normB) return 0;
+  return normA < normB ? -1 : 1;
+}
+
 export function findISOUnit(num: number): ISOUnit {
   const absNum = Math.abs(num);
 

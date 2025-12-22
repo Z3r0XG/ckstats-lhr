@@ -10,6 +10,8 @@ import {
   formatNumber,
   formatTimeAgo,
   convertHashrate,
+  getWorkerUserAgentDisplay,
+  compareWorkerUserAgentStrings,
 } from '../utils/helpers';
 
 interface WorkersTableProps {
@@ -78,6 +80,13 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
 
   const sortedWorkers = [...workers].sort((a, b) => {
     if (sortField) {
+      if (sortField === 'userAgentRaw') {
+        const cmp = compareWorkerUserAgentStrings(
+          a.userAgentRaw,
+          b.userAgentRaw
+        );
+        return sortOrder === 'asc' ? cmp : -cmp;
+      }
       const numericFields = [
         'hashrate5m',
         'hashrate1hr',
@@ -159,10 +168,10 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                 Name{renderSortIcon('name')}
               </th>
               <th
-                onClick={() => handleSort('userAgent')}
+                onClick={() => handleSort('userAgentRaw')}
                 className="cursor-pointer"
               >
-                Client{renderSortIcon('userAgent')}
+                Client{renderSortIcon('userAgentRaw')}
               </th>
               <th
                 onClick={() => handleSort('hashrate5m')}
@@ -279,9 +288,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                     </Link>
                   </td>
                   <td title={worker.userAgentRaw || ''}>
-                    {worker.userAgent && String(worker.userAgent).trim() !== ''
-                      ? worker.userAgent
-                      : 'N/A'}
+                    {getWorkerUserAgentDisplay(worker.userAgentRaw)}
                   </td>
                   <td className={cls5m}>{renderHr(hr5mRaw, hr5m)}</td>
                   <td className={cls1hr}>{renderHr(hr1hrRaw, hr1hr)}</td>
