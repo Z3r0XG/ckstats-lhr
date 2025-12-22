@@ -279,8 +279,9 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                     </Link>
                   </td>
                   <td title={worker.userAgentRaw || ''}>
-                    {worker.userAgent && String(worker.userAgent).trim() !== ''
-                      ? worker.userAgent
+                    {worker.userAgentRaw &&
+                    String(worker.userAgentRaw).trim() !== ''
+                      ? worker.userAgentRaw
                       : 'N/A'}
                   </td>
                   <td className={cls5m}>{renderHr(hr5mRaw, hr5m)}</td>
