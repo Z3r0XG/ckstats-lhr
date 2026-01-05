@@ -593,7 +593,7 @@ export async function getTopBestDiffs(limit: number = 10) {
 
   return topWorkers.map((row) => ({
     difficulty: Number(row.difficulty || 0),
-    device: row.device || 'Unknown',
+    device: row.device || 'Other',
     timestamp: new Date(row.timestamp),
   }));
 }

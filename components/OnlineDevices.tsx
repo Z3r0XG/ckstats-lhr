@@ -38,7 +38,7 @@ export default async function OnlineDevices({
                 {clients.map((c, index) => (
                   <tr key={`${c.client}-${index}`}>
                     <td>{index + 1}</td>
-                    <td className="break-words max-w-[18rem]">{c.client}</td>
+                    <td className="break-words max-w-[18rem]">{c.client || 'Other'}</td>
                     <td className="text-accent">{c.activeWorkers}</td>
                     <td className="text-accent">
                       {formatHashrate(Number(c.hashrate1hr))}
