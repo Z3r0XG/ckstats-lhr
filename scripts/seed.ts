@@ -152,6 +152,17 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
       return;
     }
 
+    // Check if top_best_diffs table exists
+    const topBestDiffsTables = await db.query(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = 'top_best_diffs'
+    `);
+
+    if (!topBestDiffsTables || topBestDiffsTables.length === 0) {
+      console.log('top_best_diffs table does not exist yet; skipping refresh');
+      return;
+    }
+
     // Check if table was refreshed in the last hour
     const result = await db.query(
       `SELECT MAX(computed_at) as last_computed FROM "top_best_diffs";`
