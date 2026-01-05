@@ -11,8 +11,8 @@ statistics, user metrics, and worker tracking for solo mining operations.
 - **Low Hash Rate Compatibility**: Statistics display for sub-"1" difficulties
 - **Top User Hashrates**: Active miner leaderboard by current hashrate
 - **Top User Difficulties**: Historical tracking of highest difficulty shares ever submitted
-- **High Scores Leaderboard**: Top 10 workers by all-time best share difficulty with device type and last update timestamp (hourly materialized view for performance)
-- **Online Devices Dashboard**: Real-time worker tracking by user agent and device type with counts that highlight every connected client
+- **High Scores Leaderboard**: Historical tracking of highest difficulty shares ever submitted by device type
+- **Online Devices Dashboard**: Real-time worker tracking by device type with counts that highlight every connected client
 - **Rejected Share Percentage**: Color-coded rejection rates with visual indicators
 - **Privacy Controls**: User-controlled visibility toggle for public leaderboards
 - **Historical Charts**: Time-series pool and user statistics with configurable retention
