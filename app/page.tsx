@@ -42,9 +42,11 @@ export default async function Home() {
           <TopUserDifficulties />
           <TopUserHashrates />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-          <OnlineDevices limit={10000} />
+        <div className="mt-8">
           <HighScores limit={10} />
+        </div>
+        <div className="mt-4">
+          <OnlineDevices limit={10000} />
         </div>
       </main>
     );
