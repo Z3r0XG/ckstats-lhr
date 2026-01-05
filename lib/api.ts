@@ -576,3 +576,27 @@ export async function toggleUserStatsPrivacy(
 
   return { isPublic: newIsPublic };
 }
+
+export async function getTopBestDiffs(limit: number = 10) {
+  const db = await getDb();
+
+  const rows: Array<{
+    rank: number;
+    difficulty: number;
+    device: string;
+    timestamp: string;
+  }> = await db.query(
+    `SELECT rank, difficulty, device, timestamp
+     FROM "top_best_diffs"
+     ORDER BY rank ASC
+     LIMIT $1;`,
+    [limit]
+  );
+
+  return rows.map((r) => ({
+    rank: r.rank,
+    difficulty: Number(r.difficulty || 0),
+    device: r.device || 'Other',
+    timestamp: new Date(r.timestamp),
+  }));
+}

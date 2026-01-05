@@ -53,59 +53,70 @@ export default async function TopUserDifficulties({
                 </tr>
               </thead>
               <tbody>
-                {difficulties.map((user, index) => (
-                  <tr key={user.address}>
-                    <td>
-                      {index + 1}{' '}
-                      {user.workerCount === 0 ? (
-                        <span
-                          className="text-warning tooltip tooltip-right"
-                          data-tip="No active workers"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4 inline-block stroke-current"
-                            fill="none"
-                            viewBox="0 0 24 24"
+                {difficulties.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={limit > SMALL_LIMIT ? 8 : 3}
+                      className="text-center text-sm text-base-content/60"
+                    >
+                      No Stats Available Yet
+                    </td>
+                  </tr>
+                ) : (
+                  difficulties.map((user, index) => (
+                    <tr key={user.address}>
+                      <td>
+                        {index + 1}{' '}
+                        {user.workerCount === 0 ? (
+                          <span
+                            className="text-warning tooltip tooltip-right"
+                            data-tip="No active workers"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                            />
-                          </svg>
-                        </span>
-                      ) : (
-                        ''
-                      )}
-                    </td>
-                    <td>
-                      {user.address.slice(0, 6)}...{user.address.slice(-4)}
-                    </td>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 inline-block stroke-current"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                              />
+                            </svg>
+                          </span>
+                        ) : (
+                          ''
+                        )}
+                      </td>
+                      <td>
+                        {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                      </td>
 
-                    {limit > SMALL_LIMIT ? (
-                      <>
-                        <td
-                          className={`${user.workerCount === 0 ? 'text-error' : ''}`}
-                        >
-                          {user.workerCount}
-                        </td>
+                      {limit > SMALL_LIMIT ? (
+                        <>
+                          <td
+                            className={`${user.workerCount === 0 ? 'text-error' : ''}`}
+                          >
+                            {user.workerCount}
+                          </td>
+                          <td className="text-accent">
+                            {formatNumber(Number(user.difficulty))}
+                          </td>
+                          <td>{formatNumber(Number(user.bestShare))}</td>
+                          <td>{formatHashrate(user.hashrate1hr)}</td>
+                          <td>{formatHashrate(user.hashrate1d)}</td>
+                          <td>{formatHashrate(user.hashrate7d)}</td>
+                        </>
+                      ) : (
                         <td className="text-accent">
                           {formatNumber(Number(user.difficulty))}
                         </td>
-                        <td>{formatNumber(Number(user.bestShare))}</td>
-                        <td>{formatHashrate(user.hashrate1hr)}</td>
-                        <td>{formatHashrate(user.hashrate1d)}</td>
-                        <td>{formatHashrate(user.hashrate7d)}</td>
-                      </>
-                    ) : (
-                      <td className="text-accent">
-                        {formatNumber(Number(user.difficulty))}
-                      </td>
-                    )}
-                  </tr>
-                ))}
+                      )}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

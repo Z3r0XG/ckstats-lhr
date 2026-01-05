@@ -139,6 +139,70 @@ async function clearOnlineDevices(db: any): Promise<void> {
   }
 }
 
+async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
+  try {
+    // Check if Worker table exists first
+    const tables = await db.query(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = 'Worker'
+    `);
+
+    if (!tables || tables.length === 0) {
+      console.log('Worker table does not exist yet; skipping top_best_diffs refresh');
+      return;
+    }
+
+    // Check if top_best_diffs table exists
+    const topBestDiffsTables = await db.query(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = 'top_best_diffs'
+    `);
+
+    if (!topBestDiffsTables || topBestDiffsTables.length === 0) {
+      console.log('top_best_diffs table does not exist yet; skipping refresh');
+      return;
+    }
+
+    // Check if table was refreshed in the last hour
+    const result = await db.query(
+      `SELECT MAX(computed_at) as last_computed FROM "top_best_diffs";`
+    );
+
+    const lastComputedAt = result?.[0]?.last_computed;
+    const now = new Date();
+    const oneHourMs = 3600000;
+
+    // Only refresh if older than 1 hour (or table is empty)
+    if (
+      !lastComputedAt ||
+      now.getTime() - new Date(lastComputedAt).getTime() > oneHourMs
+    ) {
+      console.log('Refreshing top_best_diffs (over 1 hour old)...');
+
+      await db.transaction(async (manager: any) => {
+        await manager.query(`TRUNCATE TABLE "top_best_diffs";`);
+        await manager.query(`
+          INSERT INTO "top_best_diffs" (rank, difficulty, device, timestamp)
+          SELECT 
+            ROW_NUMBER() OVER (ORDER BY "bestEver" DESC) as rank,
+            "bestEver" as difficulty,
+            "userAgent" as device,
+            "updatedAt" as timestamp
+          FROM "Worker"
+          WHERE "bestEver" > 0
+          ORDER BY "bestEver" DESC
+          LIMIT 10;
+        `);
+      });
+
+      console.log('Top best diffs refreshed successfully');
+    }
+  } catch (error) {
+    console.error('Error refreshing top best diffs:', error);
+    throw error;
+  }
+}
+
 async function seed() {
   let db: any | null = null;
   try {
@@ -202,6 +266,9 @@ async function seed() {
         'UserAgents missing but pool status reports active users; keeping existing online_devices (stale)'
       );
     }
+
+    // Refresh top_best_diffs if older than 1 hour
+    await refreshTopBestDiffsIfNeeded(db);
   } catch (error) {
     console.error('Error seeding database:', error);
   } finally {

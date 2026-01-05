@@ -48,6 +48,7 @@ next-env.d.ts
 /prisma/*.db-journal
 
 # IDE-specific files
+.github/copilot-instructions.md
 .idea
 .vscode
 

@@ -52,31 +52,42 @@ export default async function TopUserHashrates({
                 </tr>
               </thead>
               <tbody>
-                {hashrates.map((user, index) => (
-                  <tr key={user.address}>
-                    <td>{index + 1}</td>
-                    <td>
-                      {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                {hashrates.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={limit > SMALL_LIMIT ? 8 : 3}
+                      className="text-center text-sm text-base-content/60"
+                    >
+                      No Stats Available Yet
                     </td>
+                  </tr>
+                ) : (
+                  hashrates.map((user, index) => (
+                    <tr key={user.address}>
+                      <td>{index + 1}</td>
+                      <td>
+                        {user.address.slice(0, 6)}...{user.address.slice(-4)}
+                      </td>
 
-                    {limit > SMALL_LIMIT ? (
-                      <>
-                        <td>{user.workerCount}</td>
+                      {limit > SMALL_LIMIT ? (
+                        <>
+                          <td>{user.workerCount}</td>
+                          <td className="text-accent">
+                            {formatHashrate(user.hashrate1hr)}
+                          </td>
+                          <td>{formatHashrate(user.hashrate1d)}</td>
+                          <td>{formatHashrate(user.hashrate7d)}</td>
+                          <td>{formatNumber(Number(user.bestShare))}</td>
+                          <td>{formatNumber(Number(user.bestEver))}</td>
+                        </>
+                      ) : (
                         <td className="text-accent">
                           {formatHashrate(user.hashrate1hr)}
                         </td>
-                        <td>{formatHashrate(user.hashrate1d)}</td>
-                        <td>{formatHashrate(user.hashrate7d)}</td>
-                        <td>{formatNumber(Number(user.bestShare))}</td>
-                        <td>{formatNumber(Number(user.bestEver))}</td>
-                      </>
-                    ) : (
-                      <td className="text-accent">
-                        {formatHashrate(user.hashrate1hr)}
-                      </td>
-                    )}
-                  </tr>
-                ))}
+                      )}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
