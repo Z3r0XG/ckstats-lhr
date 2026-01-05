@@ -594,6 +594,7 @@ export async function getTopBestDiffs(limit: number = 10) {
   );
 
   return rows.map((r) => ({
+    rank: r.rank,
     difficulty: Number(r.difficulty || 0),
     device: r.device || 'Other',
     timestamp: new Date(r.timestamp),
