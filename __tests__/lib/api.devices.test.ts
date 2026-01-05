@@ -76,6 +76,8 @@ describe('getTopBestDiffs', () => {
     expect(result).toHaveLength(2);
     expect(result[0].difficulty).toBe(25.926);
     expect(result[0].device).toBe('NMMiner');
+    expect(result[0].timestamp).toBeInstanceOf(Date);
+    expect(result[0].timestamp.getTime()).toBe(new Date(fakeRows[0].timestamp).getTime());
     expect(result[1].difficulty).toBe(20.5);
     expect(result[1].device).toBe('ESP32');
   });

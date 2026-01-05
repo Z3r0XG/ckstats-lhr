@@ -179,19 +179,21 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
     ) {
       console.log('Refreshing top_best_diffs (over 1 hour old)...');
 
-      await db.query(`TRUNCATE TABLE "top_best_diffs";`);
-      await db.query(`
-        INSERT INTO "top_best_diffs" (rank, difficulty, device, timestamp)
-        SELECT 
-          ROW_NUMBER() OVER (ORDER BY "bestEver" DESC) as rank,
-          "bestEver" as difficulty,
-          "userAgent" as device,
-          "updatedAt" as timestamp
-        FROM "Worker"
-        WHERE "bestEver" > 0
-        ORDER BY "bestEver" DESC
-        LIMIT 10;
-      `);
+      await db.transaction(async (manager: any) => {
+        await manager.query(`TRUNCATE TABLE "top_best_diffs";`);
+        await manager.query(`
+          INSERT INTO "top_best_diffs" (rank, difficulty, device, timestamp)
+          SELECT 
+            ROW_NUMBER() OVER (ORDER BY "bestEver" DESC) as rank,
+            "bestEver" as difficulty,
+            "userAgent" as device,
+            "updatedAt" as timestamp
+          FROM "Worker"
+          WHERE "bestEver" > 0
+          ORDER BY "bestEver" DESC
+          LIMIT 10;
+        `);
+      });
 
       console.log('Top best diffs refreshed successfully');
     }
