@@ -1,5 +1,6 @@
 export const revalidate = 60;
 
+import HighScores from '../components/HighScores';
 import OnlineDevices from '../components/OnlineDevices';
 import PoolStatsChart from '../components/PoolStatsChart';
 import PoolStatsDisplay from '../components/PoolStatsDisplay';
@@ -41,8 +42,9 @@ export default async function Home() {
           <TopUserDifficulties />
           <TopUserHashrates />
         </div>
-        <div className="mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
           <OnlineDevices limit={10000} />
+          <HighScores limit={10} />
         </div>
       </main>
     );

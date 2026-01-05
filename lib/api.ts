@@ -576,3 +576,24 @@ export async function toggleUserStatsPrivacy(
 
   return { isPublic: newIsPublic };
 }
+
+export async function getTopBestDiffs(limit: number = 10) {
+  const db = await getDb();
+  const workerRepository = db.getRepository(Worker);
+
+  const topWorkers = await workerRepository
+    .createQueryBuilder('w')
+    .select('w.bestEver', 'difficulty')
+    .addSelect('w.userAgent', 'device')
+    .addSelect('w.updatedAt', 'timestamp')
+    .where('w.bestEver > 0')
+    .orderBy('w.bestEver', 'DESC')
+    .limit(limit)
+    .getRawMany();
+
+  return topWorkers.map((row) => ({
+    difficulty: Number(row.difficulty || 0),
+    device: row.device || 'Unknown',
+    timestamp: new Date(row.timestamp),
+  }));
+}
