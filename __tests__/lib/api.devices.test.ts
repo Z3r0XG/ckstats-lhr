@@ -107,8 +107,9 @@ describe('getTopBestDiffs', () => {
 
     jest.spyOn(dbModule, 'getDb').mockResolvedValue({ query: fakeQuery } as any);
 
-    await getTopBestDiffs(5);
+    const result = await getTopBestDiffs(5);
 
     expect(fakeQuery).toHaveBeenCalled();
+    expect(result).toEqual([]);
   });
 });
