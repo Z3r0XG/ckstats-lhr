@@ -36,7 +36,10 @@ export default async function HighScores({
               <tbody>
                 {topDiffs.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-center text-sm text-base-content/60">
+                    <td
+                      colSpan={4}
+                      className="text-center text-sm text-base-content/60"
+                    >
                       No Stats Available Yet
                     </td>
                   </tr>
