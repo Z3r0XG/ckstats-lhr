@@ -36,7 +36,7 @@ export default async function HighScores({
               <tbody>
                 {topDiffs.map((d, index) => (
                   <tr key={`${d.difficulty}-${index}`}>
-                    <td>#{index + 1}</td>
+                    <td>{index + 1}</td>
                     <td className="text-accent font-semibold">
                       {formatNumber(d.difficulty)}
                     </td>
