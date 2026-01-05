@@ -43,7 +43,7 @@ describe('getTopBestDiffs', () => {
     jest.restoreAllMocks();
   });
 
-  it('queries top_best_diffs materialized view and returns top workers', async () => {
+  it('queries top_best_diffs table and returns top workers', async () => {
     const now = new Date();
     const fakeRows = [
       {
