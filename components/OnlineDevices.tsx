@@ -35,21 +35,32 @@ export default async function OnlineDevices({
                 </tr>
               </thead>
               <tbody>
-                {clients.map((c, index) => (
-                  <tr key={`${c.client}-${index}`}>
-                    <td>{index + 1}</td>
-                    <td className="break-words max-w-[18rem]">
-                      {c.client || 'Other'}
-                    </td>
-                    <td className="text-accent">{c.activeWorkers}</td>
-                    <td className="text-accent">
-                      {formatHashrate(Number(c.hashrate1hr))}
-                    </td>
-                    <td className="text-accent">
-                      {formatNumber(Number(c.bestEver))}
+                {clients.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="text-center text-sm text-base-content/60"
+                    >
+                      No Stats Available Yet
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  clients.map((c, index) => (
+                    <tr key={`${c.client}-${index}`}>
+                      <td>{index + 1}</td>
+                      <td className="break-words max-w-[18rem]">
+                        {c.client || 'Other'}
+                      </td>
+                      <td className="text-accent">{c.activeWorkers}</td>
+                      <td className="text-accent">
+                        {formatHashrate(Number(c.hashrate1hr))}
+                      </td>
+                      <td className="text-accent">
+                        {formatNumber(Number(c.bestEver))}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
