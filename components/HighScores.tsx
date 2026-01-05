@@ -34,18 +34,26 @@ export default async function HighScores({
                 </tr>
               </thead>
               <tbody>
-                {topDiffs.map((d, index) => (
-                  <tr key={index}>
-                    <td>{index + 1}</td>
-                    <td className="text-accent font-semibold">
-                      {formatNumber(d.difficulty)}
-                    </td>
-                    <td>{d.device}</td>
-                    <td className="text-sm text-base-content/60">
-                      {formatTimeAgo(d.timestamp)}
+                {topDiffs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-center text-sm text-base-content/60">
+                      No Stats Available Yet
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  topDiffs.map((d, index) => (
+                    <tr key={index}>
+                      <td>{index + 1}</td>
+                      <td className="text-accent font-semibold">
+                        {formatNumber(d.difficulty)}
+                      </td>
+                      <td>{d.device}</td>
+                      <td className="text-sm text-base-content/60">
+                        {formatTimeAgo(d.timestamp)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
