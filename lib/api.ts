@@ -579,21 +579,23 @@ export async function toggleUserStatsPrivacy(
 
 export async function getTopBestDiffs(limit: number = 10) {
   const db = await getDb();
-  const workerRepository = db.getRepository(Worker);
 
-  const topWorkers = await workerRepository
-    .createQueryBuilder('w')
-    .select('w.bestEver', 'difficulty')
-    .addSelect('w.userAgent', 'device')
-    .addSelect('w.updatedAt', 'timestamp')
-    .where('w.bestEver > 0')
-    .orderBy('w.bestEver', 'DESC')
-    .limit(limit)
-    .getRawMany();
+  const rows: Array<{
+    rank: number;
+    difficulty: number;
+    device: string;
+    timestamp: string;
+  }> = await db.query(
+    `SELECT rank, difficulty, device, timestamp
+     FROM "top_best_diffs"
+     ORDER BY rank ASC
+     LIMIT $1;`,
+    [limit]
+  );
 
-  return topWorkers.map((row) => ({
-    difficulty: Number(row.difficulty || 0),
-    device: row.device || 'Other',
-    timestamp: new Date(row.timestamp),
+  return rows.map((r) => ({
+    difficulty: Number(r.difficulty || 0),
+    device: r.device || 'Other',
+    timestamp: new Date(r.timestamp),
   }));
 }
