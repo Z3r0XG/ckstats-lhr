@@ -227,8 +227,8 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
             .join(', ');
           const params: Array<string | number | Date | null> = [];
           newTop10.forEach((row: any) => {
-            params.push(Number(row.rank || 0) || 0);
-            params.push(Number(row.difficulty || 0));
+            params.push(Number(row.rank) || 0);
+            params.push(Number(row.difficulty) || 0);
             params.push(row.device || 'Other');
             params.push(new Date(row.timestamp)); // first-seen or improvement time
             params.push(touchTime); // computed_at for this refresh
