@@ -3,22 +3,7 @@
 import { useEffect, useMemo } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
-
-export type DashboardPayload = {
-  version: number;
-  generatedAt: string;
-  latestStats: any;
-  historicalStats: any[];
-  topUserHashrates: any[];
-  topUserDifficulties: any[];
-  onlineDevices: any[];
-  highScores: any[];
-  limits: {
-    topUsers: number;
-    onlineDevices: number;
-    historicalPoints: number;
-  };
-};
+import { DashboardPayload } from '../types/dashboard';
 
 export const REFRESH_INTERVAL_MS = 60_000;
 const ERROR_INTERVAL_MAX_MS = 120_000;
