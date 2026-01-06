@@ -87,12 +87,21 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         );
         return sortOrder === 'asc' ? cmp : -cmp;
       }
-      const numericFields = [
-        'hashrate5m',
-        'hashrate1hr',
-        'hashrate1d',
-        'bestEver',
-      ];
+
+      // bestEver and bestShare are floats, sort numerically (no rounding)
+      if (sortField === 'bestEver') {
+        const aNum = Number(a.bestEver) || 0;
+        const bNum = Number(b.bestEver) || 0;
+        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+
+      if (sortField === 'bestShare') {
+        const aNum = Number(a.bestShare) || 0;
+        const bNum = Number(b.bestShare) || 0;
+        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+
+      const numericFields = ['hashrate5m', 'hashrate1hr', 'hashrate1d'];
 
       if (numericFields.includes(sortField)) {
         const toBigIntSafe = (v: any): bigint => {
