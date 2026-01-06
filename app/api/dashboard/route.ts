@@ -14,7 +14,7 @@ export const revalidate = 5;
 
 const DASHBOARD_TOP_LIMIT = 10;
 const DASHBOARD_ONLINE_LIMIT = 10000;
-const DASHBOARD_HISTORICAL_POINTS = 5760; // Match official ckstats default data points
+const DASHBOARD_HISTORICAL_POINTS = 5760;
 
 export async function GET() {
   try {
