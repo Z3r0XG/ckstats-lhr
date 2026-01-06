@@ -14,7 +14,7 @@ export const revalidate = 5;
 
 const DASHBOARD_TOP_LIMIT = 10;
 const DASHBOARD_ONLINE_LIMIT = 10000;
-const DASHBOARD_HISTORICAL_POINTS = 4320; // 3 days at 1m cadence // ~24h at 5m cadence; trim for polling payload
+const DASHBOARD_HISTORICAL_POINTS = 5760; // Match official ckstats default data points
 
 export async function GET() {
   try {
