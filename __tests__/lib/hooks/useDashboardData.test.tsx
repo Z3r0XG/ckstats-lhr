@@ -70,7 +70,7 @@ describe('useDashboardData hook', () => {
   });
 
   test('stale detection logic: data is stale after 2× interval', () => {
-    const staleTime = Date.now() - (REFRESH_INTERVAL_MS * 1.5); // older than 1×, less than 2×
+    const staleTime = Date.now() - (REFRESH_INTERVAL_MS * 2.5); // older than 2×
     const stalePayload: DashboardPayload = {
       ...mockPayload,
       generatedAt: new Date(staleTime).toISOString(),
