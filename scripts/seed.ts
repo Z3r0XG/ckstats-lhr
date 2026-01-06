@@ -180,19 +180,84 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
       console.log('Refreshing top_best_diffs (over 1 hour old)...');
 
       await db.transaction(async (manager: any) => {
-        await manager.query(`TRUNCATE TABLE "top_best_diffs";`);
-        await manager.query(`
-          INSERT INTO "top_best_diffs" (rank, difficulty, device, timestamp)
-          SELECT 
-            ROW_NUMBER() OVER (ORDER BY "bestEver" DESC) as rank,
-            "bestEver" as difficulty,
-            "userAgent" as device,
-            "updatedAt" as timestamp
-          FROM "Worker"
-          WHERE "bestEver" > 0
-          ORDER BY "bestEver" DESC
-          LIMIT 10;
+        // Calculate new top 10 per worker (one row per worker), keep best-ever diff and a timestamp marking when that best was observed.
+        const newTop10 = await manager.query(`
+          WITH existing AS (
+            SELECT "workerId", difficulty, COALESCE(device, 'Other') AS device, "timestamp"
+            FROM "top_best_diffs"
+            WHERE "workerId" IS NOT NULL AND "workerId" > 0
+          ),
+          current AS (
+            SELECT 
+              w.id AS "workerId",
+              w."bestEver" AS difficulty,
+              COALESCE(w."userAgent", 'Other') AS device,
+              CASE
+                WHEN e."workerId" IS NULL THEN now()                                -- new worker to leaderboard
+                WHEN w."bestEver" > COALESCE(e.difficulty, 0) THEN now()            -- improved best diff
+                ELSE e."timestamp"                                                 -- keep original timestamp
+              END AS "timestamp"
+            FROM "Worker" w
+            LEFT JOIN existing e ON e."workerId" = w.id
+            WHERE w."bestEver" > 0
+          ),
+          candidates AS (
+            SELECT * FROM existing
+            UNION ALL
+            SELECT * FROM current
+          ),
+          deduped AS (
+            SELECT
+              "workerId",
+              device,
+              difficulty,
+              "timestamp",
+              ROW_NUMBER() OVER (
+                PARTITION BY "workerId"
+                ORDER BY difficulty DESC, "timestamp" DESC
+              ) AS rn
+            FROM candidates
+          ),
+          top10 AS (
+            SELECT 
+              ROW_NUMBER() OVER (ORDER BY difficulty DESC) as rank,
+              "workerId",
+              difficulty,
+              device,
+              "timestamp"
+            FROM deduped
+            WHERE rn = 1 AND "workerId" IS NOT NULL
+            ORDER BY difficulty DESC
+            LIMIT 10
+          )
+          SELECT rank, "workerId", difficulty, device, "timestamp" FROM top10;
         `);
+
+        const touchTime = new Date();
+
+        // Replace table contents atomically (preserving first-seen timestamp from the CTE)
+        await manager.query(`DELETE FROM "top_best_diffs";`);
+
+        if (newTop10.length > 0) {
+          const placeholders = newTop10
+            .map((_, i) => `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`)
+            .join(', ');
+          const params: Array<string | number | Date | null> = [];
+          newTop10.forEach((row: any) => {
+            params.push(Number(row.rank || 0) || 0);
+            params.push(Number(row.difficulty || 0));
+            params.push(row.device || 'Other');
+            params.push(new Date(row.timestamp)); // first-seen or improvement time
+            params.push(touchTime); // computed_at for this refresh
+            params.push(row.workerId === null || row.workerId === undefined ? null : Number(row.workerId));
+          });
+
+          await manager.query(
+            `INSERT INTO "top_best_diffs" (rank, difficulty, device, "timestamp", computed_at, "workerId")
+             VALUES ${placeholders};`,
+            params
+          );
+        }
       });
 
       console.log('Top best diffs refreshed successfully');
