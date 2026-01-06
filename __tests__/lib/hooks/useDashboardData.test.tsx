@@ -1,4 +1,5 @@
-import { DashboardPayload } from '../../../lib/hooks/useDashboardData';
+import { DashboardPayload } from '../../../lib/types/dashboard';
+import { REFRESH_INTERVAL_MS } from '../../../lib/hooks/useDashboardData';
 
 const mockPayload: DashboardPayload = {
   version: 1,
@@ -18,14 +19,14 @@ const mockPayload: DashboardPayload = {
     SPS5m: 10,
     SPS15m: 10,
     SPS1h: 10,
-    accepted: 100,
-    rejected: 5,
+    accepted: '100',
+    rejected: '5',
     bestshare: 50,
     diff: 0.01,
     disconnected: 0,
     idle: 0,
     runtime: 3600,
-    timestamp: new Date(),
+    timestamp: new Date().toISOString(),
   },
   historicalStats: [],
   topUserHashrates: [],
@@ -68,28 +69,28 @@ describe('useDashboardData hook', () => {
     expect(latestStats).toHaveProperty('timestamp');
   });
 
-  test('stale detection logic: data is stale after 2× interval (60s)', () => {
-    const staleTime = Date.now() - 90_000; // 90s old, exceeds 2×30s
+  test('stale detection logic: data is stale after 2× interval', () => {
+    const staleTime = Date.now() - (REFRESH_INTERVAL_MS * 1.5); // older than 1×, less than 2×
     const stalePayload: DashboardPayload = {
       ...mockPayload,
       generatedAt: new Date(staleTime).toISOString(),
     };
 
     const ageMs = Date.now() - new Date(stalePayload.generatedAt).getTime();
-    const isStale = ageMs > 30_000 * 2;
+    const isStale = ageMs > REFRESH_INTERVAL_MS * 2;
 
     expect(isStale).toBe(true);
   });
 
   test('stale detection logic: recent data is not stale', () => {
-    const recentTime = Date.now() - 10_000; // 10s old
+    const recentTime = Date.now() - Math.floor(REFRESH_INTERVAL_MS / 6); // ~10s if 60s interval
     const recentPayload: DashboardPayload = {
       ...mockPayload,
       generatedAt: new Date(recentTime).toISOString(),
     };
 
     const ageMs = Date.now() - new Date(recentPayload.generatedAt).getTime();
-    const isStale = ageMs > 30_000 * 2;
+    const isStale = ageMs > REFRESH_INTERVAL_MS * 2;
 
     expect(isStale).toBe(false);
   });
