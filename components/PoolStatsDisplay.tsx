@@ -165,7 +165,7 @@ export default function PoolStatsDisplay({
                         return (
                           <div
                             className={`stat-desc tooltip text-left ${color}`}
-                            data-tip="Rejected % vs total shares"
+                            data-tip="Rejected difficulty % of total submitted difficulty"
                           >
                             {formatted === null ? 'N/A' : formatted}
                           </div>
