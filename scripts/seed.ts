@@ -193,30 +193,13 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
               w."bestEver" AS difficulty,
               COALESCE(w."userAgent", 'Other') AS device,
               CASE
-                WHEN e."workerId" IS NULL THEN now()                                -- new worker to leaderboard
+                WHEN e."workerId" IS NULL THEN now()                                -- new device to leaderboard
                 WHEN w."bestEver" > COALESCE(e.difficulty, 0) THEN now()            -- improved best diff
                 ELSE e."timestamp"                                                 -- keep original timestamp
               END AS "timestamp"
             FROM "Worker" w
             LEFT JOIN existing e ON e."workerId" = w.id
             WHERE w."bestEver" > 0
-          ),
-          candidates AS (
-            SELECT * FROM existing
-            UNION ALL
-            SELECT * FROM current
-          ),
-          deduped AS (
-            SELECT
-              "workerId",
-              device,
-              difficulty,
-              "timestamp",
-              ROW_NUMBER() OVER (
-                PARTITION BY "workerId"
-                ORDER BY difficulty DESC, "timestamp" DESC
-              ) AS rn
-            FROM candidates
           ),
           top10 AS (
             SELECT 
@@ -225,8 +208,8 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
               difficulty,
               device,
               "timestamp"
-            FROM deduped
-            WHERE rn = 1 AND "workerId" IS NOT NULL
+            FROM current
+            WHERE "workerId" IS NOT NULL
             ORDER BY difficulty DESC
             LIMIT 10
           )
