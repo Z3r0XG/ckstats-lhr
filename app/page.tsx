@@ -9,6 +9,8 @@ import {
 } from '../lib/api';
 import { serializeData } from '../utils/helpers';
 
+export const revalidate = 60;
+
 export default async function Home() {
   try {
     const [
