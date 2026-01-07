@@ -5,7 +5,13 @@ const Footer: React.FC = () => {
     <footer className="footer footer-center p-4 sm:p-6 bg-base-200 text-base-content rounded">
       <div className="flex flex-col items-center gap-2">
         <p className="break-all">
-          Donations: bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5
+          Donations:{' '}
+          <a
+            href="bitcoin:bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5"
+            className="link text-primary"
+          >
+            bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5
+          </a>
           <p>
             Running Modified Version of CKStats (ckstats-lhr): Always free,
             always open source.
