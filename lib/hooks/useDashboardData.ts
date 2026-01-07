@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 
@@ -60,19 +60,12 @@ export function useDashboardData(initialData?: DashboardPayload) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isStale = useMemo(() => {
-    if (!query.data?.generatedAt) return false;
-    return isDataStale(query.data);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.data?.generatedAt]);
-
   return {
     data: query.data,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     dataUpdatedAt: query.dataUpdatedAt,
     error: query.error as Error | null,
-    isStale,
     refetch: query.refetch,
   };
 }
