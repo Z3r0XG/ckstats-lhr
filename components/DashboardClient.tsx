@@ -6,7 +6,7 @@ import PoolStatsChart from './PoolStatsChart';
 import PoolStatsDisplay from './PoolStatsDisplay';
 import { useDashboardData } from '../lib/hooks/useDashboardData';
 import { DashboardPayload } from '../lib/types/dashboard';
-import { formatHashrate, formatNumber, formatTimeAgo } from '../utils/helpers';
+import { formatHashrate, formatNumber } from '../utils/helpers';
 
 function formatConciseTimeAgo(date: Date): string {
   const now = Date.now();
