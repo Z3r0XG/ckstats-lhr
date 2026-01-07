@@ -21,12 +21,14 @@ interface PoolStatsDisplayProps {
   stats: PoolStats;
   historicalStats: PoolStats[];
   onRefresh?: () => void;
+  generatedAt?: Date;
 }
 
 export default function PoolStatsDisplay({
   stats,
   historicalStats,
   onRefresh,
+  generatedAt,
 }: PoolStatsDisplayProps) {
   const formatValue = (key: string, value: any): string => {
     if (key.startsWith('hashrate')) {
@@ -113,7 +115,7 @@ export default function PoolStatsDisplay({
               <div className="stat">
                 <div className="stat-title">Last Update</div>
                 <div className="stat-value text-2xl">
-                  {formatTimeAgo(stats.timestamp)}
+                  {formatTimeAgo(generatedAt ?? stats.timestamp)}
                 </div>
               </div>
               <div className="stat">

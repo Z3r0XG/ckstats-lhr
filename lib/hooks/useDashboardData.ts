@@ -33,6 +33,7 @@ export function useDashboardData(initialData?: DashboardPayload) {
     queryFn: fetchDashboard,
     initialData,
     staleTime: 0,
+    refetchOnMount: true,
     refetchInterval: (query) => {
       if (query.state.status === 'error') {
         const attempts = Math.max(1, (query.state.fetchFailureCount ?? 0) + 1);
@@ -46,6 +47,8 @@ export function useDashboardData(initialData?: DashboardPayload) {
       return REFRESH_INTERVAL_MS;
     },
     refetchIntervalInBackground: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
 
   // Refetch immediately on mount if initial data is stale

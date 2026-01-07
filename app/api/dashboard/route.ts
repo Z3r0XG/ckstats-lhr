@@ -10,6 +10,8 @@ import {
 } from '../../../lib/api';
 import { serializeData } from '../../../utils/helpers';
 
+export const dynamic = 'force-dynamic';
+
 const DASHBOARD_TOP_LIMIT = 10;
 const DASHBOARD_ONLINE_LIMIT = 10000;
 

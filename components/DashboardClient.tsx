@@ -44,6 +44,7 @@ export default function DashboardClient({
       <PoolStatsDisplay
         stats={stats}
         historicalStats={historicalStats}
+        generatedAt={data.generatedAt ? new Date(data.generatedAt) : undefined}
         onRefresh={() => void refetch()}
       />
       {historicalStats && historicalStats.length > 0 ? (
