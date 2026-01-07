@@ -155,7 +155,7 @@ export default function DashboardClient({
                     <th>Rank</th>
                     <th>Difficulty</th>
                     <th>Device</th>
-                    <th>Timestamp</th>
+                    <th>When</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -178,7 +178,9 @@ export default function DashboardClient({
                           {formatNumber(score.difficulty)}
                         </td>
                         <td>{score.device}</td>
-                        <td>{formatTimeAgo(new Date(score.timestamp))}</td>
+                        <td className="text-sm text-base-content/60">
+                          {formatTimeAgo(new Date(score.timestamp))}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -197,29 +199,37 @@ export default function DashboardClient({
               <table className="table w-full table-sm sm:table-md">
                 <thead>
                   <tr>
+                    <th>Rank</th>
                     <th>Client</th>
-                    <th>Active Workers</th>
-                    <th>Hashrate 1hr</th>
-                    <th>Best Ever</th>
+                    <th>Active</th>
+                    <th>Hashrate</th>
+                    <th>Best Diff</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(data.onlineDevices ?? []).length === 0 ? (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={5}
                         className="text-center text-sm text-base-content/60"
                       >
                         No devices online
                       </td>
                     </tr>
                   ) : (
-                    (data.onlineDevices ?? []).map((device) => (
+                    (data.onlineDevices ?? []).map((device, index) => (
                       <tr key={device.client}>
-                        <td>{device.client}</td>
-                        <td>{device.activeWorkers}</td>
-                        <td>{formatHashrate(device.hashrate1hr)}</td>
-                        <td>{formatNumber(device.bestEver)}</td>
+                        <td>{index + 1}</td>
+                        <td className="break-words max-w-[18rem]">
+                          {device.client || 'Other'}
+                        </td>
+                        <td className="text-accent">{device.activeWorkers}</td>
+                        <td className="text-accent">
+                          {formatHashrate(device.hashrate1hr)}
+                        </td>
+                        <td className="text-accent">
+                          {formatNumber(device.bestEver)}
+                        </td>
                       </tr>
                     ))
                   )}
