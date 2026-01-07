@@ -17,20 +17,23 @@ export default function DashboardClient({
 }: {
   initialData: DashboardPayload;
 }) {
-  const { data, isLoading, error, refetch } = useDashboardData(initialData);
+  const { data, isLoading, error, isFetching, refetch } =
+    useDashboardData(initialData);
 
-  if (isLoading) {
+  // Show loading only on initial load when we have no data
+  if (isLoading && !data) {
     return <div className="p-4">Loading dashboard...</div>;
   }
-  if (error) {
+
+  // If we have no data at all (should be rare with SSR), show error
+  if (!data) {
     return (
       <div className="p-4 text-red-600">
-        Error loading dashboard: {error.message}
+        {error
+          ? `Error loading dashboard: ${error.message}`
+          : 'No dashboard data available.'}
       </div>
     );
-  }
-  if (!data) {
-    return <div className="p-4">No dashboard data available.</div>;
   }
 
   // Convert timestamps to Date for PoolStatsDisplay and PoolStatsChart
@@ -48,6 +51,8 @@ export default function DashboardClient({
       <PoolStatsDisplay
         stats={stats}
         historicalStats={historicalStats}
+        error={error}
+        isFetching={isFetching}
         generatedAt={data.generatedAt ? new Date(data.generatedAt) : undefined}
         onRefresh={() => void refetch()}
       />
