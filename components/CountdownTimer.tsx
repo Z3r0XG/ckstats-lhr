@@ -5,9 +5,13 @@ import { useEffect, useRef, useState } from 'react';
 export default function CountdownTimer({
   initialSeconds,
   onElapsed,
+  error,
+  isFetching,
 }: {
   initialSeconds: number;
   onElapsed?: () => void;
+  error?: Error | null;
+  isFetching?: boolean;
 }) {
   const [seconds, setSeconds] = useState(initialSeconds);
   const onElapsedRef = useRef(onElapsed);
@@ -36,9 +40,27 @@ export default function CountdownTimer({
     return () => clearInterval(timer);
   }, [initialSeconds]);
 
+  if (error) {
+    return (
+      <div
+        className="badge badge-error whitespace-nowrap"
+        title={error.message}
+      >
+        Fetch Error, Retrying...
+      </div>
+    );
+  }
+
+  if (isFetching) {
+    return (
+      <div className="badge badge-primary whitespace-nowrap">Fetching...</div>
+    );
+  }
+
   if (seconds === 0) {
     return <div className="badge badge-primary">Updating Now</div>;
   }
+
   return (
     <div className="badge badge-primary whitespace-nowrap">
       Updating in {seconds}s

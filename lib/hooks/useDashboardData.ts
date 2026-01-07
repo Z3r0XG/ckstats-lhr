@@ -10,7 +10,16 @@ export const REFRESH_INTERVAL_MS = 60_000;
 const ERROR_INTERVAL_MAX_MS = 120_000;
 
 async function fetchDashboard(): Promise<DashboardPayload> {
-  const res = await fetch('/api/dashboard', {
+  // Check for debug_error query param to simulate errors
+  const params = new URLSearchParams(window.location.search);
+  const debugError = params.get('debug_error');
+
+  const url =
+    debugError === 'true'
+      ? '/api/dashboard?debug_error=true'
+      : '/api/dashboard';
+
+  const res = await fetch(url, {
     cache: 'no-store',
   });
 
