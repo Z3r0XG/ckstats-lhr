@@ -5,9 +5,14 @@ import Link from 'next/link';
 import PoolStatsChart from './PoolStatsChart';
 import PoolStatsDisplay from './PoolStatsDisplay';
 import { useDashboardData } from '../lib/hooks/useDashboardData';
+import { DashboardPayload } from '../lib/types/dashboard';
 import { formatHashrate, formatNumber, formatTimeAgo } from '../utils/helpers';
 
-export default function DashboardClient({ initialData }) {
+export default function DashboardClient({
+  initialData,
+}: {
+  initialData: DashboardPayload;
+}) {
   const { data, isLoading, error, refetch } = useDashboardData(initialData);
 
   if (isLoading) {
@@ -33,11 +38,6 @@ export default function DashboardClient({ initialData }) {
   const historicalStats = Array.isArray(data.historicalStats)
     ? data.historicalStats.map(convertStats)
     : [];
-
-  const maskAddress = (addr: string) =>
-    typeof addr === 'string' && !addr.includes('...') && addr.length > 10
-      ? `${addr.slice(0, 6)}...${addr.slice(-4)}`
-      : addr;
 
   return (
     <main className="container mx-auto p-4">
@@ -84,7 +84,7 @@ export default function DashboardClient({ initialData }) {
                       .map((user, index) => (
                         <tr key={user.address}>
                           <td>{index + 1}</td>
-                          <td>{maskAddress(user.address)}</td>
+                          <td>{user.address}</td>
                           <td className="text-accent">
                             {formatNumber(Number(user.difficulty))}
                           </td>
@@ -129,7 +129,7 @@ export default function DashboardClient({ initialData }) {
                       .map((user, index) => (
                         <tr key={user.address}>
                           <td>{index + 1}</td>
-                          <td>{maskAddress(user.address)}</td>
+                          <td>{user.address}</td>
                           <td className="text-accent">
                             {formatHashrate(user.hashrate1hr)}
                           </td>
@@ -213,7 +213,7 @@ export default function DashboardClient({ initialData }) {
                       </td>
                     </tr>
                   ) : (
-                    (data.onlineDevices ?? []).slice(0, 10000).map((device) => (
+                    (data.onlineDevices ?? []).map((device) => (
                       <tr key={device.client}>
                         <td>{device.client}</td>
                         <td>{device.activeWorkers}</td>

@@ -14,7 +14,6 @@ export const revalidate = 5;
 
 const DASHBOARD_TOP_LIMIT = 10;
 const DASHBOARD_ONLINE_LIMIT = 10000;
-const DASHBOARD_HISTORICAL_POINTS = 5760;
 
 export async function GET() {
   try {
@@ -41,11 +40,6 @@ export async function GET() {
       );
     }
 
-    const trimmedHistorical = (historicalStats || []).slice(
-      0,
-      DASHBOARD_HISTORICAL_POINTS
-    );
-
     const maskAddress = (addr: string) =>
       typeof addr === 'string' && addr.length > 10
         ? `${addr.slice(0, 6)}...${addr.slice(-4)}`
@@ -64,7 +58,7 @@ export async function GET() {
       version: 1,
       generatedAt: new Date().toISOString(),
       latestStats: serializeData(latestStats),
-      historicalStats: serializeData(trimmedHistorical),
+      historicalStats: serializeData(historicalStats),
       topUserHashrates: serializeData(maskedTopHashrates),
       topUserDifficulties: serializeData(maskedTopDifficulties),
       onlineDevices: serializeData(onlineDevices),
@@ -72,7 +66,7 @@ export async function GET() {
       limits: {
         topUsers: DASHBOARD_TOP_LIMIT,
         onlineDevices: DASHBOARD_ONLINE_LIMIT,
-        historicalPoints: DASHBOARD_HISTORICAL_POINTS,
+        historicalPoints: (historicalStats || []).length,
       },
     };
 

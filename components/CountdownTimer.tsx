@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function CountdownTimer({
   initialSeconds,
@@ -10,6 +10,12 @@ export default function CountdownTimer({
   onElapsed?: () => void;
 }) {
   const [seconds, setSeconds] = useState(initialSeconds);
+  const onElapsedRef = useRef(onElapsed);
+
+  // Keep ref up to date with latest callback
+  useEffect(() => {
+    onElapsedRef.current = onElapsed;
+  }, [onElapsed]);
 
   useEffect(() => {
     setSeconds(initialSeconds);
@@ -17,8 +23,8 @@ export default function CountdownTimer({
       setSeconds((prevSeconds) => {
         if (prevSeconds <= 1) {
           clearInterval(timer);
-          if (onElapsed) {
-            onElapsed();
+          if (onElapsedRef.current) {
+            onElapsedRef.current();
             return initialSeconds;
           }
           window.location.reload();
@@ -29,7 +35,7 @@ export default function CountdownTimer({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [initialSeconds, onElapsed]);
+  }, [initialSeconds]);
 
   if (seconds === 0) {
     return <div className="badge badge-primary">Updating Now</div>;

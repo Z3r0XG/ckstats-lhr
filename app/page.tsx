@@ -38,13 +38,27 @@ export default async function Home() {
     const latestStats = serializeData(latestStatsORM);
     const historicalStats = serializeData(historicalStatsORM);
 
+    const maskAddress = (addr: string) =>
+      typeof addr === 'string' && addr.length > 10
+        ? `${addr.slice(0, 6)}...${addr.slice(-4)}`
+        : addr;
+
+    const maskedTopHashrates = (topHashrates || []).map((u) => ({
+      ...u,
+      address: maskAddress(u.address),
+    }));
+    const maskedTopDifficulties = (topDifficulties || []).map((u) => ({
+      ...u,
+      address: maskAddress(u.address),
+    }));
+
     const initialPayload = {
       version: 1,
       generatedAt: new Date().toISOString(),
       latestStats,
       historicalStats,
-      topUserHashrates: serializeData(topHashrates),
-      topUserDifficulties: serializeData(topDifficulties),
+      topUserHashrates: serializeData(maskedTopHashrates),
+      topUserDifficulties: serializeData(maskedTopDifficulties),
       onlineDevices: serializeData(onlineDevices),
       highScores: serializeData(highScores),
       limits: {

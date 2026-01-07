@@ -32,7 +32,7 @@ export function useDashboardData(initialData?: DashboardPayload) {
     queryKey: ['dashboard'],
     queryFn: fetchDashboard,
     initialData,
-    staleTime: 10_000,
+    staleTime: 0,
     refetchInterval: (query) => {
       if (query.state.status === 'error') {
         const attempts = Math.max(1, (query.state.fetchFailureCount ?? 0) + 1);
