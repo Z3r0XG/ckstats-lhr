@@ -8,6 +8,28 @@ import { useDashboardData } from '../lib/hooks/useDashboardData';
 import { DashboardPayload } from '../lib/types/dashboard';
 import { formatHashrate, formatNumber, formatTimeAgo } from '../utils/helpers';
 
+function formatConciseTimeAgo(date: Date): string {
+  const now = Date.now();
+  const diffMs = now - date.getTime();
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+  const month = 30 * day;
+  const year = 365 * day;
+
+  const formatUnit = (value: number, unit: string) =>
+    `${value.toFixed(1)} ${unit}${value !== 1 ? 's' : ''} ago`;
+
+  if (diffMs < minute) return 'Recently';
+  if (diffMs >= year) return formatUnit(diffMs / year, 'year');
+  if (diffMs >= month) return formatUnit(diffMs / month, 'month');
+  if (diffMs >= week) return formatUnit(diffMs / week, 'week');
+  if (diffMs >= day) return formatUnit(diffMs / day, 'day');
+  if (diffMs >= hour) return formatUnit(diffMs / hour, 'hour');
+  return formatUnit(diffMs / minute, 'min');
+}
+
 export default function DashboardClient({
   initialData,
 }: {
@@ -179,7 +201,7 @@ export default function DashboardClient({
                         </td>
                         <td>{score.device}</td>
                         <td className="text-sm text-base-content/60">
-                          {formatTimeAgo(new Date(score.timestamp))}
+                          {formatConciseTimeAgo(new Date(score.timestamp))}
                         </td>
                       </tr>
                     ))
