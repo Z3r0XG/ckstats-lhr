@@ -46,7 +46,7 @@ export default function CountdownTimer({
         className="badge badge-error whitespace-nowrap"
         title={error.message}
       >
-        Fetch Error, Retry in {seconds}s
+        Fetch Error, Retrying...
       </div>
     );
   }
