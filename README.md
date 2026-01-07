@@ -3,7 +3,7 @@
 Web-based statistics dashboard for CKPool with sub-"1" difficulty support for
 low hash rate miners (ESP32 devices, NerdMiners, and others).
 
-Production-ready Next.js application providing real-time and historical pool
+Next.js application providing real-time and historical pool
 statistics, user metrics, and worker tracking for solo mining operations.
 
 ## Key Features/Additions
@@ -51,7 +51,7 @@ Designed for CKPool instances supporting **fractional difficulty** (sub-"1"):
 - **Node.js** 18+ runtime environment
 - **pnpm** package manager
 - **CKPool-LHR** or compatible CKPool instance
-- **nginx** (optional, recommended for production)
+- **nginx** (optional)
 
 ---
 
