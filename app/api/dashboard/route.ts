@@ -10,8 +10,6 @@ import {
 } from '../../../lib/api';
 import { serializeData } from '../../../utils/helpers';
 
-export const revalidate = 5;
-
 const DASHBOARD_TOP_LIMIT = 10;
 const DASHBOARD_ONLINE_LIMIT = 10000;
 
