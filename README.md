@@ -16,7 +16,7 @@ statistics, user metrics, and worker tracking for solo mining operations.
 - **Rejected Share Percentage**: Color-coded rejection rates with visual indicators
 - **Privacy Controls**: User-controlled visibility toggle for public leaderboards
 - **Historical Charts**: Time-series pool and user statistics with configurable retention
-- **Workers Table Enhancements**: Raw user-agent strings are shown per worker and a hide-inactive toggle keeps active miners in focus
+- **Workers Table Enhancements**: User-agent (device) strings are shown per worker and a hide-inactive toggle keeps active miners in focus
 - **Async Dashboard Refresh**: Client-side polling updates dashboard every 60 seconds without full-page reloads
 
 ## Acknowledgment
