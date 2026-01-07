@@ -1,19 +1,30 @@
-export const revalidate = 60;
-
-import HighScores from '../components/HighScores';
-import OnlineDevices from '../components/OnlineDevices';
-import PoolStatsChart from '../components/PoolStatsChart';
-import PoolStatsDisplay from '../components/PoolStatsDisplay';
-import TopUserDifficulties from '../components/TopUserDifficulties';
-import TopUserHashrates from '../components/TopUserHashrates';
-import { getLatestPoolStats, getHistoricalPoolStats } from '../lib/api';
+import DashboardClient from '../components/DashboardClient';
+import {
+  getHistoricalPoolStats,
+  getLatestPoolStats,
+  getOnlineDevices,
+  getTopBestDiffs,
+  getTopUserDifficulties,
+  getTopUserHashrates,
+} from '../lib/api';
 import { serializeData } from '../utils/helpers';
 
 export default async function Home() {
   try {
-    const [latestStatsORM, historicalStatsORM] = await Promise.all([
+    const [
+      latestStatsORM,
+      historicalStatsORM,
+      topHashrates,
+      topDifficulties,
+      onlineDevices,
+      highScores,
+    ] = await Promise.all([
       getLatestPoolStats(),
       getHistoricalPoolStats(),
+      getTopUserHashrates(10),
+      getTopUserDifficulties(10),
+      getOnlineDevices(10000),
+      getTopBestDiffs(10),
     ]);
 
     if (!latestStatsORM) {
@@ -27,27 +38,25 @@ export default async function Home() {
     const latestStats = serializeData(latestStatsORM);
     const historicalStats = serializeData(historicalStatsORM);
 
+    const initialPayload = {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      latestStats,
+      historicalStats,
+      topUserHashrates: serializeData(topHashrates),
+      topUserDifficulties: serializeData(topDifficulties),
+      onlineDevices: serializeData(onlineDevices),
+      highScores: serializeData(highScores),
+      limits: {
+        topUsers: 10,
+        onlineDevices: 10000,
+        historicalPoints: historicalStats?.length ?? 0,
+      },
+    };
+
     return (
       <main className="container mx-auto p-4">
-        <PoolStatsDisplay
-          stats={latestStats}
-          historicalStats={historicalStats}
-        />
-        {historicalStats && historicalStats.length > 0 ? (
-          <PoolStatsChart data={historicalStats} />
-        ) : (
-          <p>Historical data is not available.</p>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-          <TopUserDifficulties />
-          <TopUserHashrates />
-        </div>
-        <div className="mt-8">
-          <HighScores limit={10} />
-        </div>
-        <div className="mt-4">
-          <OnlineDevices limit={10000} />
-        </div>
+        <DashboardClient initialData={initialPayload} />
       </main>
     );
   } catch (error) {

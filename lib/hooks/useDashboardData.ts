@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
+
 import { DashboardPayload } from '../types/dashboard';
 
 export const REFRESH_INTERVAL_MS = 60_000;
