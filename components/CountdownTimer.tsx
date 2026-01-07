@@ -22,12 +22,11 @@ export default function CountdownTimer({
     const timer = setInterval(() => {
       setSeconds((prevSeconds) => {
         if (prevSeconds <= 1) {
-          clearInterval(timer);
           if (onElapsedRef.current) {
             onElapsedRef.current();
-            return initialSeconds;
+          } else {
+            window.location.reload();
           }
-          window.location.reload();
           return initialSeconds;
         }
         return prevSeconds - 1;
