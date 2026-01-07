@@ -7,6 +7,7 @@ import {
   safeParseFloat,
   formatTimeAgo,
   formatDuration,
+  formatConciseTimeAgo,
   calculatePercentageChange,
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
@@ -100,6 +101,18 @@ describe('Helper Functions', () => {
       expect(formatTimeAgo(new Date(now.getTime() - 25 * 60 * 60000))).toBe(
         '1 day 1 hour 0 min ago'
       );
+    });
+  });
+
+  describe('formatConciseTimeAgo', () => {
+    it('treats 1 and 1.0 as singular', () => {
+      const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
+      expect(formatConciseTimeAgo(oneYearAgo)).toBe('1.0 year ago');
+    });
+
+    it('pluralizes when above one', () => {
+      const onePointOneYearsAgo = Date.now() - 1.1 * 365 * 24 * 60 * 60 * 1000;
+      expect(formatConciseTimeAgo(onePointOneYearsAgo)).toBe('1.1 years ago');
     });
   });
 

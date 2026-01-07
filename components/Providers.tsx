@@ -11,6 +11,7 @@ export default function Providers({ children }: { children: ReactNode }) {
         defaultOptions: {
           queries: {
             retry: 2,
+            structuralSharing: false,
           },
         },
       })

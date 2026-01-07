@@ -1,21 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function CountdownTimer({
   initialSeconds,
+  onElapsed,
 }: {
   initialSeconds: number;
+  onElapsed?: () => void;
 }) {
   const [seconds, setSeconds] = useState(initialSeconds);
+  const onElapsedRef = useRef(onElapsed);
+
+  // Keep ref up to date with latest callback
+  useEffect(() => {
+    onElapsedRef.current = onElapsed;
+  }, [onElapsed]);
 
   useEffect(() => {
+    setSeconds(initialSeconds);
     const timer = setInterval(() => {
       setSeconds((prevSeconds) => {
         if (prevSeconds <= 1) {
-          clearInterval(timer);
-          window.location.reload();
-          return 0;
+          if (onElapsedRef.current) {
+            onElapsedRef.current();
+          } else {
+            window.location.reload();
+          }
+          return initialSeconds;
         }
         return prevSeconds - 1;
       });

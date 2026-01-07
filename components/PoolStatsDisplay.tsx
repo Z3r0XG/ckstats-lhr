@@ -20,11 +20,15 @@ const CountdownTimer = dynamic(() => import('./CountdownTimer'), {
 interface PoolStatsDisplayProps {
   stats: PoolStats;
   historicalStats: PoolStats[];
+  onRefresh?: () => void;
+  generatedAt?: Date;
 }
 
 export default function PoolStatsDisplay({
   stats,
   historicalStats,
+  onRefresh,
+  generatedAt,
 }: PoolStatsDisplayProps) {
   const formatValue = (key: string, value: any): string => {
     if (key.startsWith('hashrate')) {
@@ -99,7 +103,7 @@ export default function PoolStatsDisplay({
           <div className="card-body">
             <div className="flex items-center justify-between gap-2">
               <h2 className="card-title">General Info</h2>
-              <CountdownTimer initialSeconds={60} />
+              <CountdownTimer initialSeconds={60} onElapsed={onRefresh} />
             </div>
             <div className="stats stats-vertical xl:stats-horizontal shadow-lg my-2">
               <div className="stat">
@@ -111,7 +115,7 @@ export default function PoolStatsDisplay({
               <div className="stat">
                 <div className="stat-title">Last Update</div>
                 <div className="stat-value text-2xl">
-                  {formatTimeAgo(stats.timestamp)}
+                  {formatTimeAgo(generatedAt ?? stats.timestamp)}
                 </div>
               </div>
               <div className="stat">

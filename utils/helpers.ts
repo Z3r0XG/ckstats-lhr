@@ -219,6 +219,30 @@ export function formatTimeAgo(
   }
 }
 
+export function formatConciseTimeAgo(
+  date: Date | number | string
+): string {
+  const target = new Date(date);
+  const diffMs = Date.now() - target.getTime();
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+  const month = 30 * day;
+  const year = 365 * day;
+
+  const formatUnit = (value: number, unit: string) =>
+    `${value.toFixed(1)} ${unit}${value !== 1 ? 's' : ''} ago`;
+
+  if (diffMs < minute) return 'Recently';
+  if (diffMs >= year) return formatUnit(diffMs / year, 'year');
+  if (diffMs >= month) return formatUnit(diffMs / month, 'month');
+  if (diffMs >= week) return formatUnit(diffMs / week, 'week');
+  if (diffMs >= day) return formatUnit(diffMs / day, 'day');
+  if (diffMs >= hour) return formatUnit(diffMs / hour, 'hour');
+  return formatUnit(diffMs / minute, 'min');
+}
+
 export function formatDuration(seconds: number): string {
   if (seconds > 8000000000000) {
     return '~∞';
