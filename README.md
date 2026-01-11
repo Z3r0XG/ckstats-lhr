@@ -202,7 +202,8 @@ Add scheduled tasks:
 - **`pnpm migration:run:skip`**: Run migrations, skipping initial migration
 
 ### Data Collection (Cron Jobs)
-- **`pnpm seed`**: Update pool statistics and online devices from CKPool API (pool.status)
+- **`pnpm seed`**: Update pool statistics, online devices, and high scores from CKPool API (pool.status)
+  - **`pnpm seed --force`**: Force immediate high scores refresh without waiting for scheduled interval
 - **`pnpm update-users`**: Update user and worker statistics from CKPool API
 - **`pnpm cleanup`**: Remove old statistics based on retention policy
 
