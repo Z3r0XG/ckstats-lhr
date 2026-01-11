@@ -95,7 +95,7 @@ export default function DashboardClient({
                         <tr key={user.address}>
                           <td>{index + 1}</td>
                           <td>{user.address}</td>
-                          <td className="text-accent">
+                          <td className="text-accent whitespace-nowrap">
                             {formatNumber(Number(user.difficulty))}
                           </td>
                         </tr>
@@ -140,7 +140,7 @@ export default function DashboardClient({
                         <tr key={user.address}>
                           <td>{index + 1}</td>
                           <td>{user.address}</td>
-                          <td className="text-accent">
+                          <td className="text-accent whitespace-nowrap">
                             {formatHashrate(user.hashrate1hr)}
                           </td>
                         </tr>
@@ -162,8 +162,8 @@ export default function DashboardClient({
                 <thead>
                   <tr>
                     <th>Rank</th>
+                    <th>Client</th>
                     <th>Difficulty</th>
-                    <th>Device</th>
                     <th>When</th>
                   </tr>
                 </thead>
@@ -183,11 +183,11 @@ export default function DashboardClient({
                         key={`${score.rank}-${score.device}-${score.timestamp}`}
                       >
                         <td>{score.rank}</td>
-                        <td className="text-accent">
+                        <td className="whitespace-nowrap">{score.device}</td>
+                        <td className="text-accent whitespace-nowrap">
                           {formatNumber(score.difficulty)}
                         </td>
-                        <td>{score.device}</td>
-                        <td className="text-sm text-base-content/60">
+                        <td className="text-sm text-base-content/60 whitespace-nowrap">
                           {formatConciseTimeAgo(new Date(score.timestamp))}
                         </td>
                       </tr>
@@ -229,14 +229,16 @@ export default function DashboardClient({
                     (data.onlineDevices ?? []).map((device, index) => (
                       <tr key={device.client}>
                         <td>{index + 1}</td>
-                        <td className="break-words max-w-[18rem]">
+                        <td className="whitespace-nowrap">
                           {device.client || 'Other'}
                         </td>
-                        <td className="text-accent">{device.activeWorkers}</td>
-                        <td className="text-accent">
+                        <td className="text-accent whitespace-nowrap">
+                          {device.activeWorkers}
+                        </td>
+                        <td className="text-accent whitespace-nowrap">
                           {formatHashrate(device.hashrate1hr)}
                         </td>
-                        <td className="text-accent">
+                        <td className="text-accent whitespace-nowrap">
                           {formatNumber(device.bestEver)}
                         </td>
                       </tr>

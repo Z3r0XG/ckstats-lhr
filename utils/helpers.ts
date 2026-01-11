@@ -231,8 +231,11 @@ export function formatConciseTimeAgo(
   const month = 30 * day;
   const year = 365 * day;
 
-  const formatUnit = (value: number, unit: string) =>
-    `${value.toFixed(1)} ${unit}${value !== 1 ? 's' : ''} ago`;
+  const formatUnit = (value: number, unit: string) => {
+    const fixed = Number(value.toFixed(1));
+    const formatted = Number.isInteger(fixed) ? fixed.toFixed(0) : fixed.toFixed(1);
+    return `${formatted} ${unit}${fixed !== 1 ? 's' : ''} ago`;
+  };
 
   if (diffMs < minute) return 'Recently';
   if (diffMs >= year) return formatUnit(diffMs / year, 'year');
