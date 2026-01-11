@@ -105,9 +105,9 @@ describe('Helper Functions', () => {
   });
 
   describe('formatConciseTimeAgo', () => {
-    it('treats 1 and 1.0 as singular', () => {
+    it('treats 1 and 1.0 as singular and drops trailing .0', () => {
       const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
-      expect(formatConciseTimeAgo(oneYearAgo)).toBe('1.0 year ago');
+      expect(formatConciseTimeAgo(oneYearAgo)).toBe('1 year ago');
     });
 
     it('pluralizes when above one', () => {

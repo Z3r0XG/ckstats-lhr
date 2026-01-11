@@ -139,6 +139,9 @@ async function clearOnlineDevices(db: any): Promise<void> {
   }
 }
 
+const TOP_BEST_DIFFS_LIMIT = 10;
+const FORCE_REFRESH = process.argv.includes('--force');
+
 async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
   try {
     // Check if Worker table exists first
@@ -172,16 +175,21 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
     const now = new Date();
     const oneHourMs = 3600000;
 
-    // Only refresh if older than 1 hour (or table is empty)
+    // Only refresh if older than 1 hour (or table is empty), or if --force flag is used
     if (
+      FORCE_REFRESH ||
       !lastComputedAt ||
       now.getTime() - new Date(lastComputedAt).getTime() > oneHourMs
     ) {
-      console.log('Refreshing top_best_diffs (over 1 hour old)...');
+      console.log(
+        FORCE_REFRESH
+          ? 'Refreshing top_best_diffs (--force flag)...'
+          : 'Refreshing top_best_diffs (over 1 hour old)...'
+      );
 
       await db.transaction(async (manager: any) => {
-        // Calculate new top 10 per worker (one row per worker), keep best-ever diff and a timestamp marking when that best was observed.
-        const newTop10 = await manager.query(`
+        // Calculate new top N per worker (one row per worker), keep best-ever diff and a timestamp marking when that best was observed.
+        const newTop = await manager.query(`
           WITH existing AS (
             SELECT "workerId", difficulty, COALESCE(device, 'Other') AS device, "timestamp"
             FROM "top_best_diffs"
@@ -201,7 +209,7 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
             LEFT JOIN existing e ON e."workerId" = w.id
             WHERE w."bestEver" > 0
           ),
-          top10 AS (
+          topN AS (
             SELECT 
               ROW_NUMBER() OVER (ORDER BY difficulty DESC) as rank,
               "workerId",
@@ -211,9 +219,9 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
             FROM current
             WHERE "workerId" IS NOT NULL
             ORDER BY difficulty DESC
-            LIMIT 10
+            LIMIT ${TOP_BEST_DIFFS_LIMIT}
           )
-          SELECT rank, "workerId", difficulty, device, "timestamp" FROM top10;
+          SELECT rank, "workerId", difficulty, device, "timestamp" FROM topN;
         `);
 
         const touchTime = new Date();
@@ -221,12 +229,12 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
         // Replace table contents atomically (preserving first-seen timestamp from the CTE)
         await manager.query(`DELETE FROM "top_best_diffs";`);
 
-        if (newTop10.length > 0) {
-          const placeholders = newTop10
+        if (newTop.length > 0) {
+          const placeholders = newTop
             .map((_, i) => `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`)
             .join(', ');
           const params: Array<string | number | Date | null> = [];
-          newTop10.forEach((row: any) => {
+          newTop.forEach((row: any) => {
             params.push(Number(row.rank) || 0);
             params.push(Number(row.difficulty) || 0);
             params.push(row.device || 'Other');
