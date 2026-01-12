@@ -38,6 +38,9 @@ export class WorkerStats {
   hashrate7d: number;
 
   @Column('bigint', { default: '0' })
+  started: string;
+
+  @Column('bigint', { default: '0' })
   shares: string;
 
   @Column('float', { default: 0 })

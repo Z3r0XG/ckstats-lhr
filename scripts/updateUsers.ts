@@ -26,6 +26,7 @@ interface WorkerData {
   hashrate1d: number;
   hashrate7d: number;
   lastshare: number;
+  started?: number;
   shares: number | string;
   bestshare: string;
   bestever: string;
@@ -140,6 +141,7 @@ async function updateUser(address: string): Promise<void> {
           hashrate1d: safeConvertFloat(workerData.hashrate1d),
           hashrate7d: safeConvertFloat(workerData.hashrate7d),
           lastUpdate: new Date(workerData.lastshare * 1000),
+          started: workerData.started ? workerData.started.toString() : '0',
           shares: bigIntStringFromFloatLike(workerData.shares),
           bestShare: safeParseFloat(workerData.bestshare, 0),
           bestEver: safeParseFloat(workerData.bestever, 0),
@@ -167,6 +169,7 @@ async function updateUser(address: string): Promise<void> {
           hashrate1hr: workerValues.hashrate1hr,
           hashrate1d: workerValues.hashrate1d,
           hashrate7d: workerValues.hashrate7d,
+          started: workerValues.started,
           shares: workerValues.shares,
           bestShare: workerValues.bestShare,
           bestEver: workerValues.bestEver,
