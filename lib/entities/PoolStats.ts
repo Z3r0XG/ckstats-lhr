@@ -54,6 +54,9 @@ export class PoolStats {
   @Column('float')
   diff: number;
 
+  @Column('float', { nullable: true })
+  netdiff?: number;
+
   @Column('bigint')
   accepted: bigint;
 

@@ -1,0 +1,31 @@
+                                                                   Table "public.PoolStats"
+    Column    |           Type           | Collation | Nullable |                 Default                 | Storage | Compression | Stats target | Description 
+--------------+--------------------------+-----------+----------+-----------------------------------------+---------+-------------+--------------+-------------
+ id           | integer                  |           | not null | nextval('"PoolStats_id_seq"'::regclass) | plain   |             |              | 
+ timestamp    | timestamp with time zone |           | not null | now()                                   | plain   |             |              | 
+ runtime      | integer                  |           | not null |                                         | plain   |             |              | 
+ users        | integer                  |           | not null |                                         | plain   |             |              | 
+ workers      | integer                  |           | not null |                                         | plain   |             |              | 
+ idle         | integer                  |           | not null |                                         | plain   |             |              | 
+ disconnected | integer                  |           | not null |                                         | plain   |             |              | 
+ hashrate1m   | double precision         |           | not null | '0'::bigint                             | plain   |             |              | 
+ hashrate5m   | double precision         |           | not null | '0'::bigint                             | plain   |             |              | 
+ hashrate15m  | double precision         |           | not null | '0'::bigint                             | plain   |             |              | 
+ hashrate1hr  | double precision         |           | not null | '0'::bigint                             | plain   |             |              | 
+ hashrate6hr  | double precision         |           | not null | '0'::bigint                             | plain   |             |              | 
+ hashrate1d   | double precision         |           | not null | '0'::bigint                             | plain   |             |              | 
+ hashrate7d   | double precision         |           | not null | '0'::bigint                             | plain   |             |              | 
+ diff         | double precision         |           | not null |                                         | plain   |             |              | 
+ accepted     | bigint                   |           | not null |                                         | plain   |             |              | 
+ rejected     | bigint                   |           | not null |                                         | plain   |             |              | 
+ bestshare    | double precision         |           | not null |                                         | plain   |             |              | 
+ SPS1m        | double precision         |           | not null |                                         | plain   |             |              | 
+ SPS5m        | double precision         |           | not null |                                         | plain   |             |              | 
+ SPS15m       | double precision         |           | not null |                                         | plain   |             |              | 
+ SPS1h        | double precision         |           | not null |                                         | plain   |             |              | 
+ netdiff      | double precision         |           |          |                                         | plain   |             |              | 
+Indexes:
+    "PK_PoolStats" PRIMARY KEY, btree (id)
+    "IDX_PoolStats_Timestamp" btree ("timestamp")
+Access method: heap
+

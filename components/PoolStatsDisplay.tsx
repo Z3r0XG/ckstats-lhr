@@ -34,6 +34,21 @@ export default function PoolStatsDisplay({
   error,
   isFetching,
 }: PoolStatsDisplayProps) {
+  const formatWithUnits = (value: number): string => {
+    const units = [
+      { v: 1e12, s: 'T' },
+      { v: 1e9, s: 'G' },
+      { v: 1e6, s: 'M' },
+      { v: 1e3, s: 'k' },
+    ];
+    for (const u of units) {
+      if (value >= u.v) {
+        return `${(value / u.v).toFixed(1)} ${u.s}`;
+      }
+    }
+    return formatNumber(value);
+  };
+
   const formatValue = (key: string, value: any): string => {
     if (key.startsWith('hashrate')) {
       return formatHashrate(value);
@@ -130,15 +145,19 @@ export default function PoolStatsDisplay({
               <div className="stat">
                 <div className="stat-title">Avg Time to Find a Block</div>
                 <div className="stat-value text-2xl">
-                  {stats.hashrate6hr && stats.diff
-                    ? formatDuration(
+                  {(() => {
+                    const denom = Math.round(Number(stats.diff) * 100);
+                    if (stats.hashrate6hr && denom > 0) {
+                      return formatDuration(
                         calculateAverageTimeToBlock(
                           stats.hashrate6hr,
                           (BigInt(stats.accepted) * BigInt(10000)) /
-                            BigInt(Math.round(Number(stats.diff) * 100))
+                            BigInt(denom)
                         )
-                      )
-                    : 'N/A'}
+                      );
+                    }
+                    return 'N/A';
+                  })()}
                 </div>
                 <div className="stat-desc">
                   <Link
@@ -158,34 +177,99 @@ export default function PoolStatsDisplay({
             <div className="card-body">
               <h2 className="card-title">{group.title}</h2>
               <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
-                {group.keys.map((key) => (
-                  <div key={key} className="stat">
-                    <div className="stat-title">{formatKey(key)}</div>
-                    <div className="stat-value text-2xl">
-                      {formatValue(key, stats[key])}
-                    </div>
-                    {key === 'users' && (
-                      <div className="stat-desc">
-                        Idle: {formatNumber(stats.idle)}
+                {group.keys.map((key) => {
+                  if (key === 'diff') {
+                    const netdiff = Number(stats.netdiff);
+                    const netdiffStr =
+                      netdiff > 0 ? formatWithUnits(netdiff) : '0';
+                    return (
+                      <div key="network-diff" className="stat">
+                        <div className="stat-title">Network Diff</div>
+                        <div className="stat-value text-2xl">{netdiffStr}</div>
                       </div>
-                    )}
-                    {key === 'rejected' &&
-                      (() => {
-                        const { formatted, color } = computeRejectedPercent(
-                          stats.accepted,
-                          stats.rejected
-                        );
-                        return (
-                          <div
-                            className={`stat-desc tooltip text-left ${color}`}
-                            data-tip="Rejected difficulty % of total submitted difficulty"
-                          >
-                            {formatted === null ? 'N/A' : formatted}
-                          </div>
-                        );
-                      })()}
-                  </div>
-                ))}
+                    );
+                  }
+                  return (
+                    <div key={key} className="stat">
+                      <div className="stat-title">{formatKey(key)}</div>
+                      <div className="stat-value text-2xl">
+                        {formatValue(key, stats[key])}
+                      </div>
+
+                      {key === 'accepted' &&
+                        (() => {
+                          const percent = Number(stats.diff);
+                          let display = '';
+                          if (percent === 0) {
+                            display = '0%';
+                          } else if (percent < 0.01) {
+                            display = '<0.01%';
+                          } else {
+                            display = percent.toFixed(2) + '%';
+                          }
+                          return (
+                            <div className="stat-desc text-green-600">
+                              <span
+                                className="inline-block tooltip tooltip-right"
+                                data-tip="Accepted Diff % of Network Diff"
+                              >
+                                {display}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      {key === 'users' && (
+                        <div className="stat-desc">
+                          Idle: {formatNumber(stats.idle)}
+                        </div>
+                      )}
+                      {key === 'rejected' &&
+                        (() => {
+                          const { formatted, color } = computeRejectedPercent(
+                            stats.accepted,
+                            stats.rejected
+                          );
+                          return (
+                            <div className={`stat-desc text-left ${color}`}>
+                              <span
+                                className="inline-block tooltip tooltip-right"
+                                data-tip="Rejected Diff % of Total Submitted Diff"
+                              >
+                                {formatted === null ? 'N/A' : formatted}
+                              </span>
+                            </div>
+                          );
+                        })()}
+
+                      {key === 'bestshare' &&
+                        (() => {
+                          const best = Number(stats.bestshare);
+                          const netdiff = Number(stats.netdiff);
+                          let percent = '';
+                          if (best > 0 && netdiff > 0) {
+                            const rawPercent = (best / netdiff) * 100;
+                            if (rawPercent === 0) {
+                              percent = '0%';
+                            } else if (rawPercent < 0.01) {
+                              percent = '<0.01%';
+                            } else {
+                              percent = rawPercent.toFixed(2) + '%';
+                            }
+                          }
+                          return (
+                            <div className="stat-desc text-green-600">
+                              <span
+                                className="inline-block tooltip tooltip-right"
+                                data-tip="Best Submitted Diff % of Network Diff"
+                              >
+                                {percent || 'N/A'}
+                              </span>
+                            </div>
+                          );
+                        })()}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
