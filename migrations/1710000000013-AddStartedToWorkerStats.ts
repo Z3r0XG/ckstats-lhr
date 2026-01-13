@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddStartedToWorkerStats1670000000000 implements MigrationInterface {
-    name = 'AddStartedToWorkerStats1670000000000'
+export class AddStartedToWorkerStats1710000000013 implements MigrationInterface {
+    name = 'AddStartedToWorkerStats1710000000013'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`ALTER TABLE "WorkerStats" ADD "started" bigint NOT NULL DEFAULT '0'`);

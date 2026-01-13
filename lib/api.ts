@@ -184,19 +184,31 @@ export async function getUserWithWorkersAndStats(address: string) {
     user.workers.sort((a, b) => Number(b.hashrate5m) - Number(a.hashrate5m));
     user.stats.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-    // For each worker, attach the latest WorkerStats (including started)
-    const workersWithStats = await Promise.all(
-      user.workers.map(async (worker) => {
-        const latestStats = await workerStatsRepo.findOne({
-          where: { workerId: worker.id },
-          order: { timestamp: 'DESC' },
-        });
-        return {
-          ...worker,
-          latestStats,
-        };
-      })
-    );
+    // Batch query all latest WorkerStats at once to avoid N+1 queries
+    const workerIds = user.workers.map((w) => w.id);
+    const latestStatsMap = new Map<number, WorkerStats>();
+    if (workerIds.length > 0) {
+      // Use a subquery to get the latest stats for each worker
+      const latestStats = await workerStatsRepo
+        .createQueryBuilder('ws')
+        .where('ws.workerId IN (:...ids)', { ids: workerIds })
+        .andWhere((qb) => {
+          const subQuery = qb
+            .subQuery()
+            .select('MAX(ws2.timestamp)')
+            .from(WorkerStats, 'ws2')
+            .where('ws2.workerId = ws.workerId')
+            .getQuery();
+          return `ws.timestamp = ${subQuery}`;
+        })
+        .getMany();
+      latestStats.forEach((s) => latestStatsMap.set(s.workerId, s));
+    }
+
+    const workersWithStats = user.workers.map((worker) => ({
+      ...worker,
+      latestStats: latestStatsMap.get(worker.id) || null,
+    }));
 
     return {
       ...user,

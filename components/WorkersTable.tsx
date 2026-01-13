@@ -15,7 +15,7 @@ import {
 } from '../utils/helpers';
 
 interface WorkersTableProps {
-  workers: Array<Worker & { latestStats?: { started?: string | number } }>;
+  workers: Array<Worker & { latestStats?: { started?: string } }>;
   address?: string;
 }
 

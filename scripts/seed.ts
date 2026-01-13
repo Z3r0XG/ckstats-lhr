@@ -321,9 +321,6 @@ async function seed() {
       return;
     }
 
-    // Log diff provenance for verification
-    console.log('diffRaw token:', (stats as any).diffRaw, 'parsed diff:', stats.diff, 'final diff:', poolStats.diff);
-
     console.log('Saving pool stats to database...');
     db = await getDb();
     const poolStatsRepository = db.getRepository(PoolStats);

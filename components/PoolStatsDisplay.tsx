@@ -179,9 +179,12 @@ export default function PoolStatsDisplay({
               <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
                 {group.keys.map((key) => {
                   if (key === 'diff') {
-                    const netdiff = Number(stats.netdiff);
+                    const netdiff =
+                      stats.netdiff != null ? Number(stats.netdiff) : null;
                     const netdiffStr =
-                      netdiff > 0 ? formatWithUnits(netdiff) : '0';
+                      netdiff != null && netdiff > 0
+                        ? formatWithUnits(netdiff)
+                        : 'N/A';
                     return (
                       <div key="network-diff" className="stat">
                         <div className="stat-title">Network Diff</div>
