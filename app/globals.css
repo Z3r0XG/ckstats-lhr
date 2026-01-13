@@ -8,4 +8,12 @@
   .card-body {
     @apply p-4 sm:p-8;
   }
+
+  /* Smaller tooltip text and tighter padding for inline percentage tooltips */
+  .tooltip:before {
+    font-size: 0.75rem; /* 12px */
+    line-height: 1rem;
+    padding: 0.2rem 0.4rem;
+    max-width: 16rem;
+  }
 }

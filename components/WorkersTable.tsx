@@ -15,7 +15,7 @@ import {
 } from '../utils/helpers';
 
 interface WorkersTableProps {
-  workers: Worker[];
+  workers: Array<Worker & { latestStats?: { started?: string } }>;
   address?: string;
 }
 
@@ -218,6 +218,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
               >
                 Last Update{renderSortIcon('lastUpdate')}
               </th>
+              <th className="cursor-pointer">Uptime</th>
             </tr>
           </thead>
           <tbody>
@@ -305,6 +306,40 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                   <td>{formatNumber(worker.bestShare)}</td>
                   <td>{formatNumber(worker.bestEver)}</td>
                   <td>{formatTimeAgo(worker.lastUpdate)}</td>
+                  <td>
+                    {worker.latestStats &&
+                    worker.latestStats.started &&
+                    Number(worker.latestStats.started) > 0 ? (
+                      (() => {
+                        const startedSec = Number(worker.latestStats.started);
+                        const nowSec = Date.now() / 1000;
+                        const diffSec = Math.max(
+                          0,
+                          Math.floor(nowSec - startedSec)
+                        );
+                        // Color: <10m yellow, >=10m green
+                        let colorClass = '';
+                        if (diffSec < 600) {
+                          colorClass = 'text-yellow-500';
+                        } else {
+                          colorClass = 'text-green-600';
+                        }
+                        // Format as human readable duration
+                        const hours = Math.floor(diffSec / 3600);
+                        const minutes = Math.floor((diffSec % 3600) / 60);
+                        const seconds = diffSec % 60;
+                        const parts: string[] = [];
+                        if (hours > 0) parts.push(`${hours}h`);
+                        if (minutes > 0 || hours > 0) parts.push(`${minutes}m`);
+                        parts.push(`${seconds}s`);
+                        return (
+                          <span className={colorClass}>{parts.join(' ')}</span>
+                        );
+                      })()
+                    ) : (
+                      <span className="text-red-500">Offline</span>
+                    )}
+                  </td>
                 </tr>
               );
             })}

@@ -178,9 +178,10 @@ Add scheduled tasks:
 5 */2 * * * cd /path/to/ckstats-lhr && /usr/local/bin/pnpm cleanup
 ```
 
-**Cron Schedule Notes:**
-- Adjust intervals based on pool size and server resources
-- Higher frequency = more current data but increased database load
+> [!NOTE]
+> Cron Schedule Notes:
+> - Before updating the codebase, restoring the database, or running migrations, always stop cron jobs and related services to prevent race conditions and unwanted data changes. Restart cron after all updates are complete.
+> - Adjust intervals based on pool size and server resources. Higher frequency = more current data but increased database load.
 
 ---
 

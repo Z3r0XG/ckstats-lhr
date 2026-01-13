@@ -28,6 +28,8 @@ interface PoolStatsData {
   hashrate1d: string;
   hashrate7d: string;
   diff: string;
+  diffRaw?: string; // raw token from API, e.g. '0.0' or '0'
+  netdiff?: string;
   accepted: string;
   rejected: string;
   bestshare: string;
@@ -57,6 +59,15 @@ async function fetchPoolStats(): Promise<Partial<PoolStatsData>> {
     (acc, line) => ({ ...acc, ...JSON.parse(line) }),
     {}
   );
+
+  // Capture raw diff token string (as it appears in the API response) so we can detect formats like 0.0
+  try {
+    const diffMatch = data.match(/"diff"\s*:\s*("[^"]*"|[^,}\n]+)/);
+    parsedData.diffRaw = diffMatch ? diffMatch[1].trim() : undefined;
+  } catch (e) {
+    console.warn('Failed to capture raw diff token:', e);
+  }
+
   return parsedData as PoolStatsData;
 }
 
@@ -278,7 +289,14 @@ async function seed() {
       hashrate6hr: convertHashrateFloat(stats.hashrate6hr ?? ''),
       hashrate1d: convertHashrateFloat(stats.hashrate1d ?? ''),
       hashrate7d: convertHashrateFloat(stats.hashrate7d ?? ''),
-      diff: stats.diff,
+      // If the raw token contains a decimal (e.g. '0.0', '0.00'), treat as tiny but non-zero for formatting.
+      diff: (() => {
+        const raw = (stats as any).diffRaw ? (stats as any).diffRaw.replace(/"/g, '') : undefined;
+        const parsed = safeParseFloat(stats.diff, 0);
+        const zeroLikeDecimal = raw && /^0+(?:\.0+)$/.test(raw);
+        return zeroLikeDecimal ? 0.0001 : parsed;
+      })(),
+      netdiff: stats.netdiff ? safeParseFloat(stats.netdiff, 0) : undefined,
       accepted: stats.accepted,
       rejected: stats.rejected,
       bestshare: safeParseFloat(stats.bestshare ?? '', 0),

@@ -6,6 +6,7 @@ import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
 import { Worker } from './entities/Worker';
+import { WorkerStats } from './entities/WorkerStats';
 import {
   convertHashrateFloat,
   normalizeUserAgent,
@@ -167,6 +168,7 @@ export async function getUserWithWorkersAndStats(address: string) {
   return getCached(key, 3, async () => {
     const db = await getDb();
     const userRepository = db.getRepository(User);
+    const workerStatsRepo = db.getRepository(WorkerStats);
 
     const user = await userRepository.findOne({
       where: { address },
@@ -180,12 +182,38 @@ export async function getUserWithWorkersAndStats(address: string) {
     if (!user) return null;
 
     user.workers.sort((a, b) => Number(b.hashrate5m) - Number(a.hashrate5m));
-
     user.stats.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+    // Batch query all latest WorkerStats at once to avoid N+1 queries
+    const workerIds = user.workers.map((w) => w.id);
+    const latestStatsMap = new Map<number, WorkerStats>();
+    if (workerIds.length > 0) {
+      // Use a subquery to get the latest stats for each worker
+      const latestStats = await workerStatsRepo
+        .createQueryBuilder('ws')
+        .where('ws.workerId IN (:...ids)', { ids: workerIds })
+        .andWhere((qb) => {
+          const subQuery = qb
+            .subQuery()
+            .select('MAX(ws2.timestamp)')
+            .from(WorkerStats, 'ws2')
+            .where('ws2.workerId = ws.workerId')
+            .getQuery();
+          return `ws.timestamp = ${subQuery}`;
+        })
+        .getMany();
+      latestStats.forEach((s) => latestStatsMap.set(s.workerId, s));
+    }
+
+    const workersWithStats = user.workers.map((worker) => ({
+      ...worker,
+      latestStats: latestStatsMap.get(worker.id) || null,
+    }));
 
     return {
       ...user,
       stats: user.stats.slice(0, 1),
+      workers: workersWithStats,
     };
   });
 }
