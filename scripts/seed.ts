@@ -210,7 +210,13 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
             SELECT 
               w.id AS "workerId",
               w."bestEver" AS difficulty,
-              COALESCE(w."userAgent", 'Other') AS device,
+              CASE
+                WHEN e."workerId" IS NULL THEN COALESCE(w."userAgent", 'Other')    -- new to leaderboard: capture current user agent
+                WHEN w."bestEver" > COALESCE(e.difficulty, 0) 
+                  AND COALESCE(w."userAgent", 'Other') != COALESCE(e.device, 'Other')
+                  THEN COALESCE(w."userAgent", 'Other')                            -- improved with different user agent: update
+                ELSE COALESCE(e.device, 'Other')                                   -- no improvement or same user agent: keep original
+              END AS device,
               CASE
                 WHEN e."workerId" IS NULL THEN now()                                -- new device to leaderboard
                 WHEN w."bestEver" > COALESCE(e.difficulty, 0) THEN now()            -- improved best diff
