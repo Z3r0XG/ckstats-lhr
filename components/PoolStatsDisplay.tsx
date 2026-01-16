@@ -156,15 +156,6 @@ export default function PoolStatsDisplay({
                     return netdiffStr;
                   })()}
                 </div>
-                <div className="stat-desc">
-                  <Link
-                    href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG ?? 'solock'}`}
-                    target="_blank"
-                    className="link text-primary"
-                  >
-                    Found Blocks
-                  </Link>
-                </div>
               </div>
             </div>
           </div>
@@ -193,6 +184,15 @@ export default function PoolStatsDisplay({
                           Avg Time to Find a Block
                         </div>
                         <div className="stat-value text-2xl">{avgTimeStr}</div>
+                        <div className="stat-desc">
+                          <Link
+                            href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG ?? 'solock'}`}
+                            target="_blank"
+                            className="link text-primary"
+                          >
+                            Found Blocks
+                          </Link>
+                        </div>
                       </div>
                     );
                   }
