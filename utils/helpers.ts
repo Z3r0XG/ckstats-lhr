@@ -399,9 +399,7 @@ export function calculateProximityPercent(
   }
 
   const rawPercent = (value / networkDiff) * 100;
-  if (rawPercent === 0) {
-    return '0%';
-  } else if (rawPercent < 0.01) {
+  if (rawPercent < 0.01) {
     return '<0.01%';
   } else {
     return rawPercent.toFixed(2) + '%';
