@@ -20,6 +20,7 @@ import {
   getHistoricalPercentageChange,
   getPercentageChangeColor,
   calculateBlockChances,
+  calculateProximityPercent,
   serializeData,
 } from '../../../utils/helpers';
 
@@ -136,20 +137,10 @@ export default async function UserPage({
             {formatNumber(latestStats.bestShare)}
           </div>
           {(() => {
-            const best = Number(latestStats.bestShare);
-            const netdiff =
-              stats?.netdiff != null ? Number(stats.netdiff) : null;
-            let percent = '';
-            if (best > 0 && netdiff != null && netdiff > 0) {
-              const rawPercent = (best / netdiff) * 100;
-              if (rawPercent === 0) {
-                percent = '0%';
-              } else if (rawPercent < 0.01) {
-                percent = '<0.01%';
-              } else {
-                percent = rawPercent.toFixed(2) + '%';
-              }
-            }
+            const percent = calculateProximityPercent(
+              Number(latestStats.bestShare),
+              stats?.netdiff != null ? Number(stats.netdiff) : null
+            );
             return percent ? (
               <div className="stat-desc text-green-600 text-xs max-w-full overflow-hidden">
                 <span
@@ -168,20 +159,10 @@ export default async function UserPage({
             {formatNumber(latestStats.bestEver)}
           </div>
           {(() => {
-            const best = Number(latestStats.bestEver);
-            const netdiff =
-              stats?.netdiff != null ? Number(stats.netdiff) : null;
-            let percent = '';
-            if (best > 0 && netdiff != null && netdiff > 0) {
-              const rawPercent = (best / netdiff) * 100;
-              if (rawPercent === 0) {
-                percent = '0%';
-              } else if (rawPercent < 0.01) {
-                percent = '<0.01%';
-              } else {
-                percent = rawPercent.toFixed(2) + '%';
-              }
-            }
+            const percent = calculateProximityPercent(
+              Number(latestStats.bestEver),
+              stats?.netdiff != null ? Number(stats.netdiff) : null
+            );
             return percent ? (
               <div className="stat-desc text-green-600 text-xs max-w-full overflow-hidden">
                 <span

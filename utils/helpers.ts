@@ -390,6 +390,24 @@ export function calculateBlockChances(
   );
 }
 
+export function calculateProximityPercent(
+  value: number,
+  networkDiff: number | null | undefined
+): string {
+  if (!value || value <= 0 || !networkDiff || networkDiff <= 0) {
+    return '';
+  }
+
+  const rawPercent = (value / networkDiff) * 100;
+  if (rawPercent === 0) {
+    return '0%';
+  } else if (rawPercent < 0.01) {
+    return '<0.01%';
+  } else {
+    return rawPercent.toFixed(2) + '%';
+  }
+}
+
 export function serializeData(data: any) {
   return JSON.parse(
     JSON.stringify(data, (key, value) =>

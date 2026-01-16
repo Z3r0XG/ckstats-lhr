@@ -11,6 +11,7 @@ import {
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
   computeRejectedPercent,
+  calculateProximityPercent,
 } from '../utils/helpers';
 
 const CountdownTimer = dynamic(() => import('./CountdownTimer'), {
@@ -249,19 +250,10 @@ export default function PoolStatsDisplay({
 
                       {key === 'bestshare' &&
                         (() => {
-                          const best = Number(stats.bestshare);
-                          const netdiff = Number(stats.netdiff);
-                          let percent = '';
-                          if (best > 0 && netdiff > 0) {
-                            const rawPercent = (best / netdiff) * 100;
-                            if (rawPercent === 0) {
-                              percent = '0%';
-                            } else if (rawPercent < 0.01) {
-                              percent = '<0.01%';
-                            } else {
-                              percent = rawPercent.toFixed(2) + '%';
-                            }
-                          }
+                          const percent = calculateProximityPercent(
+                            Number(stats.bestshare),
+                            stats.netdiff != null ? Number(stats.netdiff) : null
+                          );
                           return (
                             <div className="stat-desc text-green-600 max-w-full overflow-hidden">
                               <span
