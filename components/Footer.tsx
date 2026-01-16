@@ -12,10 +12,10 @@ const Footer: React.FC = () => {
           >
             bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5
           </a>
-          <p>
-            Running Modified Version of CKStats (ckstats-lhr): Always free,
-            always open source.
-          </p>
+        </p>
+        <p className="break-words text-center">
+          Running Modified Version of CKStats (ckstats-lhr): Always free, always
+          open source.
         </p>
         <p>
           <a
