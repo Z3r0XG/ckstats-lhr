@@ -84,7 +84,7 @@ export default function PoolStatsDisplay({
     { title: 'Users', keys: ['users', 'disconnected', 'workers'] },
     {
       title: 'Shares since last found block',
-      keys: ['accepted', 'rejected', 'bestshare', 'diff'],
+      keys: ['accepted', 'rejected', 'bestshare', 'avgTime'],
     },
     { title: 'Shares Per Second', keys: ['SPS1m', 'SPS5m', 'SPS15m', 'SPS1h'] },
   ];
@@ -166,7 +166,7 @@ export default function PoolStatsDisplay({
               <h2 className="card-title">{group.title}</h2>
               <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
                 {group.keys.map((key) => {
-                  if (key === 'diff') {
+                  if (key === 'avgTime') {
                     const denom = Math.round(Number(stats.diff) * 100);
                     const avgTimeStr =
                       stats.hashrate6hr && denom > 0
@@ -216,12 +216,7 @@ export default function PoolStatsDisplay({
                           }
                           return (
                             <div className="stat-desc text-green-600 max-w-full overflow-hidden">
-                              <span
-                                className="inline-block tooltip tooltip-right"
-                                data-tip="Accepted Diff % of Network Diff"
-                              >
-                                {display} (Effort)
-                              </span>
+                              {display} (Effort)
                             </div>
                           );
                         })()}
@@ -240,13 +235,8 @@ export default function PoolStatsDisplay({
                             <div
                               className={`stat-desc text-left ${color} max-w-full overflow-hidden`}
                             >
-                              <span
-                                className="inline-block tooltip tooltip-right"
-                                data-tip="Rejected Diff % of Total Submitted Diff"
-                              >
-                                {formatted === null ? 'N/A' : formatted} (Error
-                                Rate)
-                              </span>
+                              {formatted === null ? 'N/A' : formatted} (Error
+                              Rate)
                             </div>
                           );
                         })()}
@@ -259,12 +249,7 @@ export default function PoolStatsDisplay({
                           );
                           return (
                             <div className="stat-desc text-green-600 max-w-full overflow-hidden">
-                              <span
-                                className="inline-block tooltip tooltip-right"
-                                data-tip="Best Submitted Diff % of Network Diff"
-                              >
-                                {percent || 'N/A'} (Proximity)
-                              </span>
+                              {percent || 'N/A'} (Proximity)
                             </div>
                           );
                         })()}
