@@ -144,20 +144,16 @@ export default function PoolStatsDisplay({
                 </div>
               </div>
               <div className="stat">
-                <div className="stat-title">Avg Time to Find a Block</div>
+                <div className="stat-title">Network Diff</div>
                 <div className="stat-value text-2xl">
                   {(() => {
-                    const denom = Math.round(Number(stats.diff) * 100);
-                    if (stats.hashrate6hr && denom > 0) {
-                      return formatDuration(
-                        calculateAverageTimeToBlock(
-                          stats.hashrate6hr,
-                          (BigInt(stats.accepted) * BigInt(10000)) /
-                            BigInt(denom)
-                        )
-                      );
-                    }
-                    return 'N/A';
+                    const netdiff =
+                      stats.netdiff != null ? Number(stats.netdiff) : null;
+                    const netdiffStr =
+                      netdiff != null && netdiff > 0
+                        ? formatWithUnits(netdiff)
+                        : 'N/A';
+                    return netdiffStr;
                   })()}
                 </div>
                 <div className="stat-desc">
@@ -180,16 +176,23 @@ export default function PoolStatsDisplay({
               <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
                 {group.keys.map((key) => {
                   if (key === 'diff') {
-                    const netdiff =
-                      stats.netdiff != null ? Number(stats.netdiff) : null;
-                    const netdiffStr =
-                      netdiff != null && netdiff > 0
-                        ? formatWithUnits(netdiff)
+                    const denom = Math.round(Number(stats.diff) * 100);
+                    const avgTimeStr =
+                      stats.hashrate6hr && denom > 0
+                        ? formatDuration(
+                            calculateAverageTimeToBlock(
+                              stats.hashrate6hr,
+                              (BigInt(stats.accepted) * BigInt(10000)) /
+                                BigInt(denom)
+                            )
+                          )
                         : 'N/A';
                     return (
-                      <div key="network-diff" className="stat">
-                        <div className="stat-title">Network Diff</div>
-                        <div className="stat-value text-2xl">{netdiffStr}</div>
+                      <div key="avg-time" className="stat">
+                        <div className="stat-title">
+                          Avg Time to Find a Block
+                        </div>
+                        <div className="stat-value text-2xl">{avgTimeStr}</div>
                       </div>
                     );
                   }
