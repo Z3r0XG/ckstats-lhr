@@ -170,7 +170,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         )}
       </div>
       <div className="overflow-x-auto">
-        <table className="table w-full table-sm sm:table-md">
+        <table className="table w-full table-sm sm:table-md whitespace-nowrap">
           <thead>
             <tr>
               <th onClick={() => handleSort('name')} className="cursor-pointer">

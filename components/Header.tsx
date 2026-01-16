@@ -74,13 +74,13 @@ export default function Header() {
   const siteName = SITE_NAME_PUBLIC;
 
   return (
-    <header className="navbar bg-base-100">
-      <div className="flex-1 hidden md:inline-flex">
+    <header className="navbar bg-base-100 flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-0">
+      <div className="flex-1 inline-flex w-full md:w-auto justify-center md:justify-start">
         <Link href="/" className="btn btn-ghost normal-case text-xl">
           {siteName}
         </Link>
       </div>
-      <div className="flex-none gap-1 sm:gap-2 flex-grow md:flex-grow-0">
+      <div className="flex gap-1 sm:gap-2 flex-grow md:flex-grow-0 w-full md:w-auto">
         <div className="form-control flex-grow md:flex-grow-0">
           <input
             type="text"

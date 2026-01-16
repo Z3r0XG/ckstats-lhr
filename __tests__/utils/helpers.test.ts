@@ -12,6 +12,7 @@ import {
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
   calculateBlockChances,
+  calculateProximityPercent,
 } from '../../utils/helpers';
 
 describe('Helper Functions', () => {
@@ -163,11 +164,11 @@ describe('Helper Functions', () => {
         1,
         BigInt(100000000000000)
       );
-      expect(chances['1h']).toBe('<0.0001%');
-      expect(chances['1d']).toMatch(/\d+\.\d+%|<0\.0001%/);
-      expect(chances['1w']).toMatch(/\d+\.\d+%|<0\.0001%/);
-      expect(chances['1m']).toMatch(/\d+\.\d+%|<0\.0001%/);
-      expect(chances['1y']).toMatch(/\d+\.\d+%|<0\.0001%/);
+      expect(chances['1h']).toBe('<0.01%');
+      expect(chances['1d']).toMatch(/\d+\.\d{2}%|<0\.01%/);
+      expect(chances['1w']).toMatch(/\d+\.\d{2}%|<0\.01%/);
+      expect(chances['1m']).toMatch(/\d+\.\d{2}%|<0\.01%/);
+      expect(chances['1y']).toMatch(/\d+\.\d{2}%|<0\.01%/);
     });
   });
 });
@@ -186,5 +187,59 @@ describe('Helper Functions', () => {
       expect(safeParseFloat(undefined, 0)).toBe(0);
       expect(safeParseFloat('12.34', 0)).toBe(12.34);
       expect(safeParseFloat('invalid', 0)).toBe(0);
+    });
+  });
+
+  describe('calculateProximityPercent', () => {
+    it('returns empty string for zero value', () => {
+      expect(calculateProximityPercent(0, 1000)).toBe('');
+    });
+
+    it('returns empty string for negative value', () => {
+      expect(calculateProximityPercent(-100, 1000)).toBe('');
+    });
+
+    it('returns empty string for null networkDiff', () => {
+      expect(calculateProximityPercent(100, null)).toBe('');
+    });
+
+    it('returns empty string for undefined networkDiff', () => {
+      expect(calculateProximityPercent(100, undefined)).toBe('');
+    });
+
+    it('returns empty string for zero networkDiff', () => {
+      expect(calculateProximityPercent(100, 0)).toBe('');
+    });
+
+    it('returns empty string for negative networkDiff', () => {
+      expect(calculateProximityPercent(100, -1000)).toBe('');
+    });
+
+    it('returns <0.01% when result rounds to zero but is not exactly zero', () => {
+      expect(calculateProximityPercent(0.00001, 1000000)).toBe('<0.01%');
+    });
+
+    it('returns <0.01% for very small percentages', () => {
+      expect(calculateProximityPercent(0.5, 10000)).toBe('<0.01%');
+      expect(calculateProximityPercent(1, 50000)).toBe('<0.01%');
+      expect(calculateProximityPercent(0.00001, 10000)).toBe('<0.01%');
+    });
+
+    it('formats normal percentages to 2 decimal places', () => {
+      expect(calculateProximityPercent(5, 100)).toBe('5.00%');
+      expect(calculateProximityPercent(10, 100)).toBe('10.00%');
+      expect(calculateProximityPercent(50, 100)).toBe('50.00%');
+      expect(calculateProximityPercent(1, 1000)).toBe('0.10%');
+      expect(calculateProximityPercent(33, 1000)).toBe('3.30%');
+    });
+
+    it('handles large numbers correctly', () => {
+      expect(calculateProximityPercent(1000000, 1000000000)).toBe('0.10%');
+      expect(calculateProximityPercent(5000000, 1000000000)).toBe('0.50%');
+    });
+
+    it('handles small differences correctly', () => {
+      expect(calculateProximityPercent(0.1, 100)).toBe('0.10%');
+      expect(calculateProximityPercent(0.01, 100)).toBe('0.01%');
     });
   });

@@ -379,16 +379,31 @@ export function calculateBlockChances(
       const lambda = hashesPerSecond * seconds * probabilityPerHash;
       const probability = 1 - Math.exp(-lambda);
       const pct = probability * 100;
-      if (pct > 0.0001) {
-        chances[period] =
-          pct < 0.1 ? `${pct.toFixed(6)}%` : `${pct.toFixed(3)}%`;
+      if (pct >= 0.01) {
+        chances[period] = `${pct.toFixed(2)}%`;
       } else {
-        chances[period] = `<0.0001%`;
+        chances[period] = `<0.01%`;
       }
       return chances;
     },
     {} as { [key: string]: string }
   );
+}
+
+export function calculateProximityPercent(
+  value: number,
+  networkDiff: number | null | undefined
+): string {
+  if (!value || value <= 0 || !networkDiff || networkDiff <= 0) {
+    return '';
+  }
+
+  const rawPercent = (value / networkDiff) * 100;
+  if (rawPercent < 0.01) {
+    return '<0.01%';
+  } else {
+    return rawPercent.toFixed(2) + '%';
+  }
 }
 
 export function serializeData(data: any) {

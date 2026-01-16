@@ -11,6 +11,7 @@ import {
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
   computeRejectedPercent,
+  calculateProximityPercent,
 } from '../utils/helpers';
 
 const CountdownTimer = dynamic(() => import('./CountdownTimer'), {
@@ -211,12 +212,12 @@ export default function PoolStatsDisplay({
                             display = percent.toFixed(2) + '%';
                           }
                           return (
-                            <div className="stat-desc text-green-600">
+                            <div className="stat-desc text-green-600 max-w-full overflow-hidden">
                               <span
                                 className="inline-block tooltip tooltip-right"
                                 data-tip="Accepted Diff % of Network Diff"
                               >
-                                {display}
+                                {display} (Effort)
                               </span>
                             </div>
                           );
@@ -233,12 +234,15 @@ export default function PoolStatsDisplay({
                             stats.rejected
                           );
                           return (
-                            <div className={`stat-desc text-left ${color}`}>
+                            <div
+                              className={`stat-desc text-left ${color} max-w-full overflow-hidden`}
+                            >
                               <span
                                 className="inline-block tooltip tooltip-right"
                                 data-tip="Rejected Diff % of Total Submitted Diff"
                               >
-                                {formatted === null ? 'N/A' : formatted}
+                                {formatted === null ? 'N/A' : formatted} (Error
+                                Rate)
                               </span>
                             </div>
                           );
@@ -246,26 +250,17 @@ export default function PoolStatsDisplay({
 
                       {key === 'bestshare' &&
                         (() => {
-                          const best = Number(stats.bestshare);
-                          const netdiff = Number(stats.netdiff);
-                          let percent = '';
-                          if (best > 0 && netdiff > 0) {
-                            const rawPercent = (best / netdiff) * 100;
-                            if (rawPercent === 0) {
-                              percent = '0%';
-                            } else if (rawPercent < 0.01) {
-                              percent = '<0.01%';
-                            } else {
-                              percent = rawPercent.toFixed(2) + '%';
-                            }
-                          }
+                          const percent = calculateProximityPercent(
+                            Number(stats.bestshare),
+                            stats.netdiff != null ? Number(stats.netdiff) : null
+                          );
                           return (
-                            <div className="stat-desc text-green-600">
+                            <div className="stat-desc text-green-600 max-w-full overflow-hidden">
                               <span
                                 className="inline-block tooltip tooltip-right"
                                 data-tip="Best Submitted Diff % of Network Diff"
                               >
-                                {percent || 'N/A'}
+                                {percent || 'N/A'} (Proximity)
                               </span>
                             </div>
                           );

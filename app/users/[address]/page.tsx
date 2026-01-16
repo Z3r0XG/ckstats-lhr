@@ -20,6 +20,7 @@ import {
   getHistoricalPercentageChange,
   getPercentageChangeColor,
   calculateBlockChances,
+  calculateProximityPercent,
   serializeData,
 } from '../../../utils/helpers';
 
@@ -135,12 +136,44 @@ export default async function UserPage({
           <div className="stat-value text-3xl">
             {formatNumber(latestStats.bestShare)}
           </div>
+          {(() => {
+            const percent = calculateProximityPercent(
+              Number(latestStats.bestShare),
+              stats?.netdiff != null ? Number(stats.netdiff) : null
+            );
+            return percent ? (
+              <div className="stat-desc text-green-600 text-xs max-w-full overflow-hidden">
+                <span
+                  className="tooltip tooltip-right"
+                  data-tip="Best Share % of Network Difficulty"
+                >
+                  {percent} (Proximity)
+                </span>
+              </div>
+            ) : null;
+          })()}
         </div>
         <div className="stat">
           <div className="stat-title">Best Ever</div>
           <div className="stat-value text-3xl">
             {formatNumber(latestStats.bestEver)}
           </div>
+          {(() => {
+            const percent = calculateProximityPercent(
+              Number(latestStats.bestEver),
+              stats?.netdiff != null ? Number(stats.netdiff) : null
+            );
+            return percent ? (
+              <div className="stat-desc text-green-600 text-xs max-w-full overflow-hidden">
+                <span
+                  className="tooltip tooltip-right"
+                  data-tip="Best Ever % of Network Difficulty"
+                >
+                  {percent} (Proximity)
+                </span>
+              </div>
+            ) : null;
+          })()}
         </div>
       </div>
 
