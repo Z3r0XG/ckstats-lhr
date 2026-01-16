@@ -211,7 +211,7 @@ export default function PoolStatsDisplay({
                             display = percent.toFixed(2) + '%';
                           }
                           return (
-                            <div className="stat-desc text-green-600">
+                            <div className="stat-desc text-green-600 max-w-full overflow-hidden">
                               <span
                                 className="inline-block tooltip tooltip-right"
                                 data-tip="Accepted Diff % of Network Diff"
@@ -233,7 +233,9 @@ export default function PoolStatsDisplay({
                             stats.rejected
                           );
                           return (
-                            <div className={`stat-desc text-left ${color}`}>
+                            <div
+                              className={`stat-desc text-left ${color} max-w-full overflow-hidden`}
+                            >
                               <span
                                 className="inline-block tooltip tooltip-right"
                                 data-tip="Rejected Diff % of Total Submitted Diff"
@@ -261,7 +263,7 @@ export default function PoolStatsDisplay({
                             }
                           }
                           return (
-                            <div className="stat-desc text-green-600">
+                            <div className="stat-desc text-green-600 max-w-full overflow-hidden">
                               <span
                                 className="inline-block tooltip tooltip-right"
                                 data-tip="Best Submitted Diff % of Network Diff"

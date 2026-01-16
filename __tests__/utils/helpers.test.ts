@@ -163,11 +163,11 @@ describe('Helper Functions', () => {
         1,
         BigInt(100000000000000)
       );
-      expect(chances['1h']).toBe('<0.001%');
-      expect(chances['1d']).toMatch(/\d+\.\d{3}%|<0\.001%/);
-      expect(chances['1w']).toMatch(/\d+\.\d{3}%|<0\.001%/);
-      expect(chances['1m']).toMatch(/\d+\.\d{3}%|<0\.001%/);
-      expect(chances['1y']).toMatch(/\d+\.\d{3}%|<0\.001%/);
+      expect(chances['1h']).toBe('<0.01%');
+      expect(chances['1d']).toMatch(/\d+\.\d{2}%|<0\.01%/);
+      expect(chances['1w']).toMatch(/\d+\.\d{2}%|<0\.01%/);
+      expect(chances['1m']).toMatch(/\d+\.\d{2}%|<0\.01%/);
+      expect(chances['1y']).toMatch(/\d+\.\d{2}%|<0\.01%/);
     });
   });
 });

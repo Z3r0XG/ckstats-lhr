@@ -17,17 +17,12 @@ import {
 interface WorkersTableProps {
   workers: Array<Worker & { latestStats?: { started?: string } }>;
   address?: string;
-  netdiff?: number;
 }
 
 type SortField = keyof Worker;
 type SortOrder = 'asc' | 'desc';
 
-const WorkersTable: React.FC<WorkersTableProps> = ({
-  workers,
-  address,
-  netdiff,
-}) => {
+const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
   const [sortField, setSortField] = useState<SortField>('hashrate5m');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [hideInactive, setHideInactive] = useState(false);
@@ -308,52 +303,8 @@ const WorkersTable: React.FC<WorkersTableProps> = ({
                   <td className={cls5m}>{renderHr(hr5mRaw, hr5m)}</td>
                   <td className={cls1hr}>{renderHr(hr1hrRaw, hr1hr)}</td>
                   <td className={cls1d}>{renderHr(hr1dRaw, hr1d)}</td>
-                  <td>
-                    {formatNumber(worker.bestShare)}
-                    {(() => {
-                      const best = Number(worker.bestShare);
-                      if (best > 0 && netdiff != null && netdiff > 0) {
-                        const rawPercent = (best / netdiff) * 100;
-                        let percent = '';
-                        if (rawPercent === 0) {
-                          percent = '0%';
-                        } else if (rawPercent < 0.01) {
-                          percent = '<0.01%';
-                        } else {
-                          percent = rawPercent.toFixed(2) + '%';
-                        }
-                        return (
-                          <span className="text-green-600 text-xs ml-1">
-                            ({percent})
-                          </span>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </td>
-                  <td>
-                    {formatNumber(worker.bestEver)}
-                    {(() => {
-                      const best = Number(worker.bestEver);
-                      if (best > 0 && netdiff != null && netdiff > 0) {
-                        const rawPercent = (best / netdiff) * 100;
-                        let percent = '';
-                        if (rawPercent === 0) {
-                          percent = '0%';
-                        } else if (rawPercent < 0.01) {
-                          percent = '<0.01%';
-                        } else {
-                          percent = rawPercent.toFixed(2) + '%';
-                        }
-                        return (
-                          <span className="text-green-600 text-xs ml-1">
-                            ({percent})
-                          </span>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </td>
+                  <td>{formatNumber(worker.bestShare)}</td>
+                  <td>{formatNumber(worker.bestEver)}</td>
                   <td>{formatTimeAgo(worker.lastUpdate)}</td>
                   <td>
                     {worker.latestStats &&

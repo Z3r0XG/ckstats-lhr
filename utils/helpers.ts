@@ -379,10 +379,10 @@ export function calculateBlockChances(
       const lambda = hashesPerSecond * seconds * probabilityPerHash;
       const probability = 1 - Math.exp(-lambda);
       const pct = probability * 100;
-      if (pct >= 0.001) {
-        chances[period] = `${pct.toFixed(3)}%`;
+      if (pct >= 0.01) {
+        chances[period] = `${pct.toFixed(2)}%`;
       } else {
-        chances[period] = `<0.001%`;
+        chances[period] = `<0.01%`;
       }
       return chances;
     },
