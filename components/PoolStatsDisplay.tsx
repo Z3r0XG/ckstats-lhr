@@ -84,7 +84,7 @@ export default function PoolStatsDisplay({
     { title: 'Users', keys: ['users', 'disconnected', 'workers'] },
     {
       title: 'Shares since last found block',
-      keys: ['accepted', 'rejected', 'bestshare', 'diff'],
+      keys: ['accepted', 'rejected', 'bestshare', 'avgTime'],
     },
     { title: 'Shares Per Second', keys: ['SPS1m', 'SPS5m', 'SPS15m', 'SPS1h'] },
   ];
@@ -144,30 +144,17 @@ export default function PoolStatsDisplay({
                 </div>
               </div>
               <div className="stat">
-                <div className="stat-title">Avg Time to Find a Block</div>
+                <div className="stat-title">Network Diff</div>
                 <div className="stat-value text-2xl">
                   {(() => {
-                    const denom = Math.round(Number(stats.diff) * 100);
-                    if (stats.hashrate6hr && denom > 0) {
-                      return formatDuration(
-                        calculateAverageTimeToBlock(
-                          stats.hashrate6hr,
-                          (BigInt(stats.accepted) * BigInt(10000)) /
-                            BigInt(denom)
-                        )
-                      );
-                    }
-                    return 'N/A';
+                    const netdiff =
+                      stats.netdiff != null ? Number(stats.netdiff) : null;
+                    const netdiffStr =
+                      netdiff != null && netdiff > 0
+                        ? formatWithUnits(netdiff)
+                        : 'N/A';
+                    return netdiffStr;
                   })()}
-                </div>
-                <div className="stat-desc">
-                  <Link
-                    href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG ?? 'solock'}`}
-                    target="_blank"
-                    className="link text-primary"
-                  >
-                    Found Blocks
-                  </Link>
                 </div>
               </div>
             </div>
@@ -179,17 +166,33 @@ export default function PoolStatsDisplay({
               <h2 className="card-title">{group.title}</h2>
               <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
                 {group.keys.map((key) => {
-                  if (key === 'diff') {
-                    const netdiff =
-                      stats.netdiff != null ? Number(stats.netdiff) : null;
-                    const netdiffStr =
-                      netdiff != null && netdiff > 0
-                        ? formatWithUnits(netdiff)
+                  if (key === 'avgTime') {
+                    const denom = Math.round(Number(stats.diff) * 100);
+                    const avgTimeStr =
+                      stats.hashrate6hr && denom > 0
+                        ? formatDuration(
+                            calculateAverageTimeToBlock(
+                              stats.hashrate6hr,
+                              (BigInt(stats.accepted) * BigInt(10000)) /
+                                BigInt(denom)
+                            )
+                          )
                         : 'N/A';
                     return (
-                      <div key="network-diff" className="stat">
-                        <div className="stat-title">Network Diff</div>
-                        <div className="stat-value text-2xl">{netdiffStr}</div>
+                      <div key="avg-time" className="stat">
+                        <div className="stat-title">
+                          Avg Time to Find a Block
+                        </div>
+                        <div className="stat-value text-2xl">{avgTimeStr}</div>
+                        <div className="stat-desc">
+                          <Link
+                            href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG ?? 'solock'}`}
+                            target="_blank"
+                            className="link text-primary"
+                          >
+                            Found Blocks
+                          </Link>
+                        </div>
                       </div>
                     );
                   }
@@ -213,12 +216,7 @@ export default function PoolStatsDisplay({
                           }
                           return (
                             <div className="stat-desc text-green-600 max-w-full overflow-hidden">
-                              <span
-                                className="inline-block tooltip tooltip-right"
-                                data-tip="Accepted Diff % of Network Diff"
-                              >
-                                {display} (Effort)
-                              </span>
+                              {display} (Effort)
                             </div>
                           );
                         })()}
@@ -237,13 +235,8 @@ export default function PoolStatsDisplay({
                             <div
                               className={`stat-desc text-left ${color} max-w-full overflow-hidden`}
                             >
-                              <span
-                                className="inline-block tooltip tooltip-right"
-                                data-tip="Rejected Diff % of Total Submitted Diff"
-                              >
-                                {formatted === null ? 'N/A' : formatted} (Error
-                                Rate)
-                              </span>
+                              {formatted === null ? 'N/A' : formatted} (Error
+                              Rate)
                             </div>
                           );
                         })()}
@@ -256,12 +249,7 @@ export default function PoolStatsDisplay({
                           );
                           return (
                             <div className="stat-desc text-green-600 max-w-full overflow-hidden">
-                              <span
-                                className="inline-block tooltip tooltip-right"
-                                data-tip="Best Submitted Diff % of Network Diff"
-                              >
-                                {percent || 'N/A'} (Proximity)
-                              </span>
+                              {percent || 'N/A'} (Proximity)
                             </div>
                           );
                         })()}
