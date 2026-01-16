@@ -229,7 +229,11 @@ export default async function UserPage({
 
       <UserStatsCharts userStats={historicalStats} />
 
-      <WorkersTable workers={user.workers} address={params.address} />
+      <WorkersTable
+        workers={user.workers}
+        address={params.address}
+        netdiff={stats?.netdiff != null ? Number(stats.netdiff) : undefined}
+      />
     </div>
   );
 }

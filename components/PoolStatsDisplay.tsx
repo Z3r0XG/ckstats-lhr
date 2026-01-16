@@ -216,7 +216,7 @@ export default function PoolStatsDisplay({
                                 className="inline-block tooltip tooltip-right"
                                 data-tip="Accepted Diff % of Network Diff"
                               >
-                                {display}
+                                {display} (Effort)
                               </span>
                             </div>
                           );
@@ -238,7 +238,8 @@ export default function PoolStatsDisplay({
                                 className="inline-block tooltip tooltip-right"
                                 data-tip="Rejected Diff % of Total Submitted Diff"
                               >
-                                {formatted === null ? 'N/A' : formatted}
+                                {formatted === null ? 'N/A' : formatted} (Error
+                                Rate)
                               </span>
                             </div>
                           );
@@ -265,7 +266,7 @@ export default function PoolStatsDisplay({
                                 className="inline-block tooltip tooltip-right"
                                 data-tip="Best Submitted Diff % of Network Diff"
                               >
-                                {percent || 'N/A'}
+                                {percent || 'N/A'} (Proximity)
                               </span>
                             </div>
                           );
