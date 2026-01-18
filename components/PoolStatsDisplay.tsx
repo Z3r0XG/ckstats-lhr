@@ -175,8 +175,9 @@ export default function PoolStatsDisplay({
                         : stats.diff != null &&
                             stats.accepted != null &&
                             Number(stats.diff) > 0
-                          ? (BigInt(stats.accepted) * BigInt(10000)) /
-                            BigInt(Math.round(Number(stats.diff) * 100))
+                          ? (Number(stats.accepted) /
+                              (Number(stats.diff) * 100)) *
+                            10000
                           : null;
                     const avgTimeStr = (() => {
                       if (
