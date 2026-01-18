@@ -167,14 +167,22 @@ export default function PoolStatsDisplay({
               <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
                 {group.keys.map((key) => {
                   if (key === 'avgTime') {
-                    const denom = Math.round(Number(stats.diff) * 100);
+                    // Prefer netdiff; fallback to accepted/diff approximation if netdiff missing
+                    const networkDifficulty =
+                      stats.netdiff != null
+                        ? stats.netdiff
+                        : stats.diff != null &&
+                            stats.accepted != null &&
+                            Number(stats.diff) > 0
+                          ? (BigInt(stats.accepted) * BigInt(10000)) /
+                            BigInt(Math.round(Number(stats.diff) * 100))
+                          : null;
                     const avgTimeStr =
-                      stats.hashrate6hr && denom > 0
+                      stats.hashrate1hr != null && networkDifficulty != null
                         ? formatDuration(
                             calculateAverageTimeToBlock(
-                              stats.hashrate6hr,
-                              (BigInt(stats.accepted) * BigInt(10000)) /
-                                BigInt(denom)
+                              stats.hashrate1hr,
+                              networkDifficulty
                             )
                           )
                         : 'N/A';
