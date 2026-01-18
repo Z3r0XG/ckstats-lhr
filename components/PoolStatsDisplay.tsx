@@ -7,6 +7,7 @@ import {
   formatHashrate,
   formatTimeAgo,
   formatDuration,
+  formatDurationCapped,
   getHistoricalPercentageChange,
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
@@ -177,15 +178,19 @@ export default function PoolStatsDisplay({
                           ? (BigInt(stats.accepted) * BigInt(10000)) /
                             BigInt(Math.round(Number(stats.diff) * 100))
                           : null;
-                    const avgTimeStr =
-                      stats.hashrate1hr != null && networkDifficulty != null
-                        ? formatDuration(
-                            calculateAverageTimeToBlock(
-                              stats.hashrate1hr,
-                              networkDifficulty
-                            )
-                          )
-                        : 'N/A';
+                    const avgTimeStr = (() => {
+                      if (
+                        stats.hashrate6hr == null ||
+                        networkDifficulty == null
+                      )
+                        return 'N/A';
+
+                      const seconds = calculateAverageTimeToBlock(
+                        stats.hashrate6hr,
+                        networkDifficulty
+                      );
+                      return formatDurationCapped(seconds);
+                    })();
                     return (
                       <div key="avg-time" className="stat">
                         <div className="stat-title">

@@ -265,6 +265,15 @@ export function formatDuration(seconds: number): string {
   return parts.length > 0 ? parts.join(' ') : '0m';
 }
 
+export function formatDurationCapped(
+  seconds: number,
+  maxSeconds: number = 1000 * 31536000
+): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return 'N/A';
+  if (seconds > maxSeconds) return 'N/A';
+  return formatDuration(seconds);
+}
+
 export function calculatePercentageChange(
   currentValue: number,
   pastValue: number
@@ -344,7 +353,7 @@ export function calculateBlockChances(
   } as const;
 
   const hashesPerSecond =
-    typeof hashRate === 'bigint' ? Number(hashRate) : Number(hashRate);
+    typeof hashRate === 'bigint' ? Number(hashRate) : hashRate;
   if (!Number.isFinite(hashesPerSecond) || hashesPerSecond <= 0) {
     return { ...defaults };
   }
@@ -363,9 +372,14 @@ export function calculateBlockChances(
     Object.entries(periodsInSeconds).reduce(
       (chances, [period, seconds]) => {
         const lambda = hashesPerSecond * seconds * probabilityPerHash;
-        const probability = Number.isFinite(lambda)
-          ? 1 - Math.exp(-lambda)
-          : 0;
+        let probability: number;
+        if (Number.isFinite(lambda)) {
+          probability = 1 - Math.exp(-lambda);
+        } else if (lambda === Infinity) {
+          probability = 1;
+        } else {
+          probability = 0;
+        }
         const pct = probability * 100;
         chances[period] = pct >= 0.01 ? `${pct.toFixed(2)}%` : '<0.01%';
         return chances;
@@ -378,7 +392,7 @@ export function calculateBlockChances(
       ? null
       : typeof networkDifficulty === 'bigint'
         ? Number(networkDifficulty)
-        : Number(networkDifficulty);
+        : networkDifficulty;
   if (netDiffNum !== null && Number.isFinite(netDiffNum) && netDiffNum > 0) {
     const probabilityPerHash = 1 / (netDiffNum * hashesPerDifficulty);
     return maybeCalc(probabilityPerHash);
@@ -390,7 +404,7 @@ export function calculateBlockChances(
       ? null
       : typeof legacyDiff === 'bigint'
         ? Number(legacyDiff)
-        : Number(legacyDiff);
+        : legacyDiff;
   const acceptedNum =
     legacyAccepted == null
       ? null
