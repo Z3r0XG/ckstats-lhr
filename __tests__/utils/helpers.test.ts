@@ -128,17 +128,17 @@ describe('Helper Functions', () => {
       expect(formatDuration(9000000000000)).toBe('~∞');
     });
   });
-  
-    describe('formatDurationCapped', () => {
-      it('returns N/A when above cap', () => {
-        const over = 1000 * 31536000 + 1;
-        expect(formatDurationCapped(over)).toBe('N/A');
-      });
-  
-      it('formats normally when below cap', () => {
-        expect(formatDurationCapped(3600)).toBe('1h');
-      });
+
+  describe('formatDurationCapped', () => {
+    it('returns N/A when above cap', () => {
+      const over = 1000 * 31536000 + 1;
+      expect(formatDurationCapped(over)).toBe('N/A');
     });
+
+    it('formats normally when below cap', () => {
+      expect(formatDurationCapped(3600)).toBe('1h');
+    });
+  });
 
   describe('calculatePercentageChange', () => {
     it('calculates percentage change correctly', () => {
