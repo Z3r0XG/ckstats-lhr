@@ -7,6 +7,7 @@ import {
   formatHashrate,
   formatTimeAgo,
   formatDuration,
+  formatDurationCapped,
   getHistoricalPercentageChange,
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
@@ -167,17 +168,30 @@ export default function PoolStatsDisplay({
               <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
                 {group.keys.map((key) => {
                   if (key === 'avgTime') {
-                    const denom = Math.round(Number(stats.diff) * 100);
-                    const avgTimeStr =
-                      stats.hashrate6hr && denom > 0
-                        ? formatDuration(
-                            calculateAverageTimeToBlock(
-                              stats.hashrate6hr,
-                              (BigInt(stats.accepted) * BigInt(10000)) /
-                                BigInt(denom)
-                            )
-                          )
-                        : 'N/A';
+                    // Prefer netdiff; fallback to accepted/diff approximation if netdiff missing
+                    const networkDifficulty =
+                      stats.netdiff != null
+                        ? stats.netdiff
+                        : stats.diff != null &&
+                            stats.accepted != null &&
+                            Number(stats.diff) > 0
+                          ? (Number(stats.accepted) /
+                              (Number(stats.diff) * 100)) *
+                            10000
+                          : null;
+                    const avgTimeStr = (() => {
+                      if (
+                        stats.hashrate6hr == null ||
+                        networkDifficulty == null
+                      )
+                        return 'N/A';
+
+                      const seconds = calculateAverageTimeToBlock(
+                        stats.hashrate6hr,
+                        networkDifficulty
+                      );
+                      return formatDurationCapped(seconds);
+                    })();
                     return (
                       <div key="avg-time" className="stat">
                         <div className="stat-title">

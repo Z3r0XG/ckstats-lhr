@@ -7,6 +7,7 @@ import {
   safeParseFloat,
   formatTimeAgo,
   formatDuration,
+  formatDurationCapped,
   formatConciseTimeAgo,
   calculatePercentageChange,
   getPercentageChangeColor,
@@ -128,6 +129,17 @@ describe('Helper Functions', () => {
     });
   });
 
+  describe('formatDurationCapped', () => {
+    it('returns N/A when above cap', () => {
+      const over = 1000 * 31536000 + 1;
+      expect(formatDurationCapped(over)).toBe('N/A');
+    });
+
+    it('formats normally when below cap', () => {
+      expect(formatDurationCapped(3600)).toBe('1h');
+    });
+  });
+
   describe('calculatePercentageChange', () => {
     it('calculates percentage change correctly', () => {
       expect(calculatePercentageChange(110, 100)).toBe(10);
@@ -158,17 +170,82 @@ describe('Helper Functions', () => {
   });
 
   describe('calculateBlockChances', () => {
-    it('calculates block chances correctly', () => {
-      const chances = calculateBlockChances(
-        BigInt(1000000000000),
-        1,
-        BigInt(100000000000000)
+    const computeExpected = (
+      hashRate: number,
+      difficulty: number,
+      seconds: number
+    ) => {
+      const hashesPerDifficulty = Math.pow(2, 32);
+      const lambda = (hashRate * seconds) / (difficulty * hashesPerDifficulty);
+      const probability = 1 - Math.exp(-lambda);
+      const pct = probability * 100;
+      return pct >= 0.01 ? `${pct.toFixed(2)}%` : '<0.01%';
+    };
+
+    it('matches Poisson probability using network difficulty only', () => {
+      // Chosen to yield mid-range probabilities (>0.01%) for multiple periods
+      const hashRate = 5e11; // 500 GH/s
+      const difficulty = 1e9; // network difficulty (absolute)
+
+      const chances = calculateBlockChances(hashRate, difficulty);
+
+      expect(chances['1h']).toBe(
+        computeExpected(hashRate, difficulty, 3600)
       );
+      expect(chances['1d']).toBe(
+        computeExpected(hashRate, difficulty, 86400)
+      );
+      expect(chances['1w']).toBe(
+        computeExpected(hashRate, difficulty, 604800)
+      );
+      expect(chances['1m']).toBe(
+        computeExpected(hashRate, difficulty, 2592000)
+      );
+      expect(chances['1y']).toBe(
+        computeExpected(hashRate, difficulty, 31536000)
+      );
+    });
+
+    it('returns floor when probability is below 0.01%', () => {
+      const hashRate = 1e9; // 1 GH/s
+      const difficulty = 1e12; // high difficulty
+      const chances = calculateBlockChances(hashRate, difficulty);
       expect(chances['1h']).toBe('<0.01%');
-      expect(chances['1d']).toMatch(/\d+\.\d{2}%|<0\.01%/);
-      expect(chances['1w']).toMatch(/\d+\.\d{2}%|<0\.01%/);
-      expect(chances['1m']).toMatch(/\d+\.\d{2}%|<0\.01%/);
-      expect(chances['1y']).toMatch(/\d+\.\d{2}%|<0\.01%/);
+      expect(chances['1d']).toBe('<0.01%');
+      expect(chances['1w']).toBe('<0.01%');
+      expect(chances['1m']).toBe('<0.01%');
+      expect(chances['1y']).toBe('<0.01%');
+    });
+
+    it('defaults when inputs are invalid or non-positive', () => {
+      expect(calculateBlockChances(0, 1e6)['1d']).toBe('<0.01%');
+      expect(calculateBlockChances(1e6, 0)['1d']).toBe('<0.01%');
+      expect(calculateBlockChances(NaN, 1e6)['1d']).toBe('<0.01%');
+      expect(calculateBlockChances(1e6, NaN)['1d']).toBe('<0.01%');
+    });
+
+    it('uses legacy accepted/diff fallback when netdiff is absent', () => {
+      // Legacy formula: networkDiff = (accepted/(diff*100))*10000
+      // Choose values to get mid-range probabilities and assert all periods match the derived expectations.
+      const hashRate = 1e12; // 1 TH/s
+      const diffPercent = 0.5; // pool diff percentage
+      const accepted = 1e10; // accepted shares
+      const legacyNetworkDiff = (accepted / (diffPercent * 100)) * 10000;
+
+      const expected = (seconds: number) => {
+        const hashesPerDifficulty = Math.pow(2, 32);
+        const lambda = (hashRate * seconds) / (legacyNetworkDiff * hashesPerDifficulty);
+        const p = 1 - Math.exp(-lambda);
+        const pct = p * 100;
+        return pct >= 0.01 ? `${pct.toFixed(2)}%` : '<0.01%';
+      };
+
+      const chances = calculateBlockChances(hashRate, null, diffPercent, accepted);
+      expect(chances['1h']).toBe(expected(3600));
+      expect(chances['1d']).toBe(expected(86400));
+      expect(chances['1w']).toBe(expected(604800));
+      expect(chances['1m']).toBe(expected(2592000));
+      expect(chances['1y']).toBe(expected(31536000));
     });
   });
 });

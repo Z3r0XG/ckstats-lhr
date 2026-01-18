@@ -265,6 +265,15 @@ export function formatDuration(seconds: number): string {
   return parts.length > 0 ? parts.join(' ') : '0m';
 }
 
+export function formatDurationCapped(
+  seconds: number,
+  maxSeconds: number = 1000 * 31536000
+): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return 'N/A';
+  if (seconds > maxSeconds) return 'N/A';
+  return formatDuration(seconds);
+}
+
 export function calculatePercentageChange(
   currentValue: number,
   pastValue: number
@@ -331,40 +340,25 @@ export function calculateAverageTimeToBlock(
 
 export function calculateBlockChances(
   hashRate: number | bigint,
-  difficulty: number,
-  accepted: bigint
+  networkDifficulty?: number | bigint | null,
+  legacyDiff?: number | bigint | null,
+  legacyAccepted?: number | bigint | null
 ): { [key: string]: string } {
-  const acceptedNum = Number(accepted);
-  const networkDiff = Number(difficulty);
-  if (
-    !Number.isFinite(acceptedNum) ||
-    !Number.isFinite(networkDiff) ||
-    networkDiff === 0
-  ) {
-    return {
-      '1h': '<0.001%',
-      '1d': '<0.001%',
-      '1w': '<0.001%',
-      '1m': '<0.001%',
-      '1y': '<0.001%',
-    };
-  }
-
-  const hashesPerDifficulty = Math.pow(2, 32);
-  const networkFactor = acceptedNum / (networkDiff * 100);
-  const probabilityPerHash = 1 / (networkFactor * hashesPerDifficulty);
+  const defaults = {
+    '1h': '<0.01%',
+    '1d': '<0.01%',
+    '1w': '<0.01%',
+    '1m': '<0.01%',
+    '1y': '<0.01%',
+  } as const;
 
   const hashesPerSecond =
     typeof hashRate === 'bigint' ? Number(hashRate) : hashRate;
   if (!Number.isFinite(hashesPerSecond) || hashesPerSecond <= 0) {
-    return {
-      '1h': '<0.001%',
-      '1d': '<0.001%',
-      '1w': '<0.001%',
-      '1m': '<0.001%',
-      '1y': '<0.001%',
-    };
+    return { ...defaults };
   }
+
+  const hashesPerDifficulty = Math.pow(2, 32);
 
   const periodsInSeconds = {
     '1h': 3600,
@@ -372,22 +366,69 @@ export function calculateBlockChances(
     '1w': 604800,
     '1m': 2592000, // 30 days
     '1y': 31536000, // 365 days
-  };
+  } as const;
 
-  return Object.entries(periodsInSeconds).reduce(
-    (chances, [period, seconds]) => {
-      const lambda = hashesPerSecond * seconds * probabilityPerHash;
-      const probability = 1 - Math.exp(-lambda);
-      const pct = probability * 100;
-      if (pct >= 0.01) {
-        chances[period] = `${pct.toFixed(2)}%`;
-      } else {
-        chances[period] = `<0.01%`;
-      }
-      return chances;
-    },
-    {} as { [key: string]: string }
-  );
+  const maybeCalc = (probabilityPerHash: number) =>
+    Object.entries(periodsInSeconds).reduce(
+      (chances, [period, seconds]) => {
+        const lambda = hashesPerSecond * seconds * probabilityPerHash;
+        let probability: number;
+        if (Number.isFinite(lambda)) {
+          probability = 1 - Math.exp(-lambda);
+        } else if (lambda === Infinity) {
+          probability = 1;
+        } else {
+          probability = 0;
+        }
+        const pct = probability * 100;
+        chances[period] = pct >= 0.01 ? `${pct.toFixed(2)}%` : '<0.01%';
+        return chances;
+      },
+      {} as { [key: string]: string }
+    );
+
+  const netDiffNum =
+    networkDifficulty == null
+      ? null
+      : typeof networkDifficulty === 'bigint'
+        ? Number(networkDifficulty)
+        : networkDifficulty;
+  if (netDiffNum !== null && Number.isFinite(netDiffNum) && netDiffNum > 0) {
+    const probabilityPerHash = 1 / (netDiffNum * hashesPerDifficulty);
+    return maybeCalc(probabilityPerHash);
+  }
+
+  // Legacy fallback: approximate network diff using accepted + diff when netdiff is unavailable
+  const diffNum =
+    legacyDiff == null
+      ? null
+      : typeof legacyDiff === 'bigint'
+        ? Number(legacyDiff)
+        : legacyDiff;
+  const acceptedNum =
+    legacyAccepted == null
+      ? null
+      : typeof legacyAccepted === 'bigint'
+        ? Number(legacyAccepted)
+        : legacyAccepted;
+
+  if (
+    diffNum !== null &&
+    acceptedNum !== null &&
+    Number.isFinite(diffNum) &&
+    Number.isFinite(acceptedNum) &&
+    diffNum > 0 &&
+    acceptedNum > 0
+  ) {
+    const legacyNetworkDiff =
+      (acceptedNum / (diffNum * 100)) * 10000; // original upstream approximation
+    if (Number.isFinite(legacyNetworkDiff) && legacyNetworkDiff > 0) {
+      const probabilityPerHash = 1 / (legacyNetworkDiff * hashesPerDifficulty);
+      return maybeCalc(probabilityPerHash);
+    }
+  }
+
+  return { ...defaults };
 }
 
 export function calculateProximityPercent(

@@ -78,6 +78,9 @@ export default async function UserPage({
   }
 
   const latestStats = user.stats[0]; // Assuming stats are ordered by timestamp desc
+  const networkDifficulty = stats?.netdiff ?? null;
+  const legacyDiff = stats?.diff ?? null;
+  const legacyAccepted = stats?.accepted ?? null;
 
   const renderPercentageChange = (key: string) => {
     const change = getHistoricalPercentageChange(
@@ -213,11 +216,13 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Day</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr != null && stats?.diff != null
+            {latestStats.hashrate1hr != null &&
+            (networkDifficulty != null || legacyDiff != null)
               ? calculateBlockChances(
                   Number(latestStats.hashrate1hr) || 0,
-                  Number(stats.diff),
-                  stats.accepted
+                  networkDifficulty,
+                  legacyDiff,
+                  legacyAccepted
                 )['1d']
               : 'N/A'}
           </div>
@@ -225,11 +230,13 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Week</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr != null && stats?.diff != null
+            {latestStats.hashrate1hr != null &&
+            (networkDifficulty != null || legacyDiff != null)
               ? calculateBlockChances(
                   Number(latestStats.hashrate1hr) || 0,
-                  Number(stats.diff),
-                  stats.accepted
+                  networkDifficulty,
+                  legacyDiff,
+                  legacyAccepted
                 )['1w']
               : 'N/A'}
           </div>
@@ -237,11 +244,13 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Month</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr != null && stats?.diff != null
+            {latestStats.hashrate1hr != null &&
+            (networkDifficulty != null || legacyDiff != null)
               ? calculateBlockChances(
                   Number(latestStats.hashrate1hr) || 0,
-                  Number(stats.diff),
-                  stats.accepted
+                  networkDifficulty,
+                  legacyDiff,
+                  legacyAccepted
                 )['1m']
               : 'N/A'}
           </div>
@@ -249,11 +258,13 @@ export default async function UserPage({
         <div className="stat">
           <div className="stat-title">1 Year</div>
           <div className="stat-value text-3xl">
-            {latestStats.hashrate1hr != null && stats?.diff != null
+            {latestStats.hashrate1hr != null &&
+            (networkDifficulty != null || legacyDiff != null)
               ? calculateBlockChances(
                   Number(latestStats.hashrate1hr) || 0,
-                  Number(stats.diff),
-                  stats.accepted
+                  networkDifficulty,
+                  legacyDiff,
+                  legacyAccepted
                 )['1y']
               : 'N/A'}
           </div>
