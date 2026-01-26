@@ -143,7 +143,7 @@ export async function savePoolStats(stats: PoolStatsInput): Promise<PoolStats> {
 }
 
 export async function getLatestPoolStats(): Promise<PoolStats | null> {
-  return getCached('latestPoolStats', 5, async () => {
+  return getCached('latestPoolStats', 60, async () => {
     const db = await getDb();
     const repository = db.getRepository(PoolStats);
     return repository.findOne({
@@ -166,7 +166,7 @@ export async function getHistoricalPoolStats(): Promise<PoolStats[]> {
 
 export async function getUserWithWorkersAndStats(address: string) {
   const key = `userWithWorkers:${address}`;
-  return getCached(key, 3, async () => {
+  return getCached(key, 60, async () => {
     const db = await getDb();
     const userRepository = db.getRepository(User);
     const workerStatsRepo = db.getRepository(WorkerStats);
@@ -237,7 +237,7 @@ export async function getWorkerWithStats(
   workerName: string
 ) {
   const key = `workerWithStats:${userAddress}:${workerName}`;
-  return getCached(key, 5, async () => {
+  return getCached(key, 60, async () => {
     const db = await getDb();
     const repository = db.getRepository(Worker);
 

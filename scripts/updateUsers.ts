@@ -3,6 +3,7 @@ import 'reflect-metadata';
 import * as fs from 'fs';
 
 import { getDb } from '../lib/db';
+import { cacheDelete } from '../lib/api';
 import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
@@ -116,6 +117,10 @@ async function updateUser(address: string): Promise<void> {
       });
       await userStatsRepository.save(userStats);
 
+      // Invalidate caches for this user
+      cacheDelete(`userHistorical:${address}`);
+      cacheDelete(`userWithWorkers:${address}`);
+
       const workerRepository = manager.getRepository(Worker);
       const workerStatsRepository = manager.getRepository(WorkerStats);
 
@@ -175,6 +180,9 @@ async function updateUser(address: string): Promise<void> {
           bestEver: workerValues.bestEver,
         });
         await workerStatsRepository.save(workerStats);
+
+        // Invalidate cache for this worker
+        cacheDelete(`workerWithStats:${address}:${workerName}`);
       }
     });
 
