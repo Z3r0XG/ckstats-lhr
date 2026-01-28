@@ -38,3 +38,18 @@ test('readJsonStable retries on partial JSON', async () => {
   const res = await readJsonStable(p, { retries: 10, backoffMs: 20 });
   expect(res).toEqual({ a: 1 });
 });
+
+test('readFileStable throws after retries exhausted', async () => {
+  const p = path.join(tmpDir, 'never.txt');
+  await expect(
+    readFileStable(p, { retries: 2, backoffMs: 10 })
+  ).rejects.toThrow();
+});
+
+test('readJsonStable throws if file remains partial', async () => {
+  const p = path.join(tmpDir, 'partial2.json');
+  await fs.writeFile(p, '{invalid');
+  await expect(
+    readJsonStable(p, { retries: 3, backoffMs: 10 })
+  ).rejects.toThrow();
+});
