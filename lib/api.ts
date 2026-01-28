@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { getDb } from './db';
+import { readJsonStable } from '../utils/readFileStable';
 import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
@@ -483,7 +484,10 @@ export async function updateSingleUser(
         if (!resolved.startsWith(root + path.sep)) {
           throw new Error('Invalid path for user data');
         }
-        userData = JSON.parse(fs.readFileSync(resolved, 'utf-8'));
+        userData = await readJsonStable(resolved, {
+          retries: 6,
+          backoffMs: 50,
+        });
       } else throw error;
     }
 

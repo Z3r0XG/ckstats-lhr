@@ -1,6 +1,7 @@
 // eslint-disable-next-line import/no-unresolved
 import 'dotenv/config';
 import * as fs from 'fs';
+import { readFileStable } from '../utils/readFileStable';
 
 import { getDb } from '../lib/db';
 import { PoolStats } from '../lib/entities/PoolStats';
@@ -50,7 +51,7 @@ async function fetchPoolStats(): Promise<Partial<PoolStatsData>> {
     data = await response.text();
   } catch (error: any) {
     if (error.cause?.code == 'ERR_INVALID_URL') {
-      data = fs.readFileSync(apiUrl, 'utf-8');
+      data = await readFileStable(apiUrl, { retries: 6, backoffMs: 50 });
     } else throw error;
   }
 

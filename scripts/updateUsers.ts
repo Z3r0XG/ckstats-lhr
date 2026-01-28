@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import 'reflect-metadata';
 import * as fs from 'fs';
+import { readJsonStable } from '../utils/readFileStable';
 
 import { getDb } from '../lib/db';
 import { cacheDelete } from '../lib/api';
@@ -71,7 +72,7 @@ async function updateUser(address: string): Promise<void> {
       userData = (await response.json()) as UserData;
     } catch (error: any) {
       if (error.cause?.code == 'ERR_INVALID_URL') {
-        userData = JSON.parse(fs.readFileSync(apiUrl, 'utf-8')) as UserData;
+        userData = await readJsonStable(apiUrl, { retries: 6, backoffMs: 50 }) as UserData;
       } else throw error;
     }
 
