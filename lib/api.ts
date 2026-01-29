@@ -348,6 +348,52 @@ export async function getTopUserHashrates(limit: number = 10) {
   });
 }
 
+export async function getTopUserLoyalty(limit: number = 10) {
+  const key = `topUserLoyalty:${limit}`;
+  return getCached(key, 30, async () => {
+    const db = await getDb();
+    const repository = db.getRepository(UserStats);
+
+    // Grab latest stats per user (distinct on userAddress), join user to access authorised/isActive/isPublic
+    const users = await repository
+      .createQueryBuilder('userStats')
+      .innerJoin('userStats.user', 'user')
+      .select([
+        'userStats.userAddress',
+        'userStats.workerCount',
+        'userStats.hashrate1hr',
+        'userStats.bestShare',
+        'userStats.shares',
+        'userStats.timestamp',
+        'user.authorised',
+      ])
+      .where('user.isPublic = :isPublic', { isPublic: true })
+      .andWhere('user.isActive = :isActive', { isActive: true })
+      .andWhere('userStats.workerCount > 0')
+      .distinctOn(['userStats.userAddress'])
+      .orderBy('userStats.userAddress', 'ASC')
+      .addOrderBy('userStats.timestamp', 'DESC')
+      .getRawMany();
+
+    const filtered = users
+      .filter((s: any) => s.user_authorised && Number(s.user_authorised) > 0)
+      .sort(
+        (a: any, b: any) =>
+          Number(a.user_authorised) - Number(b.user_authorised)
+      )
+      .slice(0, limit);
+
+    return filtered.map((s: any) => ({
+      address: s.userStats_userAddress,
+      authorised: Number(s.user_authorised),
+      workerCount: Number(s.userStats_workerCount),
+      hashrate1hr: Number(s.userStats_hashrate1hr),
+      shares: Number(s.userStats_shares),
+      bestShare: Number(s.userStats_bestShare),
+    }));
+  });
+}
+
 export async function getOnlineDevices(limit: number = 10) {
   const db = await getDb();
 
