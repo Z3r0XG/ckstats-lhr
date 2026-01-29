@@ -43,7 +43,6 @@ export default async function TopUserLoyalty({
                   <th>Address</th>
                   <th>Active Workers</th>
                   <th>Hashrate 1hr</th>
-                  {/* Removed 1d and 7d hashrate columns */}
                   <th>Shares Accepted</th>
                   <th>Best Diff</th>
                   <th>When</th>
@@ -76,7 +75,6 @@ export default async function TopUserLoyalty({
                         <td className="text-accent whitespace-nowrap">
                           {formatHashrate(u.hashrate1hr)}
                         </td>
-                        {/* Removed 1d and 7d hashrate columns */}
                         <td className="text-accent whitespace-nowrap">
                           {formatNumber(u.shares)}
                         </td>
