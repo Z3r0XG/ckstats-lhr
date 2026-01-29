@@ -76,7 +76,6 @@ export type DashboardPayload = {
   topUserLoyalty: Array<{
     address: string;
     authorised: number;
-    since?: string;
   }>;
   onlineDevices: OnlineDevice[];
   highScores: HighScore[];
