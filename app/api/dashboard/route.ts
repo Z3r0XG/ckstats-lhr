@@ -9,7 +9,7 @@ import {
   getTopUserHashrates,
   getTopUserLoyalty,
 } from '../../../lib/api';
-import { serializeData } from '../../../utils/helpers';
+import { serializeData, maskLeaderboardData } from '../../../utils/helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,23 +51,9 @@ export async function GET(request: Request) {
       );
     }
 
-    const maskAddress = (addr: string) =>
-      typeof addr === 'string' && addr.length > 10
-        ? `${addr.slice(0, 6)}...${addr.slice(-4)}`
-        : addr;
-
-    const maskedTopHashrates = (topHashrates || []).map((u) => ({
-      ...u,
-      address: maskAddress(u.address),
-    }));
-    const maskedTopDifficulties = (topDifficulties || []).map((u) => ({
-      ...u,
-      address: maskAddress(u.address),
-    }));
-    const maskedTopLoyalty = (topLoyalty || []).map((u) => ({
-      ...u,
-      address: maskAddress(u.address),
-    }));
+    const maskedTopHashrates = maskLeaderboardData(topHashrates || []);
+    const maskedTopDifficulties = maskLeaderboardData(topDifficulties || []);
+    const maskedTopLoyalty = maskLeaderboardData(topLoyalty || []);
 
     const payload = {
       version: 1,

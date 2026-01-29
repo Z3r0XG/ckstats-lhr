@@ -565,3 +565,21 @@ export function safeParseFloat(value: any, fallback: number = 0): number {
   const parsed = parseFloat(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
+
+/**
+ * Masks an address for privacy by showing only the first 6 and last 4 characters.
+ * @param addr - The full address string
+ * @returns The masked address
+ */
+export function maskAddress(addr: string): string {
+  if (addr.length <= 10) return addr; // Too short to mask meaningfully
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
+
+/**
+ * Masks the address field in an array of leaderboard data objects.
+ * @param data - Array of objects with an 'address' field
+ * @returns The array with addresses masked
+ */
+export const maskLeaderboardData = (data: any[]) =>
+  data.map(u => ({ ...u, address: maskAddress(u.address) }));
