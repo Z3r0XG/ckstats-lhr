@@ -6,6 +6,7 @@ import {
   getTopBestDiffs,
   getTopUserDifficulties,
   getTopUserHashrates,
+  getTopUserLoyalty,
 } from '../lib/api';
 import { serializeData } from '../utils/helpers';
 
@@ -18,6 +19,7 @@ export default async function Home() {
       historicalStatsORM,
       topHashrates,
       topDifficulties,
+      topLoyalty,
       onlineDevices,
       highScores,
     ] = await Promise.all([
@@ -25,6 +27,7 @@ export default async function Home() {
       getHistoricalPoolStats(),
       getTopUserHashrates(10),
       getTopUserDifficulties(10),
+      getTopUserLoyalty(10),
       getOnlineDevices(10000),
       getTopBestDiffs(10),
     ]);
@@ -53,6 +56,11 @@ export default async function Home() {
       ...u,
       address: maskAddress(u.address),
     }));
+    const maskedTopLoyalty = (topLoyalty || []).map((u) => ({
+      ...u,
+      address: maskAddress(u.address),
+      authorised: u.authorised,
+    }));
 
     const initialPayload = {
       version: 1,
@@ -61,6 +69,7 @@ export default async function Home() {
       historicalStats,
       topUserHashrates: serializeData(maskedTopHashrates),
       topUserDifficulties: serializeData(maskedTopDifficulties),
+      topUserLoyalty: serializeData(maskedTopLoyalty),
       onlineDevices: serializeData(onlineDevices),
       highScores: serializeData(highScores),
       limits: {

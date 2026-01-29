@@ -73,6 +73,11 @@ export type DashboardPayload = {
   historicalStats: SerializedPoolStats[];
   topUserHashrates: TopUserHashrate[];
   topUserDifficulties: TopUserDifficulty[];
+  topUserLoyalty: Array<{
+    address: string;
+    authorised: number;
+    since?: string;
+  }>;
   onlineDevices: OnlineDevice[];
   highScores: HighScore[];
   limits: DashboardLimits;

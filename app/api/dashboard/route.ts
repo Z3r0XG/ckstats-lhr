@@ -7,6 +7,7 @@ import {
   getTopBestDiffs,
   getTopUserDifficulties,
   getTopUserHashrates,
+  getTopUserLoyalty,
 } from '../../../lib/api';
 import { serializeData } from '../../../utils/helpers';
 
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
       historicalStats,
       topHashrates,
       topDifficulties,
+      topLoyalty,
       onlineDevices,
       highScores,
     ] = await Promise.all([
@@ -37,6 +39,7 @@ export async function GET(request: Request) {
       getHistoricalPoolStats(),
       getTopUserHashrates(DASHBOARD_TOP_LIMIT),
       getTopUserDifficulties(DASHBOARD_TOP_LIMIT),
+      getTopUserLoyalty(DASHBOARD_TOP_LIMIT),
       getOnlineDevices(DASHBOARD_ONLINE_LIMIT),
       getTopBestDiffs(DASHBOARD_TOP_LIMIT),
     ]);
@@ -61,6 +64,10 @@ export async function GET(request: Request) {
       ...u,
       address: maskAddress(u.address),
     }));
+    const maskedTopLoyalty = (topLoyalty || []).map((u) => ({
+      ...u,
+      address: maskAddress(u.address),
+    }));
 
     const payload = {
       version: 1,
@@ -69,6 +76,7 @@ export async function GET(request: Request) {
       historicalStats: serializeData(historicalStats),
       topUserHashrates: serializeData(maskedTopHashrates),
       topUserDifficulties: serializeData(maskedTopDifficulties),
+      topUserLoyalty: serializeData(maskedTopLoyalty),
       onlineDevices: serializeData(onlineDevices),
       highScores: serializeData(highScores),
       limits: {
