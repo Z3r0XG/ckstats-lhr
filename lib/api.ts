@@ -394,18 +394,12 @@ export async function getTopUserLoyalty(limit: number = 10) {
         return `userStats.timestamp = ${subQuery}`;
       })
       .andWhere('userStats.workerCount > 0')
+      .andWhere('user.authorised > 0')
       .orderBy('user.authorised', 'ASC')
+      .take(limit)
       .getRawMany();
 
-    const filtered = users
-      .filter((s: any) => s.user_authorised && Number(s.user_authorised) > 0)
-      .sort(
-        (a: any, b: any) =>
-          Number(a.user_authorised) - Number(b.user_authorised)
-      )
-      .slice(0, limit);
-
-    return filtered.map((s: any) => ({
+    return users.map((s: any) => ({
       address: maskAddress(s.userStats_userAddress),
       authorised: Number(s.user_authorised),
       workerCount: Number(s.userStats_workerCount),
