@@ -8,7 +8,7 @@ import {
   getTopUserHashrates,
   getTopUserLoyalty,
 } from '../lib/api';
-import { serializeData, maskLeaderboardData } from '../utils/helpers';
+import { serializeData } from '../utils/helpers';
 
 export const revalidate = 60;
 
@@ -43,18 +43,14 @@ export default async function Home() {
     const latestStats = serializeData(latestStatsORM);
     const historicalStats = serializeData(historicalStatsORM);
 
-    const maskedTopHashrates = maskLeaderboardData(topHashrates || []);
-    const maskedTopDifficulties = maskLeaderboardData(topDifficulties || []);
-    const maskedTopLoyalty = maskLeaderboardData(topLoyalty || []);
-
     const initialPayload = {
       version: 1,
       generatedAt: new Date().toISOString(),
       latestStats,
       historicalStats,
-      topUserHashrates: serializeData(maskedTopHashrates),
-      topUserDifficulties: serializeData(maskedTopDifficulties),
-      topUserLoyalty: serializeData(maskedTopLoyalty),
+      topUserHashrates: serializeData(topHashrates),
+      topUserDifficulties: serializeData(topDifficulties),
+      topUserLoyalty: serializeData(topLoyalty),
       onlineDevices: serializeData(onlineDevices),
       highScores: serializeData(highScores),
       limits: {
