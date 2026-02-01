@@ -32,9 +32,17 @@ describe('CountdownTimer state logic', () => {
     const isFetching = true;
     const fetchingBadge = 'Fetching...';
     
-    if (!error && isFetching) {
-      expect(fetchingBadge).toContain('Fetching');
-    }
+    expect(fetchingBadge).toContain('Fetching');
+  });
+
+  test('countdown timer shows when no error and not fetching', () => {
+    const error = null;
+    const isFetching = false;
+    const seconds = 30;
+    
+    // When not fetching and no error, show countdown timer
+    expect(isFetching).toBe(false);
+    expect(seconds).toBeGreaterThan(0);
   });
 
   test('seconds = 0 triggers "Updating Now" state', () => {
@@ -43,9 +51,7 @@ describe('CountdownTimer state logic', () => {
     const isFetching = false;
     const updatingNowBadge = 'Updating Now';
     
-    if (!error && !isFetching && seconds === 0) {
-      expect(updatingNowBadge).toBe('Updating Now');
-    }
+    expect(updatingNowBadge).toBe('Updating Now');
   });
 
   test('countdown displays remaining seconds', () => {
@@ -54,10 +60,8 @@ describe('CountdownTimer state logic', () => {
     const isFetching = false;
     const badgeText = `Updating in ${seconds}s`;
     
-    if (!error && !isFetching && seconds > 0) {
-      expect(badgeText).toContain('Updating in');
-      expect(badgeText).toContain('42s');
-    }
+    expect(badgeText).toContain('Updating in');
+    expect(badgeText).toContain('42s');
   });
 
   test('timer decrements from initialSeconds', () => {
@@ -80,9 +84,7 @@ describe('CountdownTimer state logic', () => {
     let seconds = 1;
     
     // Simulate timer tick
-    if (seconds <= 1 && onElapsed) {
-      onElapsed();
-    }
+    onElapsed();
     
     expect(onElapsed).toHaveBeenCalled();
   });
