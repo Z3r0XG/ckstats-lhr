@@ -282,16 +282,20 @@ export async function getTopUserDifficulties(limit: number = 10) {
         'userStats.timestamp',
       ])
       .where('user.isPublic = :isPublic', { isPublic: true })
-      .distinctOn(['userStats.userAddress'])
-      .orderBy('userStats.userAddress', 'ASC')
-      .addOrderBy('userStats.timestamp', 'DESC')
+      .andWhere((qb) => {
+        const subQuery = qb
+          .subQuery()
+          .select('MAX(us2.timestamp)')
+          .from(UserStats, 'us2')
+          .where('us2.userAddress = userStats.userAddress')
+          .getQuery();
+        return `userStats.timestamp = ${subQuery}`;
+      })
+      .orderBy('userStats.bestEver', 'DESC')
+      .take(limit)
       .getMany();
 
-    const sortedUsers = topUsers
-      .sort((a, b) => Number(b.bestEver) - Number(a.bestEver))
-      .slice(0, limit);
-
-    return sortedUsers.map((stats) => ({
+    return topUsers.map((stats) => ({
       address: stats.userAddress,
       workerCount: stats.workerCount,
       difficulty: stats.bestEver,
@@ -325,11 +329,17 @@ export async function getTopUserHashrates(limit: number = 10) {
       ])
       .where('user.isPublic = :isPublic', { isPublic: true })
       .andWhere('user.isActive = :isActive', { isActive: true })
-      // Only consider users whose latest stats show at least one active worker
+      .andWhere((qb) => {
+        const subQuery = qb
+          .subQuery()
+          .select('MAX(us2.timestamp)')
+          .from(UserStats, 'us2')
+          .where('us2.userAddress = userStats.userAddress')
+          .getQuery();
+        return `userStats.timestamp = ${subQuery}`;
+      })
       .andWhere('userStats.workerCount > 0')
-      .distinctOn(['userStats.userAddress'])
       .orderBy('userStats.userAddress', 'ASC')
-      .addOrderBy('userStats.timestamp', 'DESC')
       .getMany();
 
     const sortedUsers = topUsers
@@ -361,7 +371,7 @@ export async function getTopUserLoyalty(limit: number = 10) {
     const db = await getDb();
     const repository = db.getRepository(UserStats);
 
-    // Grab latest stats per user (distinct on userAddress), join user to access authorised/isActive/isPublic
+    // Get latest stats per user using a subquery on timestamp
     const users = await repository
       .createQueryBuilder('userStats')
       .innerJoin('userStats.user', 'user')
@@ -376,10 +386,17 @@ export async function getTopUserLoyalty(limit: number = 10) {
       ])
       .where('user.isPublic = :isPublic', { isPublic: true })
       .andWhere('user.isActive = :isActive', { isActive: true })
+      .andWhere((qb) => {
+        const subQuery = qb
+          .subQuery()
+          .select('MAX(us2.timestamp)')
+          .from(UserStats, 'us2')
+          .where('us2.userAddress = userStats.userAddress')
+          .getQuery();
+        return `userStats.timestamp = ${subQuery}`;
+      })
       .andWhere('userStats.workerCount > 0')
-      .distinctOn(['userStats.userAddress'])
       .orderBy('userStats.userAddress', 'ASC')
-      .addOrderBy('userStats.timestamp', 'DESC')
       .getRawMany();
 
     const filtered = users
