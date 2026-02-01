@@ -21,7 +21,6 @@ describe('CountdownTimer state logic', () => {
 
   test('timer calls onElapsed callback when countdown reaches 0', () => {
     const onElapsed = jest.fn();
-    let seconds = 1;
     
     // Simulate timer tick
     onElapsed();
