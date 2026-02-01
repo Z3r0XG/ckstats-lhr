@@ -32,6 +32,10 @@ describe('getTopUserLoyalty', () => {
     expect(res).toHaveLength(3);
     expect(res[0].address).toBe('addr2');
     expect(res[0].authorised).toBe(1000);
+    expect(res[0].workerCount).toBe(1);
+    expect(res[0].hashrate1hr).toBe(0);
+    expect(res[0].shares).toBe(200);
+    expect(res[0].bestShare).toBe(0);
     expect(res[1].address).toBe('addr1');
     expect(res[2].address).toBe('addr3');
   });
