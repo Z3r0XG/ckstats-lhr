@@ -31,6 +31,9 @@ function makeHistorical(len: number, valueAt119: number) {
     arr[119].hashrate5m = valueAt119;
     arr[119].hashrate15m = valueAt119;
     arr[119].hashrate1hr = valueAt119;
+    arr[119].hashrate6hr = valueAt119;
+    arr[119].hashrate1d = valueAt119;
+    arr[119].hashrate7d = valueAt119;
   }
   return arr;
 }
@@ -101,16 +104,35 @@ describe('PoolStatsDisplay data transformations', () => {
   test('percentage change uses baseline from index 119 of historical data', () => {
     const baseline1m = 3_000_000;
     const baseline1d = 2_500_000;
+    const baseline1hr = 3_500_000;
+    const baseline7d = 1_500_000;
     
-    // Create separate histograms for each key
+    // Test hashrate1m
     const histFor1m = makeHistorical(200, baseline1m);
     const hist1mChange = computePercentForKey(latestStats, histFor1m, 'hashrate1m');
     const expected1m = calculatePercentageChange(Number(latestStats.hashrate1m), baseline1m);
-    
     expect(hist1mChange).toBe(expected1m);
+    expect(hist1mChange).not.toBe('N/A');
     
-    // Similar logic applies to other keys but actual baseline depends on 
-    // what value is at index 119 in the historical data
-    expect(hist1mChange).not.toBe('N/A'); // Should have computed a percentage
+    // Test hashrate1d
+    const histFor1d = makeHistorical(200, baseline1d);
+    const hist1dChange = computePercentForKey(latestStats, histFor1d, 'hashrate1d');
+    const expected1d = calculatePercentageChange(Number(latestStats.hashrate1d), baseline1d);
+    expect(hist1dChange).toBe(expected1d);
+    expect(hist1dChange).not.toBe('N/A');
+    
+    // Test hashrate1hr
+    const histFor1hr = makeHistorical(200, baseline1hr);
+    const hist1hrChange = computePercentForKey(latestStats, histFor1hr, 'hashrate1hr');
+    const expected1hr = calculatePercentageChange(Number(latestStats.hashrate1hr), baseline1hr);
+    expect(hist1hrChange).toBe(expected1hr);
+    expect(hist1hrChange).not.toBe('N/A');
+    
+    // Test hashrate7d
+    const histFor7d = makeHistorical(200, baseline7d);
+    const hist7dChange = computePercentForKey(latestStats, histFor7d, 'hashrate7d');
+    const expected7d = calculatePercentageChange(Number(latestStats.hashrate7d), baseline7d);
+    expect(hist7dChange).toBe(expected7d);
+    expect(hist7dChange).not.toBe('N/A');
   });
 });
