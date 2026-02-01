@@ -66,9 +66,7 @@ export default async function TopUserLoyalty({
                     return (
                       <tr key={u.address}>
                         <td className="whitespace-nowrap">{i + 1}</td>
-                        <td className="whitespace-nowrap">
-                          {u.address.slice(0, 6)}...{u.address.slice(-4)}
-                        </td>
+                        <td className="whitespace-nowrap">{u.address}</td>
                         <td className="text-accent whitespace-nowrap">
                           {u.workerCount}
                         </td>

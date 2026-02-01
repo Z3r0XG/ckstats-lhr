@@ -90,9 +90,7 @@ export default async function TopUserDifficulties({
                           ''
                         )}
                       </td>
-                      <td>
-                        {user.address.slice(0, 6)}...{user.address.slice(-4)}
-                      </td>
+                      <td>{user.address}</td>
 
                       {limit > SMALL_LIMIT ? (
                         <>

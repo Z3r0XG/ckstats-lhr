@@ -13,6 +13,7 @@ import {
   parseWorkerName,
   bigIntStringFromFloatLike,
   safeParseFloat,
+  maskAddress,
 } from '../utils/helpers';
 
 const HISTORICAL_DATA_POINTS = 5760;
@@ -296,7 +297,7 @@ export async function getTopUserDifficulties(limit: number = 10) {
       .getMany();
 
     return topUsers.map((stats) => ({
-      address: stats.userAddress,
+      address: maskAddress(stats.userAddress),
       workerCount: stats.workerCount,
       difficulty: stats.bestEver,
       hashrate1hr: stats.hashrate1hr,
@@ -347,7 +348,7 @@ export async function getTopUserHashrates(limit: number = 10) {
       .slice(0, limit);
 
     return sortedUsers.map((stats) => ({
-      address: stats.userAddress,
+      address: maskAddress(stats.userAddress),
       workerCount: stats.workerCount,
       hashrate1hr: stats.hashrate1hr,
       hashrate1d: stats.hashrate1d,
@@ -408,7 +409,7 @@ export async function getTopUserLoyalty(limit: number = 10) {
       .slice(0, limit);
 
     return filtered.map((s: any) => ({
-      address: s.userStats_userAddress,
+      address: maskAddress(s.userStats_userAddress),
       authorised: Number(s.user_authorised),
       workerCount: Number(s.userStats_workerCount),
       hashrate1hr: Number(s.userStats_hashrate1hr),
