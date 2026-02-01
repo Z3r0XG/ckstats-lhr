@@ -50,7 +50,7 @@ describe('TopUserLoyalty Component', () => {
 
   test('data transformation', () => {
     // API returns objects with:
-    // - address: string (masked in component with .slice())
+    // - address: string (masked at API layer)
     // - authorised: number (converted to Date, then to concise time ago string)
     // - workerCount, hashrate1hr, shares, bestShare: numbers (formatted)
     const mockData = {
