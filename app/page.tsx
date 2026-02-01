@@ -45,10 +45,7 @@ export default async function Home() {
 
     const maskedTopHashrates = maskLeaderboardData(topHashrates || []);
     const maskedTopDifficulties = maskLeaderboardData(topDifficulties || []);
-    const maskedTopLoyalty = maskLeaderboardData(topLoyalty || []).map((u) => ({
-      ...u,
-      authorised: u.authorised,
-    }));
+    const maskedTopLoyalty = maskLeaderboardData(topLoyalty || []);
 
     const initialPayload = {
       version: 1,
