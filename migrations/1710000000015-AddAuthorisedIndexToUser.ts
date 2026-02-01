@@ -8,9 +8,9 @@ export class AddAuthorisedIndexToUser1710000000015 implements MigrationInterface
     if (tableExists) {
       await queryRunner.query(
         `CREATE INDEX IF NOT EXISTS idx_user_authorised_asc 
-         ON "User" ("authorised" ASC);`
+         ON "User" ("authorised");`
       );
-      console.log('Created index on User.authorised ASC for getTopUserLoyalty queries');
+      console.log('Created index on User.authorised for getTopUserLoyalty queries');
     } else {
       console.log('User table does not exist yet; skipping index creation');
     }
