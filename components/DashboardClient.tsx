@@ -61,8 +61,9 @@ export default function DashboardClient({
       ) : (
         <p>Historical data is not available.</p>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-        <div className="card bg-base-100 shadow-xl card-compact sm:card-normal">
+      <div className="flex flex-wrap gap-4 mt-8">
+        {/* Top 10 Difficulties */}
+        <div className="card bg-base-100 shadow-xl card-compact sm:card-normal flex-1 min-w-[320px] max-w-full">
           <div className="card-body">
             <h2 className="card-title">
               <Link href="/top-difficulties" className="link text-primary">
@@ -107,7 +108,8 @@ export default function DashboardClient({
           </div>
         </div>
 
-        <div className="card bg-base-100 shadow-xl card-compact sm:card-normal">
+        {/* Top 10 Hashrates */}
+        <div className="card bg-base-100 shadow-xl card-compact sm:card-normal flex-1 min-w-[320px] max-w-full">
           <div className="card-body">
             <h2 className="card-title">
               <Link href="/top-hashrates" className="link text-primary">
@@ -145,6 +147,57 @@ export default function DashboardClient({
                           </td>
                         </tr>
                       ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Top 10 Loyalty */}
+        <div className="card bg-base-100 shadow-xl card-compact sm:card-normal flex-1 min-w-[320px] max-w-full">
+          <div className="card-body">
+            <h2 className="card-title">
+              <Link href="/top-loyalty" className="link text-primary">
+                Top 10 Longest Active Users
+              </Link>
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="table w-full table-sm sm:table-md">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Address</th>
+                    <th>When</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.topUserLoyalty ?? []).length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={3}
+                        className="text-center text-sm text-base-content/60"
+                      >
+                        No Stats Available Yet
+                      </td>
+                    </tr>
+                  ) : (
+                    (data.topUserLoyalty ?? [])
+                      .slice(0, 10)
+                      .map((user, index) => {
+                        const when = user.authorised
+                          ? new Date(Number(user.authorised) * 1000)
+                          : null;
+                        return (
+                          <tr key={user.address}>
+                            <td>{index + 1}</td>
+                            <td>{user.address}</td>
+                            <td className="text-sm text-base-content/60 whitespace-nowrap">
+                              {when ? formatConciseTimeAgo(when) : '-'}
+                            </td>
+                          </tr>
+                        );
+                      })
                   )}
                 </tbody>
               </table>

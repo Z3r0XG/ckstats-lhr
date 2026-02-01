@@ -24,6 +24,7 @@ export class User {
   updatedAt: Date;
 
   @Column('bigint', { default: '0' })
+  @Index('User_authorised_idx')
   authorised: string;
 
   @OneToMany(() => Worker, (worker) => worker.user)

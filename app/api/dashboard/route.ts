@@ -7,6 +7,7 @@ import {
   getTopBestDiffs,
   getTopUserDifficulties,
   getTopUserHashrates,
+  getTopUserLoyalty,
 } from '../../../lib/api';
 import { serializeData } from '../../../utils/helpers';
 
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
       historicalStats,
       topHashrates,
       topDifficulties,
+      topLoyalty,
       onlineDevices,
       highScores,
     ] = await Promise.all([
@@ -37,6 +39,7 @@ export async function GET(request: Request) {
       getHistoricalPoolStats(),
       getTopUserHashrates(DASHBOARD_TOP_LIMIT),
       getTopUserDifficulties(DASHBOARD_TOP_LIMIT),
+      getTopUserLoyalty(DASHBOARD_TOP_LIMIT),
       getOnlineDevices(DASHBOARD_ONLINE_LIMIT),
       getTopBestDiffs(DASHBOARD_TOP_LIMIT),
     ]);
@@ -48,27 +51,14 @@ export async function GET(request: Request) {
       );
     }
 
-    const maskAddress = (addr: string) =>
-      typeof addr === 'string' && addr.length > 10
-        ? `${addr.slice(0, 6)}...${addr.slice(-4)}`
-        : addr;
-
-    const maskedTopHashrates = (topHashrates || []).map((u) => ({
-      ...u,
-      address: maskAddress(u.address),
-    }));
-    const maskedTopDifficulties = (topDifficulties || []).map((u) => ({
-      ...u,
-      address: maskAddress(u.address),
-    }));
-
     const payload = {
       version: 1,
       generatedAt: new Date().toISOString(),
       latestStats: serializeData(latestStats),
       historicalStats: serializeData(historicalStats),
-      topUserHashrates: serializeData(maskedTopHashrates),
-      topUserDifficulties: serializeData(maskedTopDifficulties),
+      topUserHashrates: serializeData(topHashrates),
+      topUserDifficulties: serializeData(topDifficulties),
+      topUserLoyalty: serializeData(topLoyalty),
       onlineDevices: serializeData(onlineDevices),
       highScores: serializeData(highScores),
       limits: {

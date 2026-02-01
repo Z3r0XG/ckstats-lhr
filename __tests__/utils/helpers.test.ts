@@ -14,6 +14,7 @@ import {
   calculateAverageTimeToBlock,
   calculateBlockChances,
   calculateProximityPercent,
+  maskAddress,
 } from '../../utils/helpers';
 
 describe('Helper Functions', () => {
@@ -318,5 +319,40 @@ describe('Helper Functions', () => {
     it('handles small differences correctly', () => {
       expect(calculateProximityPercent(0.1, 100)).toBe('0.10%');
       expect(calculateProximityPercent(0.01, 100)).toBe('0.01%');
+    });
+  });
+
+  describe('maskAddress', () => {
+    it('masks bitcoin addresses correctly (first 6 + last 4 chars)', () => {
+      // Real bitcoin address format
+      const address = 'bc1qry58kv8zckwvj5csucwvf2yvjt5d98gdvt9mw';
+      expect(maskAddress(address)).toBe('bc1qry...t9mw');
+    });
+
+    it('returns short addresses unchanged (< 10 chars)', () => {
+      expect(maskAddress('addr1')).toBe('addr1');
+      expect(maskAddress('short')).toBe('short');
+      expect(maskAddress('abc')).toBe('abc');
+      expect(maskAddress('1234567890')).toBe('1234567890'); // exactly 10 chars
+    });
+
+    it('returns empty string unchanged', () => {
+      expect(maskAddress('')).toBe('');
+    });
+
+    it('masks various length addresses correctly', () => {
+      // 11 character address
+      expect(maskAddress('12345678901')).toBe('123456...8901');
+      // 15 character address
+      expect(maskAddress('123456789012345')).toBe('123456...2345');
+      // 42 character address (typical length)
+      expect(maskAddress('bc1qrystkj5csucwvf2yvjt5d98gdvt9mwabcdefg')).toBe(
+        'bc1qry...defg'
+      );
+    });
+
+    it('handles edge case of 11 character address (first maskable length)', () => {
+      const addr = 'abcdefghijk'; // exactly 11 chars
+      expect(maskAddress(addr)).toBe('abcdef...hijk');
     });
   });
