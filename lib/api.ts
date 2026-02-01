@@ -316,7 +316,7 @@ export async function getTopUserHashrates(limit: number = 10) {
 
     const topUsers = await repository
       .createQueryBuilder('userStats')
-      .innerJoinAndSelect('userStats.user', 'user')
+      .innerJoin('userStats.user', 'user')
       .select([
         'userStats.id',
         'userStats.userAddress',
@@ -340,14 +340,11 @@ export async function getTopUserHashrates(limit: number = 10) {
         return `userStats.timestamp = ${subQuery}`;
       })
       .andWhere('userStats.workerCount > 0')
-      .orderBy('userStats.userAddress', 'ASC')
+      .orderBy('userStats.hashrate1hr', 'DESC')
+      .take(limit)
       .getMany();
 
-    const sortedUsers = topUsers
-      .sort((a, b) => Number(b.hashrate1hr) - Number(a.hashrate1hr))
-      .slice(0, limit);
-
-    return sortedUsers.map((stats) => ({
+    return topUsers.map((stats) => ({
       address: maskAddress(stats.userAddress),
       workerCount: stats.workerCount,
       hashrate1hr: stats.hashrate1hr,
@@ -397,7 +394,7 @@ export async function getTopUserLoyalty(limit: number = 10) {
         return `userStats.timestamp = ${subQuery}`;
       })
       .andWhere('userStats.workerCount > 0')
-      .orderBy('userStats.userAddress', 'ASC')
+      .orderBy('user.authorised', 'ASC')
       .getRawMany();
 
     const filtered = users
