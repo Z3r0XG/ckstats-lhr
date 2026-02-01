@@ -10,6 +10,5 @@ export class AddAuthorisedIndexToUser1710000000015 implements MigrationInterface
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // No-op: Index doesn't exist in any prior deployment
   }
 }
