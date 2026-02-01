@@ -575,11 +575,3 @@ export function maskAddress(addr: string): string {
   if (addr.length <= 10) return addr; // Too short to mask meaningfully
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
-
-/**
- * Masks the address field in an array of leaderboard data objects.
- * @param data - Array of objects with an 'address' field
- * @returns The array with addresses masked
- */
-export const maskLeaderboardData = (data: any[]) =>
-  data.map(u => ({ ...u, address: maskAddress(u.address) }));
