@@ -8,4 +8,8 @@ export class AddAuthorisedIndexToUser1710000000015 implements MigrationInterface
       `CREATE INDEX IF NOT EXISTS "User_authorised_idx" ON "User" ("authorised")`
     );
   }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // No-op: Index doesn't exist in any prior deployment
+  }
 }
