@@ -8,9 +8,9 @@ describe('getTopUserLoyalty', () => {
 
   it('returns users ordered by earliest authorised timestamp (ascending)', async () => {
     const fakeRows = [
-      { userStats_userAddress: 'addr1', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_timestamp: 0, user_authorised: '2000' },
-      { userStats_userAddress: 'addr2', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_timestamp: 0, user_authorised: '1000' },
-      { userStats_userAddress: 'addr3', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_timestamp: 0, user_authorised: '3000' },
+      { userStats_userAddress: 'addr1', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_shares: 100, userStats_timestamp: 0, user_authorised: '2000' },
+      { userStats_userAddress: 'addr2', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_shares: 200, userStats_timestamp: 0, user_authorised: '1000' },
+      { userStats_userAddress: 'addr3', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_shares: 300, userStats_timestamp: 0, user_authorised: '3000' },
     ];
 
     const chain = {
@@ -38,9 +38,9 @@ describe('getTopUserLoyalty', () => {
 
   it('respects limit and filters out users with authorised <= 0', async () => {
     const fakeRows = [
-      { userStats_userAddress: 'addr1', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_timestamp: 0, user_authorised: '2000' },
-      { userStats_userAddress: 'addr2', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_timestamp: 0, user_authorised: '0' },
-      { userStats_userAddress: 'addr3', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_timestamp: 0, user_authorised: '3000' },
+      { userStats_userAddress: 'addr1', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_shares: 100, userStats_timestamp: 0, user_authorised: '2000' },
+      { userStats_userAddress: 'addr2', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_shares: 200, userStats_timestamp: 0, user_authorised: '0' },
+      { userStats_userAddress: 'addr3', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_shares: 300, userStats_timestamp: 0, user_authorised: '3000' },
     ];
 
     const chain = {
