@@ -18,9 +18,7 @@ describe('getTopUserLoyalty', () => {
       select() { return this; },
       where() { return this; },
       andWhere() { return this; },
-      distinctOn() { return this; },
       orderBy() { return this; },
-      addOrderBy() { return this; },
       take() { return this; },
       async getRawMany() { return fakeRows; },
     } as any;
@@ -52,9 +50,7 @@ describe('getTopUserLoyalty', () => {
       select() { return this; },
       where() { return this; },
       andWhere() { return this; },
-      distinctOn() { return this; },
       orderBy() { return this; },
-      addOrderBy() { return this; },
       take() { return this; },
       async getRawMany() { return fakeRows; },
     } as any;
