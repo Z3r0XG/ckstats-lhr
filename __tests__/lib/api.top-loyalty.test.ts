@@ -64,7 +64,9 @@ describe('getTopUserLoyalty', () => {
 
     const res = await getTopUserLoyalty(2);
 
+    // Verify filtering: only users with authorised > 0 are returned (SQL filters out authorised <= 0)
     expect(res).toHaveLength(2);
-    expect(res.map((r) => r.address)).not.toContain('addr2');
+    expect(res.map((r) => r.authorised)).toEqual([2000, 3000]);
+    expect(res.every((r) => r.authorised > 0)).toBe(true);
   });
 });
