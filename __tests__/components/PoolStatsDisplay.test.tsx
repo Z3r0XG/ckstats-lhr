@@ -1,6 +1,9 @@
 import {
   calculatePercentageChange,
   getHistoricalPercentageChange,
+  getPercentageChangeColor,
+  computeRejectedPercent,
+  calculateProximityPercent,
 } from '../../utils/helpers';
 
 const latestStats = {
@@ -36,18 +39,78 @@ function computePercentForKey(stats: any, historical: any[], key: string) {
   return getHistoricalPercentageChange(stats, historical, key);
 }
 
-test('returns N/A when fewer than 120 historical samples', () => {
-  const hist = makeHistorical(100, 0);
-  expect(computePercentForKey(latestStats, hist, 'hashrate1m')).toBe('N/A');
-});
+describe('PoolStatsDisplay data transformations', () => {
+  test('returns N/A when fewer than 120 historical samples', () => {
+    const hist = makeHistorical(100, 0);
+    expect(computePercentForKey(latestStats, hist, 'hashrate1m')).toBe('N/A');
+  });
 
-test('computes percent using index 119 baseline when >=120 samples', () => {
-  const baseline = 2_000_000;
-  const hist = makeHistorical(200, baseline);
-  const pct = computePercentForKey(latestStats, hist, 'hashrate1m');
-  const expected = calculatePercentageChange(
-    Number(latestStats.hashrate1m),
-    baseline
-  );
-  expect(pct).toBe(expected);
+  test('computes percent using index 119 baseline when >=120 samples', () => {
+    const baseline = 2_000_000;
+    const hist = makeHistorical(200, baseline);
+    const pct = computePercentForKey(latestStats, hist, 'hashrate1m');
+    const expected = calculatePercentageChange(
+      Number(latestStats.hashrate1m),
+      baseline
+    );
+    expect(pct).toBe(expected);
+  });
+
+  test('percentage change color matches thresholds: positive=success, zero=base, negative=error', () => {
+    expect(getPercentageChangeColor(5)).toBe('text-success');
+    expect(getPercentageChangeColor(0)).toBe('text-base-content');
+    expect(getPercentageChangeColor(-10)).toBe('text-error');
+  });
+
+  test('rejected percent thresholds: <=0.5%=success, <=1%=warning, >1%=error', () => {
+    // 0.1% rejected (1 out of 1000)
+    const result01 = computeRejectedPercent(999, 1);
+    expect(result01.color).toBe('text-success');
+    expect(result01.formatted).toBe('0.10%');
+    
+    // 0.75% rejected (75 out of 10000)
+    const result075 = computeRejectedPercent(9925, 75);
+    expect(result075.color).toBe('text-warning');
+    expect(result075.formatted).toBe('0.75%');
+    
+    // 1.1% rejected (110 out of 10000)
+    const result11 = computeRejectedPercent(9890, 110);
+    expect(result11.color).toBe('text-error');
+    expect(result11.formatted).toBe('1.10%');
+  });
+
+  test('proximity percent (share difficulty vs network difficulty)', () => {
+    // User diff 50, network diff 1000 = 5%
+    const proximity = calculateProximityPercent(50, 1000);
+    expect(proximity).toBe('5.00%');
+    expect(typeof proximity).toBe('string');
+  });
+
+  test('rejected percent returns null for zero total', () => {
+    const result = computeRejectedPercent(0, 0);
+    expect(result.pct).toBeNull();
+    expect(result.formatted).toBeNull();
+  });
+
+  test('proximity percent returns empty string for invalid inputs', () => {
+    expect(calculateProximityPercent(0, 1000)).toBe('');
+    expect(calculateProximityPercent(100, 0)).toBe('');
+    expect(calculateProximityPercent(100, null)).toBe('');
+  });
+
+  test('percentage change uses baseline from index 119 of historical data', () => {
+    const baseline1m = 3_000_000;
+    const baseline1d = 2_500_000;
+    
+    // Create separate histograms for each key
+    const histFor1m = makeHistorical(200, baseline1m);
+    const hist1mChange = computePercentForKey(latestStats, histFor1m, 'hashrate1m');
+    const expected1m = calculatePercentageChange(Number(latestStats.hashrate1m), baseline1m);
+    
+    expect(hist1mChange).toBe(expected1m);
+    
+    // Similar logic applies to other keys but actual baseline depends on 
+    // what value is at index 119 in the historical data
+    expect(hist1mChange).not.toBe('N/A'); // Should have computed a percentage
+  });
 });

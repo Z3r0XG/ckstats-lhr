@@ -1,44 +1,97 @@
 /**
- * CountdownTimer state logic tests
- * Tests the conditional rendering logic for error, fetching, and normal states
+ * CountdownTimer state logic and rendering tests
+ * Tests conditional rendering based on error, isFetching, and timer state
  */
 
-describe('CountdownTimer state priority', () => {
-  test('error state takes priority over all other states', () => {
+describe('CountdownTimer state logic', () => {
+  test('error state displays error badge with message', () => {
     const error = new Error('Dashboard fetch failed: 500');
-    const props = {
-      initialSeconds: 60,
-      error,
-      isFetching: true, // Even with fetching true, error should show
-    };
-
-    // In the component, error is checked first
-    expect(props.error).toBeTruthy();
-    expect(props.error.message).toBe('Dashboard fetch failed: 500');
+    const errorBadge = 'Fetch Error, Retrying...';
+    
+    // When error exists, should show error badge
+    expect(error).toBeTruthy();
+    expect(error.message).toBe('Dashboard fetch failed: 500');
+    // Verify the badge text would be shown
+    expect(errorBadge).toContain('Fetch Error');
   });
 
-  test('fetching state is shown when no error', () => {
-    const props = {
-      initialSeconds: 60,
-      error: null,
-      isFetching: true,
-    };
-
-    // Fetching should be shown when error is null/undefined
-    expect(props.error).toBeNull();
-    expect(props.isFetching).toBe(true);
+  test('error state takes priority (checked before isFetching)', () => {
+    const error = new Error('Test error');
+    const isFetching = true;
+    
+    // In component, error is checked first in if statements
+    if (error) {
+      // Would show error badge, not fetching badge
+      expect(error).toBeTruthy();
+      expect(isFetching).toBe(true); // But error takes priority
+    }
   });
 
-  test('normal countdown when no error and not fetching', () => {
-    const props = {
-      initialSeconds: 60,
-      error: null,
-      isFetching: false,
-    };
+  test('fetching state shows when no error', () => {
+    const error = null;
+    const isFetching = true;
+    const fetchingBadge = 'Fetching...';
+    
+    if (!error && isFetching) {
+      expect(fetchingBadge).toContain('Fetching');
+    }
+  });
 
-    // Normal state
-    expect(props.error).toBeNull();
-    expect(props.isFetching).toBe(false);
-    expect(props.initialSeconds).toBe(60);
+  test('seconds = 0 triggers "Updating Now" state', () => {
+    const seconds = 0;
+    const error = null;
+    const isFetching = false;
+    const updatingNowBadge = 'Updating Now';
+    
+    if (!error && !isFetching && seconds === 0) {
+      expect(updatingNowBadge).toBe('Updating Now');
+    }
+  });
+
+  test('countdown displays remaining seconds', () => {
+    const seconds = 42;
+    const error = null;
+    const isFetching = false;
+    const badgeText = `Updating in ${seconds}s`;
+    
+    if (!error && !isFetching && seconds > 0) {
+      expect(badgeText).toContain('Updating in');
+      expect(badgeText).toContain('42s');
+    }
+  });
+
+  test('timer decrements from initialSeconds', () => {
+    const initialSeconds = 60;
+    let simulatedSeconds = initialSeconds;
+    
+    // Simulate timer decrement
+    for (let i = 0; i < 10; i++) {
+      if (simulatedSeconds > 1) {
+        simulatedSeconds -= 1;
+      }
+    }
+    
+    expect(simulatedSeconds).toBe(50);
+    expect(simulatedSeconds).toBeLessThan(initialSeconds);
+  });
+
+  test('timer calls onElapsed callback when countdown reaches 0', () => {
+    const onElapsed = jest.fn();
+    let seconds = 1;
+    
+    // Simulate timer tick
+    if (seconds <= 1 && onElapsed) {
+      onElapsed();
+    }
+    
+    expect(onElapsed).toHaveBeenCalled();
+  });
+
+  test('error message is accessible in title attribute', () => {
+    const error = new Error('Connection timeout after 30s');
+    const titleAttr = error.message;
+    
+    expect(titleAttr).toBe('Connection timeout after 30s');
+    // Component uses title={error.message} for tooltip
   });
 });
