@@ -45,6 +45,15 @@ export type TopUserDifficulty = {
   bestShare: number;
 };
 
+export type TopUserLoyalty = {
+  address: string;
+  authorised: number;
+  workerCount: number;
+  hashrate1hr: number;
+  shares: number;
+  bestShare: number;
+};
+
 export type OnlineDevice = {
   client: string;
   activeWorkers: number;
@@ -73,10 +82,7 @@ export type DashboardPayload = {
   historicalStats: SerializedPoolStats[];
   topUserHashrates: TopUserHashrate[];
   topUserDifficulties: TopUserDifficulty[];
-  topUserLoyalty: Array<{
-    address: string;
-    authorised: number;
-  }>;
+  topUserLoyalty: TopUserLoyalty[];
   onlineDevices: OnlineDevice[];
   highScores: HighScore[];
   limits: DashboardLimits;
