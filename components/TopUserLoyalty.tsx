@@ -52,7 +52,7 @@ export default async function TopUserLoyalty({
                 {loyals.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={7}
                       className="text-center text-sm text-base-content/60"
                     >
                       No Stats Available Yet

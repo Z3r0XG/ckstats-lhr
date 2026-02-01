@@ -348,6 +348,13 @@ export async function getTopUserHashrates(limit: number = 10) {
   });
 }
 
+/**
+ * Fetch top N longest continuously active users, sorted by earliest join time.
+ * Filters: isPublic=true, isActive=true, workerCount > 0, authorised > 0
+ * Results are cached for 30 seconds.
+ * @param limit - Maximum number of users to return (default 10)
+ * @returns Array of users sorted by join time (oldest first)
+ */
 export async function getTopUserLoyalty(limit: number = 10) {
   const key = `topUserLoyalty:${limit}`;
   return getCached(key, 30, async () => {

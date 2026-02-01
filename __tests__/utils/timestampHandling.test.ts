@@ -18,7 +18,7 @@ describe('Timestamp Handling', () => {
   describe('formatTimeAgo', () => {
     beforeAll(() => {
       jest.useFakeTimers();
-      jest.setSystemTime(new Date('2025-11-29T08:10:00Z')); // Fixed "now"
+      jest.setSystemTime(new Date('2025-11-29T08:10:00Z')); // Fixed time for consistent test results
     });
 
     afterAll(() => {
