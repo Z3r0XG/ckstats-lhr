@@ -33,10 +33,14 @@ async function getCached<T>(
 ): Promise<T> {
   const now = Date.now();
   const entry = _cache.get(key);
-  if (entry && entry.expires > now) return entry.value as T;
+  if (entry && entry.expires > now) {
+    console.debug(`[${key}] cache hit`);
+    return entry.value as T;
+  }
 
   const pending = _pendingLoads.get(key);
   if (pending) {
+    console.debug(`[${key}] waiting for pending load`);
     try {
       return (await pending) as T;
     } catch (e) {
@@ -44,6 +48,7 @@ async function getCached<T>(
     }
   }
 
+  console.debug(`[${key}] cache miss, loading...`);
   const loadPromise = (async () => {
     const value = await loader();
     const jitter = _JITTER_MIN + Math.random() * _JITTER_RANGE;
@@ -51,6 +56,11 @@ async function getCached<T>(
       expires: Date.now() + Math.round(ttlSeconds * 1000 * jitter),
       value,
     });
+    if (Array.isArray(value)) {
+      console.debug(`[${key}] loaded ${value.length} items`);
+    } else {
+      console.debug(`[${key}] loaded`);
+    }
     return value;
   })();
 
