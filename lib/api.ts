@@ -33,14 +33,16 @@ async function getCached<T>(
 ): Promise<T> {
   const now = Date.now();
   const entry = _cache.get(key);
-  if (entry && entry.expires > now) return entry.value as T;
+  if (entry && entry.expires > now) {
+    return entry.value as T;
+  }
 
   const pending = _pendingLoads.get(key);
   if (pending) {
     try {
       return (await pending) as T;
-    } catch (e) {
-      console.debug('pending load failed', e);
+    } catch {
+      _pendingLoads.delete(key);
     }
   }
 
