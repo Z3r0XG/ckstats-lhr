@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 
 import Link from 'next/link';
 
-import { Worker } from '../lib/entities/Worker';
+import { SerializedWorker } from '../lib/types/user';
 import {
   formatHashrate,
   formatNumber,
@@ -15,11 +15,11 @@ import {
 } from '../utils/helpers';
 
 interface WorkersTableProps {
-  workers: Array<Worker & { latestStats?: { started?: string } }>;
+  workers: SerializedWorker[];
   address?: string;
 }
 
-type SortField = keyof Worker;
+type SortField = keyof SerializedWorker;
 type SortOrder = 'asc' | 'desc';
 
 const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
@@ -61,7 +61,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     }
   };
 
-  const isWorkerIdle = (worker: Worker): boolean => {
+  const isWorkerIdle = (worker: SerializedWorker): boolean => {
     if (!worker.lastUpdate) return true;
     const lastUpdateTime = new Date(worker.lastUpdate).getTime();
     const now = Date.now();

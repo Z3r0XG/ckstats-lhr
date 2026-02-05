@@ -1,9 +1,9 @@
-export const revalidate = 60;
-
 import React from 'react';
 
-import TopUserHashrates from '../../components/TopUserHashrates';
+import TopUserHashratesClient from '../../components/TopUserHashratesClient';
+import { getTopUserHashrates } from '../../lib/api';
 import { SITE_NAME } from '../../lib/site';
+import { serializeData } from '../../utils/helpers';
 
 const siteTitle = SITE_NAME;
 
@@ -12,10 +12,16 @@ export const metadata = {
   description: 'View the top 100 user hashrates on CKPool.',
 };
 
-export default function TopHashratesPage() {
+export default async function TopHashratesPage() {
+  const data = await getTopUserHashrates(100);
+  const initialData = {
+    data: serializeData(data),
+    generatedAt: new Date().toISOString(),
+  };
+
   return (
     <div className="container mx-auto p-4">
-      <TopUserHashrates limit={100} />
+      <TopUserHashratesClient initialData={initialData} limit={100} />
     </div>
   );
 }

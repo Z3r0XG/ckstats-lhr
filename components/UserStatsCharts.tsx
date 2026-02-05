@@ -14,8 +14,7 @@ import {
   Brush,
 } from 'recharts';
 
-import { UserStats } from '../lib/entities/UserStats';
-import { WorkerStats } from '../lib/entities/WorkerStats';
+import { SerializedUserStats } from '../lib/types/user';
 
 function getHashrateUnit(maxHashrate: number): [string, number] {
   if (maxHashrate >= 1e16) return ['PH/s', 1e15];
@@ -27,7 +26,7 @@ function getHashrateUnit(maxHashrate: number): [string, number] {
 }
 
 interface UserStatsChartsProps {
-  userStats: (UserStats | WorkerStats)[];
+  userStats: SerializedUserStats[];
 }
 
 export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {

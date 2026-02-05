@@ -340,9 +340,9 @@ export function calculateAverageTimeToBlock(
 
 export function calculateBlockChances(
   hashRate: number | bigint,
-  networkDifficulty?: number | bigint | null,
-  legacyDiff?: number | bigint | null,
-  legacyAccepted?: number | bigint | null
+  networkDifficulty?: number | bigint | string | null,
+  legacyDiff?: number | bigint | string | null,
+  legacyAccepted?: number | bigint | string | null
 ): { [key: string]: string } {
   const defaults = {
     '1h': '<0.01%',
@@ -392,7 +392,9 @@ export function calculateBlockChances(
       ? null
       : typeof networkDifficulty === 'bigint'
         ? Number(networkDifficulty)
-        : networkDifficulty;
+        : typeof networkDifficulty === 'string'
+          ? Number(networkDifficulty)
+          : networkDifficulty;
   if (netDiffNum !== null && Number.isFinite(netDiffNum) && netDiffNum > 0) {
     const probabilityPerHash = 1 / (netDiffNum * hashesPerDifficulty);
     return maybeCalc(probabilityPerHash);
@@ -404,13 +406,17 @@ export function calculateBlockChances(
       ? null
       : typeof legacyDiff === 'bigint'
         ? Number(legacyDiff)
-        : legacyDiff;
+        : typeof legacyDiff === 'string'
+          ? Number(legacyDiff)
+          : legacyDiff;
   const acceptedNum =
     legacyAccepted == null
       ? null
       : typeof legacyAccepted === 'bigint'
         ? Number(legacyAccepted)
-        : legacyAccepted;
+        : typeof legacyAccepted === 'string'
+          ? Number(legacyAccepted)
+          : legacyAccepted;
 
   if (
     diffNum !== null &&
@@ -433,13 +439,14 @@ export function calculateBlockChances(
 
 export function calculateProximityPercent(
   value: number,
-  networkDiff: number | null | undefined
+  networkDiff: number | string | null | undefined
 ): string {
-  if (!value || value <= 0 || !networkDiff || networkDiff <= 0) {
+  const numDiff = typeof networkDiff === 'string' ? Number(networkDiff) : networkDiff;
+  if (!value || value <= 0 || !numDiff || numDiff <= 0) {
     return '';
   }
 
-  const rawPercent = (value / networkDiff) * 100;
+  const rawPercent = (value / numDiff) * 100;
   if (rawPercent < 0.01) {
     return '<0.01%';
   } else {

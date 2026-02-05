@@ -6,7 +6,9 @@ import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import CountdownTimer from './CountdownTimer';
 import ThemeController from './ThemeController';
+import { useRefresh } from '../lib/contexts/RefreshContext';
 import { SITE_NAME_PUBLIC } from '../lib/site';
 import { validateBitcoinAddress } from '../utils/validateBitcoinAddress';
 
@@ -16,6 +18,7 @@ export default function Header() {
   const [isError, setIsError] = useState(false);
   const modalRef = useRef<HTMLDialogElement>(null);
   const router = useRouter();
+  const { triggerRefresh } = useRefresh();
 
   const addUserMutation = useMutation({
     mutationFn: async (address: string) => {
@@ -79,6 +82,14 @@ export default function Header() {
         <Link href="/" className="btn btn-ghost normal-case text-xl">
           {siteName}
         </Link>
+      </div>
+      <div className="mr-2">
+        <CountdownTimer
+          initialSeconds={60}
+          onElapsed={triggerRefresh}
+          error={null}
+          isFetching={false}
+        />
       </div>
       <div className="flex gap-1 sm:gap-2 flex-grow md:flex-grow-0 w-full md:w-auto">
         <div className="form-control flex-grow md:flex-grow-0">
