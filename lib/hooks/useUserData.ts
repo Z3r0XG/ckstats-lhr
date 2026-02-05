@@ -40,6 +40,8 @@ export function useUserData(address: string, initialData?: UserDataPayload) {
       return REFRESH_INTERVAL_MS;
     },
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
 
   return {

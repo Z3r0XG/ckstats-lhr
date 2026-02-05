@@ -50,5 +50,7 @@ export function useTopDifficulties(
       return REFRESH_INTERVAL_MS;
     },
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
 }

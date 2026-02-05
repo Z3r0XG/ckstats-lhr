@@ -45,5 +45,7 @@ export function useTopLoyalty(limit: number, initialData?: TopLoyaltyPayload) {
       return REFRESH_INTERVAL_MS;
     },
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
 }

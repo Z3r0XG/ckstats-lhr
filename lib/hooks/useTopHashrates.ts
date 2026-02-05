@@ -48,5 +48,7 @@ export function useTopHashrates(
       return REFRESH_INTERVAL_MS;
     },
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
 }
