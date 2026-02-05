@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 
+import { calculateBackoff } from './queryHelpers';
 import { DashboardPayload } from '../types/dashboard';
 
 export const REFRESH_INTERVAL_MS = 60_000;
@@ -46,11 +47,11 @@ export function useDashboardData(initialData?: DashboardPayload) {
     refetchInterval: (query) => {
       if (query.state.status === 'error') {
         const attempts = Math.max(1, (query.state.fetchFailureCount ?? 0) + 1);
-        const backoff = Math.min(
-          ERROR_INTERVAL_MAX_MS,
-          REFRESH_INTERVAL_MS * 2 ** (attempts - 1)
+        return calculateBackoff(
+          attempts,
+          REFRESH_INTERVAL_MS,
+          ERROR_INTERVAL_MAX_MS
         );
-        return backoff;
       }
 
       return REFRESH_INTERVAL_MS;

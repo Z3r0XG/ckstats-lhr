@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+import { calculateBackoff } from './queryHelpers';
 import { UserDataPayload } from '../types/user';
 
 export const REFRESH_INTERVAL_MS = 60_000;
@@ -29,12 +30,13 @@ export function useUserData(address: string, initialData?: UserDataPayload) {
     refetchInterval: (query) => {
       if (query.state.status === 'error') {
         const attempts = Math.max(1, (query.state.fetchFailureCount ?? 0) + 1);
-        const backoff = Math.min(
-          ERROR_INTERVAL_MAX_MS,
-          1000 * Math.pow(2, attempts)
+        return calculateBackoff(
+          attempts,
+          REFRESH_INTERVAL_MS,
+          ERROR_INTERVAL_MAX_MS
         );
-        return backoff;
       }
+
       return REFRESH_INTERVAL_MS;
     },
     refetchIntervalInBackground: false,
