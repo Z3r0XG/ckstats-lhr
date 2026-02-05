@@ -1,3 +1,5 @@
+import { notFound } from 'next/navigation';
+
 import UserPageClient from '../../../components/UserPageClient';
 import {
   getUserWithWorkersAndStats,
@@ -22,14 +24,7 @@ export default async function UserPage({
   ]);
 
   if (!userORM) {
-    return (
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4 break-words text-accent">
-          User Not Found
-        </h1>
-        <p>The requested user could not be found.</p>
-      </div>
-    );
+    notFound();
   }
 
   const user = serializeData(userORM);
