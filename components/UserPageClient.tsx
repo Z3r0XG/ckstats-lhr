@@ -1,7 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-
 import PrivacyToggle from './PrivacyToggle';
 import UserStatsCharts from './UserStatsCharts';
 import WorkersTable from './WorkersTable';
@@ -17,10 +15,6 @@ import {
   calculateProximityPercent,
 } from '../utils/helpers';
 
-const CountdownTimer = dynamic(() => import('./CountdownTimer'), {
-  ssr: false,
-});
-
 export default function UserPageClient({
   initialData,
   address,
@@ -28,10 +22,7 @@ export default function UserPageClient({
   initialData: UserDataPayload;
   address: string;
 }) {
-  const { data, isLoading, error, isFetching, refetch } = useUserData(
-    address,
-    initialData
-  );
+  const { data, isLoading, error } = useUserData(address, initialData);
 
   // Show loading only on initial load when we have no data
   if (isLoading && !data) {
@@ -114,18 +105,7 @@ export default function UserPageClient({
         <h1 className="text-2xl font-bold break-words text-accent">
           {user.address}
         </h1>
-        <div className="flex items-center gap-2">
-          <CountdownTimer
-            initialSeconds={60}
-            onElapsed={() => void refetch()}
-            error={error}
-            isFetching={isFetching}
-          />
-          <PrivacyToggle
-            address={user.address}
-            initialIsPublic={user.isPublic}
-          />
-        </div>
+        <PrivacyToggle address={user.address} initialIsPublic={user.isPublic} />
       </div>
       <div className="stats stats-vertical sm:stats-horizontal shadow-lg my-2">
         <div className="stat">
@@ -293,7 +273,6 @@ export default function UserPageClient({
       <UserStatsCharts userStats={historicalStats} />
 
       <WorkersTable workers={user.workers} address={address} />
-      {isFetching && <p className="text-center mt-4">Refreshing data...</p>}
     </div>
   );
 }

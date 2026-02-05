@@ -1,4 +1,3 @@
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 
 import { PoolStats } from '../lib/entities/PoolStats';
@@ -15,26 +14,16 @@ import {
   calculateProximityPercent,
 } from '../utils/helpers';
 
-const CountdownTimer = dynamic(() => import('./CountdownTimer'), {
-  ssr: false,
-});
-
 interface PoolStatsDisplayProps {
   stats: PoolStats;
   historicalStats: PoolStats[];
-  onRefresh?: () => void;
   generatedAt?: Date;
-  error?: Error | null;
-  isFetching?: boolean;
 }
 
 export default function PoolStatsDisplay({
   stats,
   historicalStats,
-  onRefresh,
   generatedAt,
-  error,
-  isFetching,
 }: PoolStatsDisplayProps) {
   const formatWithUnits = (value: number): string => {
     const units = [
@@ -122,15 +111,7 @@ export default function PoolStatsDisplay({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         <div className="card card-compact">
           <div className="card-body">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="card-title">General Info</h2>
-              <CountdownTimer
-                initialSeconds={60}
-                onElapsed={onRefresh}
-                error={error}
-                isFetching={isFetching}
-              />
-            </div>
+            <h2 className="card-title">General Info</h2>
             <div className="stats stats-vertical xl:stats-horizontal shadow-lg my-2">
               <div className="stat">
                 <div className="stat-title">Uptime</div>

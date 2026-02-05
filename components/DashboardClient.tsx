@@ -17,8 +17,7 @@ export default function DashboardClient({
 }: {
   initialData: DashboardPayload;
 }) {
-  const { data, isLoading, error, isFetching, refetch } =
-    useDashboardData(initialData);
+  const { data, isLoading, error } = useDashboardData(initialData);
 
   // Show loading only on initial load when we have no data
   if (isLoading && !data) {
@@ -51,10 +50,7 @@ export default function DashboardClient({
       <PoolStatsDisplay
         stats={stats}
         historicalStats={historicalStats}
-        error={error}
-        isFetching={isFetching}
         generatedAt={data.generatedAt ? new Date(data.generatedAt) : undefined}
-        onRefresh={() => void refetch()}
       />
       {historicalStats && historicalStats.length > 0 ? (
         <PoolStatsChart data={historicalStats} />
