@@ -20,22 +20,22 @@ export async function readFileStable(
   const retries = opts.retries ?? 5;
   const backoffMs = opts.backoffMs ?? 50;
 
-  for (let attempt = 0; attempt < retries; attempt++) {
+  // Retry attempts (0 to retries-2)
+  for (let attempt = 0; attempt < retries - 1; attempt++) {
     try {
-      const content = await fs.readFile(filePath, 'utf-8');
-      return content;
+      return await fs.readFile(filePath, 'utf-8');
     } catch (err: any) {
       // If the file is temporarily missing or being replaced, retry
       if (err && (err.code === 'ENOENT' || err.code === 'EISDIR')) {
-        if (attempt === retries - 1) throw err;
         await delay(backoffMs * Math.pow(2, attempt));
         continue;
       }
-      throw err;
+      throw err; // Non-retryable error
     }
   }
 
-  throw new Error('readFileStable: exceeded retries');
+  // Final attempt - let errors propagate
+  return await fs.readFile(filePath, 'utf-8');
 }
 
 /**
@@ -48,26 +48,27 @@ export async function readJsonStable(
   const retries = opts.retries ?? 5;
   const backoffMs = opts.backoffMs ?? 50;
 
-  for (let attempt = 0; attempt < retries; attempt++) {
+  // Retry attempts (0 to retries-2)
+  for (let attempt = 0; attempt < retries - 1; attempt++) {
     try {
       const text = await fs.readFile(filePath, 'utf-8');
       try {
         return JSON.parse(text);
       } catch (parseErr) {
         // JSON parse error likely due to partial write — retry
-        if (attempt === retries - 1) throw parseErr;
         await delay(backoffMs * Math.pow(2, attempt));
         continue;
       }
     } catch (err: any) {
       if (err && (err.code === 'ENOENT' || err.code === 'EISDIR')) {
-        if (attempt === retries - 1) throw err;
         await delay(backoffMs * Math.pow(2, attempt));
         continue;
       }
-      throw err;
+      throw err; // Non-retryable error
     }
   }
 
-  throw new Error('readJsonStable: exceeded retries');
+  // Final attempt - let errors propagate
+  const text = await fs.readFile(filePath, 'utf-8');
+  return JSON.parse(text);
 }
