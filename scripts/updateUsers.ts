@@ -70,7 +70,7 @@ async function updateUser(address: string): Promise<void> {
 
       userData = (await response.json()) as UserData;
     } catch (error: any) {
-      if (error.cause?.code == 'ERR_INVALID_URL') {
+      if (error.cause?.code === 'ERR_INVALID_URL') {
         userData = await readJsonStable(apiUrl, { retries: 6, backoffMs: 50 }) as UserData;
       } else throw error;
     }
