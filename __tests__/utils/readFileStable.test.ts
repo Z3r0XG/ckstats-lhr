@@ -17,8 +17,8 @@ afterAll(async () => {
 
 test('readFileStable retries until file appears', async () => {
   const p = path.join(tmpDir, 'delayed.txt');
-  setTimeout(async () => {
-    await fs.writeFile(p, 'hello');
+  setTimeout(() => {
+    fs.writeFile(p, 'hello');
   }, 100);
 
   const res = await readFileStable(p, { retries: 10, backoffMs: 20 });
@@ -28,10 +28,10 @@ test('readFileStable retries until file appears', async () => {
 test('readJsonStable retries on partial JSON', async () => {
   const p = path.join(tmpDir, 'partial.json');
   // Write a partial (invalid) JSON first, then overwrite with valid JSON
-  setTimeout(async () => {
-    await fs.writeFile(p, '{"a": 1');
-    setTimeout(async () => {
-      await fs.writeFile(p, '{"a": 1}');
+  setTimeout(() => {
+    fs.writeFile(p, '{"a": 1');
+    setTimeout(() => {
+      fs.writeFile(p, '{"a": 1}');
     }, 80);
   }, 20);
 
