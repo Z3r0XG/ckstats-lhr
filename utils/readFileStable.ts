@@ -26,7 +26,7 @@ export async function readFileStable(
       return await fs.readFile(filePath, 'utf-8');
     } catch (err: any) {
       // If the file is temporarily missing or being replaced, retry
-      if (err && (err.code === 'ENOENT' || err.code === 'EISDIR')) {
+      if (err && err.code === 'ENOENT') {
         await delay(backoffMs * Math.pow(2, attempt));
         continue;
       }
@@ -60,7 +60,7 @@ export async function readJsonStable(
         continue;
       }
     } catch (err: any) {
-      if (err && (err.code === 'ENOENT' || err.code === 'EISDIR')) {
+      if (err && err.code === 'ENOENT') {
         await delay(backoffMs * Math.pow(2, attempt));
         continue;
       }
