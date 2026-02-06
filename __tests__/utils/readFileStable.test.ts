@@ -1,4 +1,5 @@
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
 import os from 'os';
 import { readFileStable, readJsonStable } from '../../utils/readFileStable';
@@ -18,7 +19,7 @@ afterAll(async () => {
 test('readFileStable retries until file appears', async () => {
   const p = path.join(tmpDir, 'delayed.txt');
   setTimeout(() => {
-    fs.writeFile(p, 'hello');
+    fsSync.writeFileSync(p, 'hello');
   }, 100);
 
   const res = await readFileStable(p, { retries: 10, backoffMs: 20 });
@@ -29,9 +30,9 @@ test('readJsonStable retries on partial JSON', async () => {
   const p = path.join(tmpDir, 'partial.json');
   // Write a partial (invalid) JSON first, then overwrite with valid JSON
   setTimeout(() => {
-    fs.writeFile(p, '{"a": 1');
+    fsSync.writeFileSync(p, '{"a": 1');
     setTimeout(() => {
-      fs.writeFile(p, '{"a": 1}');
+      fsSync.writeFileSync(p, '{"a": 1}');
     }, 80);
   }, 20);
 
