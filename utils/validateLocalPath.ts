@@ -5,10 +5,13 @@ import * as path from 'path';
  * Validates and resolves a local file path to prevent path traversal attacks.
  * Used when API_URL points to a local filesystem directory.
  *
+ * Requires that both the base directory and target path exist on the filesystem.
+ * Will throw an error if either path does not exist or cannot be resolved.
+ *
  * @param address - Bitcoin address (must be alphanumeric only)
- * @param basePath - Base directory path (API_URL)
+ * @param basePath - Base directory path (API_URL) - must exist
  * @returns Resolved absolute path within the base directory
- * @throws Error if address contains invalid characters or path escapes base
+ * @throws Error if address contains invalid characters, path escapes base, or paths don't exist
  */
 export function validateAndResolveUserPath(
   address: string,
