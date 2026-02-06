@@ -1,8 +1,11 @@
 'use client';
 
+import { useEffect } from 'react';
+
 import PrivacyToggle from './PrivacyToggle';
 import UserStatsCharts from './UserStatsCharts';
 import WorkersTable from './WorkersTable';
+import { useRefresh } from '../lib/contexts/RefreshContext';
 import { useUserData } from '../lib/hooks/useUserData';
 import { UserDataPayload } from '../lib/types/user';
 import {
@@ -22,7 +25,13 @@ export default function UserPageClient({
   initialData: UserDataPayload;
   address: string;
 }) {
-  const { data, isLoading, error } = useUserData(address, initialData);
+  const { data, isLoading, error, refetch } = useUserData(address, initialData);
+  const { registerRefresh, unregisterRefresh } = useRefresh();
+
+  useEffect(() => {
+    registerRefresh(() => void refetch());
+    return () => unregisterRefresh();
+  }, [registerRefresh, unregisterRefresh, refetch]);
 
   // Show loading only on initial load when we have no data
   if (isLoading && !data) {

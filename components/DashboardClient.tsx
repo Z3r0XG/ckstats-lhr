@@ -1,9 +1,12 @@
 'use client';
 
+import { useEffect } from 'react';
+
 import Link from 'next/link';
 
 import PoolStatsChart from './PoolStatsChart';
 import PoolStatsDisplay from './PoolStatsDisplay';
+import { useRefresh } from '../lib/contexts/RefreshContext';
 import { useDashboardData } from '../lib/hooks/useDashboardData';
 import { DashboardPayload } from '../lib/types/dashboard';
 import {
@@ -17,7 +20,13 @@ export default function DashboardClient({
 }: {
   initialData: DashboardPayload;
 }) {
-  const { data, isLoading, error } = useDashboardData(initialData);
+  const { data, isLoading, error, refetch } = useDashboardData(initialData);
+  const { registerRefresh, unregisterRefresh } = useRefresh();
+
+  useEffect(() => {
+    registerRefresh(() => void refetch());
+    return () => unregisterRefresh();
+  }, [registerRefresh, unregisterRefresh, refetch]);
 
   // Show loading only on initial load when we have no data
   if (isLoading && !data) {
