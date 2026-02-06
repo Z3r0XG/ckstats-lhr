@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 
 import PrivacyToggle from './PrivacyToggle';
+import UserResetButton from './UserResetButton';
 import UserStatsCharts from './UserStatsCharts';
 import WorkersTable from './WorkersTable';
 import { useRefresh } from '../lib/contexts/RefreshContext';
@@ -62,7 +63,7 @@ export default function UserPageClient({
           role="alert"
         >
           <p className="font-bold">User is not active</p>
-          <p>Contact support to reactivate.</p>
+          <UserResetButton address={user.address} />
         </div>
       </div>
     );
