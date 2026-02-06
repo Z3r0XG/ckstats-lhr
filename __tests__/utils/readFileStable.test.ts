@@ -1,0 +1,56 @@
+import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
+import * as path from 'path';
+import os from 'os';
+import { readFileStable, readJsonStable } from '../../utils/readFileStable';
+
+const tmpDir = path.join(os.tmpdir(), `ckstats-test-${Date.now()}`);
+
+beforeAll(async () => {
+  await fs.mkdir(tmpDir, { recursive: true });
+});
+
+afterAll(async () => {
+  try {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  } catch {}
+});
+
+test('readFileStable retries until file appears', async () => {
+  const p = path.join(tmpDir, 'delayed.txt');
+  setTimeout(() => {
+    fsSync.writeFileSync(p, 'hello');
+  }, 100);
+
+  const res = await readFileStable(p, { retries: 10, backoffMs: 20 });
+  expect(res).toBe('hello');
+});
+
+test('readJsonStable retries on partial JSON', async () => {
+  const p = path.join(tmpDir, 'partial.json');
+  // Write a partial (invalid) JSON first, then overwrite with valid JSON
+  setTimeout(() => {
+    fsSync.writeFileSync(p, '{"a": 1');
+    setTimeout(() => {
+      fsSync.writeFileSync(p, '{"a": 1}');
+    }, 80);
+  }, 20);
+
+  const res = await readJsonStable(p, { retries: 10, backoffMs: 20 });
+  expect(res).toEqual({ a: 1 });
+});
+
+test('readFileStable throws after retries exhausted', async () => {
+  const p = path.join(tmpDir, 'never.txt');
+  await expect(
+    readFileStable(p, { retries: 2, backoffMs: 10 })
+  ).rejects.toThrow();
+});
+
+test('readJsonStable throws if file remains partial', async () => {
+  const p = path.join(tmpDir, 'partial2.json');
+  await fs.writeFile(p, '{invalid');
+  await expect(
+    readJsonStable(p, { retries: 3, backoffMs: 10 })
+  ).rejects.toThrow();
+});

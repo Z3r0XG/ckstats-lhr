@@ -1,7 +1,6 @@
-import * as fs from 'fs';
-import * as path from 'path';
-
 import { getDb } from './db';
+import { readJsonStable } from '../utils/readFileStable';
+import { validateAndResolveUserPath } from '../utils/validateLocalPath';
 import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
@@ -477,13 +476,11 @@ export async function updateSingleUser(
       if (error.cause?.code === 'ERR_INVALID_URL') {
         // When API_URL is a filesystem path (local logs), enforce a safe root
         const basePath = process.env.API_URL || '';
-        const root = fs.realpathSync(path.resolve(basePath));
-        const target = path.resolve(root, `users/${address}`);
-        const resolved = fs.realpathSync(target);
-        if (!resolved.startsWith(root + path.sep)) {
-          throw new Error('Invalid path for user data');
-        }
-        userData = JSON.parse(fs.readFileSync(resolved, 'utf-8'));
+        const resolved = validateAndResolveUserPath(address, basePath);
+        userData = await readJsonStable(resolved, {
+          retries: 6,
+          backoffMs: 50,
+        });
       } else throw error;
     }
 

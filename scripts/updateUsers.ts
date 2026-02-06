@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import 'reflect-metadata';
-import * as fs from 'fs';
+import { readJsonStable } from '../utils/readFileStable';
+import { validateAndResolveUserPath } from '../utils/validateLocalPath';
 
 import { getDb } from '../lib/db';
 import { cacheDelete } from '../lib/api';
@@ -70,8 +71,14 @@ async function updateUser(address: string): Promise<void> {
 
       userData = (await response.json()) as UserData;
     } catch (error: any) {
-      if (error.cause?.code == 'ERR_INVALID_URL') {
-        userData = JSON.parse(fs.readFileSync(apiUrl, 'utf-8')) as UserData;
+      if (error.cause?.code === 'ERR_INVALID_URL') {
+        // When API_URL is a filesystem path (local logs), enforce a safe root
+        const basePath = process.env.API_URL || '';
+        const resolved = validateAndResolveUserPath(address, basePath);
+        userData = await readJsonStable(resolved, {
+          retries: 6,
+          backoffMs: 50,
+        }) as UserData;
       } else throw error;
     }
 
