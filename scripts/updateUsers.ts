@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import 'reflect-metadata';
-import * as fs from 'fs';
 import { readJsonStable } from '../utils/readFileStable';
 
 import { getDb } from '../lib/db';

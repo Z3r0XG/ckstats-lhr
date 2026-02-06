@@ -1,6 +1,5 @@
 // eslint-disable-next-line import/no-unresolved
 import 'dotenv/config';
-import * as fs from 'fs';
 import { readFileStable } from '../utils/readFileStable';
 
 import { getDb } from '../lib/db';
