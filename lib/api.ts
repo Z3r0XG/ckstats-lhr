@@ -443,6 +443,8 @@ export async function resetUserActive(address: string): Promise<void> {
   const db = await getDb();
   const userRepository = db.getRepository(User);
   await userRepository.update(address, { isActive: true });
+  // Clear the cached user data so the next fetch gets fresh DB data
+  cacheDelete(`userWithWorkers:${address}`);
 }
 
 export async function updateSingleUser(
