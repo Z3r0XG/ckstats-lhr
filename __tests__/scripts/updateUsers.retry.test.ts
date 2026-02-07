@@ -121,7 +121,7 @@ describe('updateUsers retry logic', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it('should use exponential backoff delay', async () => {
+  it('should use linear backoff delay', async () => {
     const originalSetTimeout = global.setTimeout;
     const delays: number[] = [];
     
@@ -143,7 +143,7 @@ describe('updateUsers retry logic', () => {
         )
       ).rejects.toThrow('Network error');
 
-      // Verify exponential backoff delays: 100 * 1 = 100, 100 * 2 = 200
+      // Verify linear backoff delays: 100 * 1 = 100, 100 * 2 = 200
       expect(delays).toEqual([100, 200]);
     } finally {
       global.setTimeout = originalSetTimeout;
