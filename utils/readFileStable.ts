@@ -5,7 +5,7 @@ export interface ReadStableOptions {
   backoffMs?: number;
 }
 
-function delay(ms: number) {
+export function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 

@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import 'reflect-metadata';
-import { readJsonStable } from '../utils/readFileStable';
+import { readJsonStable, delay } from '../utils/readFileStable';
 import { validateAndResolveUserPath } from '../utils/validateLocalPath';
 
 import { getDb } from '../lib/db';
@@ -78,7 +78,7 @@ async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<
       }
 
       console.log(`Attempt ${attempt} failed for ${address}. Retrying...`);
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempt));
+      await delay(RETRY_DELAY_MS * attempt);
     }
   }
 
