@@ -122,27 +122,32 @@ describe('updateUsers retry logic', () => {
   });
 
   it('should use exponential backoff delay', async () => {
-    // This test just verifies that retries happen with delays
-    // Actual timing is hard to test precisely without flakiness
-    const startTime = Date.now();
+    const originalSetTimeout = global.setTimeout;
+    const delays: number[] = [];
     
-    fetchMock.mockRejectedValue(new Error('Network error'));
+    global.setTimeout = jest.fn((callback: any, delay: number) => {
+      delays.push(delay);
+      // Call the real setTimeout
+      return originalSetTimeout(callback, delay) as any;
+    });
 
-    await expect(
-      fetchUserDataWithRetry(
-        'testAddress',
-        'https://api.test/users/testAddress',
-        3,
-        10 // Very short delay for faster test
-      )
-    ).rejects.toThrow('Network error');
+    try {
+      fetchMock.mockRejectedValue(new Error('Network error'));
 
-    const duration = Date.now() - startTime;
-    
-    // Should take at least 10ms + 20ms = 30ms for the delays
-    // (first retry delay: 10*1, second retry delay: 10*2)
-    expect(duration).toBeGreaterThanOrEqual(25); // Allow some margin
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+      await expect(
+        fetchUserDataWithRetry(
+          'testAddress',
+          'https://api.test/users/testAddress',
+          3,
+          100 // Delay multiplier for test
+        )
+      ).rejects.toThrow('Network error');
+
+      // Verify exponential backoff delays: 100 * 1 = 100, 100 * 2 = 200
+      expect(delays).toEqual([100, 200]);
+    } finally {
+      global.setTimeout = originalSetTimeout;
+    }
   });
 
   it('should handle HTTP error responses', async () => {
