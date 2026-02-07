@@ -18,6 +18,8 @@ import {
 } from '../utils/helpers';
 
 const BATCH_SIZE = 10;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 500;
 
 interface WorkerData {
   workername: string;
@@ -49,6 +51,40 @@ interface UserData {
   worker: WorkerData[];
 }
 
+async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<UserData> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(apiUrl);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return (await response.json()) as UserData;
+    } catch (error: any) {
+      if (error.cause?.code === 'ERR_INVALID_URL') {
+        // When API_URL is a filesystem path (local logs), enforce a safe root
+        const basePath = process.env.API_URL || '';
+        const resolved = validateAndResolveUserPath(address, basePath);
+        return await readJsonStable(resolved, {
+          retries: 6,
+          backoffMs: 50,
+        }) as UserData;
+      }
+
+      if (attempt === MAX_RETRIES) {
+        console.error(`Failed to fetch data for ${address} after ${MAX_RETRIES} attempts`);
+        throw error;
+      }
+
+      console.log(`Attempt ${attempt} failed for ${address}. Retrying...`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempt));
+    }
+  }
+
+  throw new Error(`Failed to fetch user data for ${address}`);
+}
+
 async function updateUser(address: string): Promise<void> {
   let userData: UserData;
   if (/[^a-zA-Z0-9]/.test(address)) {
@@ -62,25 +98,7 @@ async function updateUser(address: string): Promise<void> {
   const db = await getDb();
 
   try {
-    try {
-      const response = await fetch(apiUrl);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      userData = (await response.json()) as UserData;
-    } catch (error: any) {
-      if (error.cause?.code === 'ERR_INVALID_URL') {
-        // When API_URL is a filesystem path (local logs), enforce a safe root
-        const basePath = process.env.API_URL || '';
-        const resolved = validateAndResolveUserPath(address, basePath);
-        userData = await readJsonStable(resolved, {
-          retries: 6,
-          backoffMs: 50,
-        }) as UserData;
-      } else throw error;
-    }
+    userData = await fetchUserDataWithRetry(address, apiUrl);
 
     await db.transaction(async (manager) => {
       const userRepository = manager.getRepository(User);
@@ -195,6 +213,7 @@ async function updateUser(address: string): Promise<void> {
 
     console.log(`Updated user and workers for: ${address}`);
   } catch (error) {
+    // Transaction will auto-rollback. Re-throw so main() marks user inactive.
     throw error;
   }
 }
