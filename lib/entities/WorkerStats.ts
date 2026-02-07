@@ -40,8 +40,8 @@ export class WorkerStats {
   @Column('bigint', { default: '0' })
   started: string;
 
-  @Column('bigint', { default: '0' })
-  shares: string;
+  @Column('double precision', { default: 0 })
+  shares: number;
 
   @Column('float', { default: 0 })
   bestShare: number;

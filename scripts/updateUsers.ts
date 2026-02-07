@@ -118,7 +118,7 @@ async function updateUser(address: string): Promise<void> {
         hashrate7d: safeConvertFloat(userData.hashrate7d),
         lastShare: bigIntStringFromFloatLike(userData.lastshare),
         workerCount: userData.workers,
-        shares: bigIntStringFromFloatLike(userData.shares),
+        shares: safeParseFloat(userData.shares, 0),
         bestShare: safeParseFloat(userData.bestshare, 0),
         bestEver: safeParseFloat(userData.bestever, 0),
       });
@@ -154,7 +154,7 @@ async function updateUser(address: string): Promise<void> {
           hashrate7d: safeConvertFloat(workerData.hashrate7d),
           lastUpdate: new Date(workerData.lastshare * 1000),
           started: workerData.started ? workerData.started.toString() : '0',
-          shares: bigIntStringFromFloatLike(workerData.shares),
+          shares: safeParseFloat(workerData.shares, 0),
           bestShare: safeParseFloat(workerData.bestshare, 0),
           bestEver: safeParseFloat(workerData.bestever, 0),
         };

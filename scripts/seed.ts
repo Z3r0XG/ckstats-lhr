@@ -303,8 +303,8 @@ async function seed() {
         return zeroLikeDecimal ? 0.0001 : parsed;
       })(),
       netdiff: stats.netdiff ? safeParseFloat(stats.netdiff, 0) : undefined,
-      accepted: stats.accepted,
-      rejected: stats.rejected,
+      accepted: Number(stats.accepted || 0),
+      rejected: Number(stats.rejected || 0),
       bestshare: safeParseFloat(stats.bestshare ?? '', 0),
       SPS1m: stats.SPS1m,
       SPS5m: stats.SPS5m,
@@ -317,13 +317,7 @@ async function seed() {
       console.log(
         'DRY_RUN enabled — would save the following PoolStats object:'
       );
-      const printable = Object.fromEntries(
-        Object.entries(poolStats).map(([k, v]) => [
-          k,
-          typeof v === 'bigint' ? v.toString() : v,
-        ])
-      );
-      console.log(JSON.stringify(printable, null, 2));
+      console.log(JSON.stringify(poolStats, null, 2));
       return;
     }
 

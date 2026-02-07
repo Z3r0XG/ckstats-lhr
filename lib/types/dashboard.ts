@@ -17,8 +17,8 @@ export type SerializedPoolStats = {
   hashrate7d: number;
   diff: number;
   netdiff?: number; // Optional network difficulty field
-  accepted: string; // bigint serialized to string
-  rejected: string; // bigint serialized to string
+  accepted: number; // cumulative share difficulty
+  rejected: number; // cumulative rejected share difficulty
   bestshare: number;
   SPS1m: number;
   SPS5m: number;

@@ -555,7 +555,7 @@ export async function updateSingleUser(
         hashrate7d: convertHashrateFloat(userData.hashrate7d),
         lastShare: bigIntStringFromFloatLike(userData.lastshare),
         workerCount: userData.workers,
-        shares: bigIntStringFromFloatLike(userData.shares),
+        shares: safeParseFloat(userData.shares, 0),
         bestShare: safeParseFloat(userData.bestshare, 0),
         bestEver: safeParseFloat(userData.bestever, 0),
       });
@@ -580,8 +580,7 @@ export async function updateSingleUser(
           const newHashrate1d = convertHashrateFloat(workerData.hashrate1d);
           const newHashrate7d = convertHashrateFloat(workerData.hashrate7d);
           const newLastUpdate = new Date(workerData.lastshare * 1000);
-          const newShares = workerData.shares;
-          const newSharesStr = bigIntStringFromFloatLike(newShares);
+          const newShares = safeParseFloat(workerData.shares, 0);
           const newBestShare = safeParseFloat(workerData.bestshare, 0);
           const newBestEver = safeParseFloat(workerData.bestever, 0);
 
@@ -593,7 +592,7 @@ export async function updateSingleUser(
             Number(worker.hashrate1hr || 0) !== Number(newHashrate1hr || 0) ||
             Number(worker.hashrate1d || 0) !== Number(newHashrate1d || 0) ||
             Number(worker.hashrate7d || 0) !== Number(newHashrate7d || 0) ||
-            (worker.shares || '0') !== newSharesStr ||
+            Number(worker.shares || 0) !== Number(newShares || 0) ||
             Number(worker.bestShare || 0) !== Number(newBestShare || 0) ||
             Number(worker.bestEver || 0) !== Number(newBestEver || 0) ||
             (worker.lastUpdate?.getTime() || 0) !== newLastUpdate.getTime();
@@ -607,7 +606,7 @@ export async function updateSingleUser(
             worker.hashrate1d = newHashrate1d;
             worker.hashrate7d = newHashrate7d;
             worker.lastUpdate = newLastUpdate;
-            worker.shares = newSharesStr;
+            worker.shares = newShares;
             worker.bestShare = newBestShare;
             worker.bestEver = newBestEver;
             await workerRepository.save(worker);
@@ -623,7 +622,7 @@ export async function updateSingleUser(
             hashrate1d: convertHashrateFloat(workerData.hashrate1d),
             hashrate7d: convertHashrateFloat(workerData.hashrate7d),
             lastUpdate: new Date(workerData.lastshare * 1000),
-            shares: bigIntStringFromFloatLike(workerData.shares),
+            shares: safeParseFloat(workerData.shares, 0),
             bestShare: safeParseFloat(workerData.bestshare, 0),
             bestEver: safeParseFloat(workerData.bestever, 0),
             userAgent: token,

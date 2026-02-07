@@ -28,7 +28,7 @@ const mockPayload: UserDataPayload = {
         hashrate1d: 850000,
         hashrate7d: 800000,
         lastUpdate: new Date().toISOString(),
-        shares: '50000',
+        shares: 50000,
         bestShare: 45.5,
         bestEver: 50.0,
         userAddress: 'bc1q1234567890abcdef1234567890abcdef123456',
@@ -43,7 +43,7 @@ const mockPayload: UserDataPayload = {
           hashrate1d: 850000,
           hashrate7d: 800000,
           started: '10000',
-          shares: '50000',
+          shares: 50000,
           bestShare: 45.5,
           bestEver: 50.0,
           timestamp: new Date().toISOString(),
@@ -61,7 +61,7 @@ const mockPayload: UserDataPayload = {
         hashrate7d: 800000,
         lastShare: '5000',
         workerCount: 1,
-        shares: '50000',
+        shares: 50000,
         bestShare: 45.5,
         bestEver: 50.0,
         timestamp: new Date().toISOString(),
@@ -103,7 +103,7 @@ const mockPayload: UserDataPayload = {
       hashrate7d: 800000,
       lastShare: '5000',
       workerCount: 1,
-      shares: '50000',
+      shares: 50000,
       bestShare: 45.5,
       bestEver: 50.0,
       timestamp: new Date().toISOString(),
@@ -162,8 +162,8 @@ describe('useUserData hook', () => {
       expect(worker).toHaveProperty('latestStats');
     });
 
-    test('worker.shares is serialized bigint (string)', () => {
-      expectBigIntSerialized(mockPayload.user.workers[0].shares);
+    test('worker.shares is a number', () => {
+      expect(typeof mockPayload.user.workers[0].shares).toBe('number');
     });
 
     test('worker date fields are serialized ISO strings', () => {
@@ -186,7 +186,7 @@ describe('useUserData hook', () => {
     test('worker.latestStats bigints are serialized (strings)', () => {
       const stats = mockPayload.user.workers[0].latestStats!;
       expectBigIntSerialized(stats.started);
-      expectBigIntSerialized(stats.shares);
+      expect(typeof stats.shares).toBe('number');
     });
 
     test('worker.latestStats.timestamp is serialized ISO string', () => {
@@ -211,7 +211,7 @@ describe('useUserData hook', () => {
     test('userStats bigints are serialized (strings)', () => {
       const stats = mockPayload.user.stats[0];
       expectBigIntSerialized(stats.lastShare);
-      expectBigIntSerialized(stats.shares);
+      expect(typeof stats.shares).toBe('number');
     });
 
     test('userStats.timestamp is serialized ISO string', () => {
