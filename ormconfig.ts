@@ -11,7 +11,9 @@ const config: DataSourceOptions = {
   url: process.env.DATABASE_URL,
   entities: [PoolStats, User, UserStats, Worker, WorkerStats],
   migrations: ['migrations/*.ts'],
-  synchronize: process.env.NODE_ENV !== 'production',
+  // IMPORTANT: Keep synchronize disabled - use migrations only
+  // TypeORM's auto-sync can reset default values and cause unexpected schema changes
+  synchronize: false,
   logging: process.env.NODE_ENV === 'development',
   ssl: {
     rejectUnauthorized: false,

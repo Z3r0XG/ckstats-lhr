@@ -58,6 +58,12 @@ export function formatNumber(num: number | bigint | string): string {
   }
 
   if (typeof num === 'bigint') return num.toString();
+  
+  // For small numbers (< 1000), show decimal places to preserve sub-1 difficulty precision
+  if (absNum < 1000) {
+    return numberVal.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+  }
+  
   return numberVal.toLocaleString();
 }
 
@@ -472,45 +478,34 @@ export function computeRejectedPercent(
   accepted: number | bigint | string | undefined,
   rejected: number | bigint | string | undefined
 ): RejectedPercentResult {
-  function toBigIntSafe(v: any): bigint {
-    if (typeof v === 'bigint') return v;
-    if (typeof v === 'number') return BigInt(Math.round(v));
+  function toNumberSafe(v: any): number {
+    if (typeof v === 'number') return v;
+    if (typeof v === 'bigint') return Number(v);
     if (typeof v === 'string') {
       const s = v.trim();
-      if (s === '') return BigInt(0);
-      if (/^[+-]?\d+$/.test(s)) {
-        try {
-          return BigInt(s);
-        } catch {
-          return BigInt(Number(s) || 0);
-        }
-      }
+      if (s === '') return 0;
       const parsed = Number(s);
-      if (Number.isNaN(parsed)) return BigInt(0);
-      return BigInt(Math.round(parsed));
+      if (Number.isNaN(parsed)) return 0;
+      return parsed;
     }
-    return BigInt(0);
+    return 0;
   }
 
-  const a = toBigIntSafe(accepted ?? 0);
-  const r = toBigIntSafe(rejected ?? 0);
+  const a = toNumberSafe(accepted ?? 0);
+  const r = toNumberSafe(rejected ?? 0);
   const total = a + r;
 
-  if (total === BigInt(0)) {
+  if (total === 0) {
     return { pct: null, formatted: null, color: 'text-base-content' };
   }
 
-  // compute hundredths of percent as integer: pct * 100 -> e.g. 0.75% => 75
-  // We'll compute (rejected * 10000) / total to get hundredths (i.e., 0.75% -> 75)
-  // Round to nearest hundredth. Using integer math to avoid precision loss:
-  // hundredths = round((r * 10000) / total)
-  const hundredths = Number((r * BigInt(10000) + total / BigInt(2)) / total); // value in [0..10000]
-  const pct = hundredths / 100;
+  // Calculate percentage: (rejected / total) * 100
+  const pct = (r / total) * 100;
 
   let color = 'text-base-content';
-  if (hundredths <= 50) {
+  if (pct <= 0.5) {
     color = 'text-success';
-  } else if (hundredths <= 100) {
+  } else if (pct <= 1.0) {
     color = 'text-warning';
   } else {
     color = 'text-error';
@@ -518,7 +513,7 @@ export function computeRejectedPercent(
 
   return {
     pct,
-    formatted: `${(hundredths / 100).toFixed(2)}%`,
+    formatted: `${pct.toFixed(2)}%`,
     color,
   };
 }

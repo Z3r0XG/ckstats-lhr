@@ -46,8 +46,8 @@ export class Worker {
   @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   lastUpdate: Date;
 
-  @Column('bigint', { default: () => '0' })
-  shares: string;
+  @Column('double precision', { default: 0 })
+  shares: number;
 
   @Column('float', { default: 0 })
   bestShare: number;

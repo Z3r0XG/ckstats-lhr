@@ -11,7 +11,7 @@ export type SerializedWorkerStats = {
   hashrate1d: number;
   hashrate7d: number;
   started: string; // bigint serialized to string
-  shares: string; // bigint serialized to string
+  shares: number; // cumulative share difficulty (double precision)
   bestShare: number;
   bestEver: number;
   timestamp: string; // ISO string after JSON serialization
@@ -28,7 +28,7 @@ export type SerializedWorker = {
   hashrate1d: number;
   hashrate7d: number;
   lastUpdate: string; // ISO string after JSON serialization
-  shares: string; // bigint serialized to string
+  shares: number; // cumulative share difficulty (double precision)
   bestShare: number;
   bestEver: number;
   userAddress: string;
@@ -47,7 +47,7 @@ export type SerializedUserStats = {
   hashrate7d: number;
   lastShare: string; // bigint serialized to string
   workerCount: number;
-  shares: string; // bigint serialized to string
+  shares: number; // cumulative share difficulty (double precision)
   bestShare: number;
   bestEver: number;
   timestamp: string; // ISO string after JSON serialization

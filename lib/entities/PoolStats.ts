@@ -57,11 +57,11 @@ export class PoolStats {
   @Column('float', { nullable: true })
   netdiff?: number;
 
-  @Column('bigint')
-  accepted: bigint;
+  @Column('double precision')
+  accepted: number;
 
-  @Column('bigint')
-  rejected: bigint;
+  @Column('double precision')
+  rejected: number;
 
   @Column('double precision')
   bestshare: number;
