@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import 'reflect-metadata';
-import { readJsonStable } from '../utils/readFileStable';
+import { readJsonStable, delay } from '../utils/readFileStable';
 import { validateAndResolveUserPath } from '../utils/validateLocalPath';
 
 import { getDb } from '../lib/db';
@@ -18,6 +18,8 @@ import {
 } from '../utils/helpers';
 
 const BATCH_SIZE = 10;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 500;
 
 interface WorkerData {
   workername: string;
@@ -49,6 +51,40 @@ interface UserData {
   worker: WorkerData[];
 }
 
+async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<UserData> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(apiUrl);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return (await response.json()) as UserData;
+    } catch (error: any) {
+      if (error.cause?.code === 'ERR_INVALID_URL') {
+        // When API_URL is a filesystem path (local logs), enforce a safe root
+        const basePath = process.env.API_URL || '';
+        const resolved = validateAndResolveUserPath(address, basePath);
+        return await readJsonStable(resolved, {
+          retries: 6,
+          backoffMs: 50,
+        }) as UserData;
+      }
+
+      if (attempt === MAX_RETRIES) {
+        console.error(`Failed to fetch data for ${address} after ${MAX_RETRIES} attempts`);
+        throw error;
+      }
+
+      console.log(`Attempt ${attempt} failed for ${address}. Retrying...`);
+      await delay(RETRY_DELAY_MS * attempt);
+    }
+  }
+
+  throw new Error(`Failed to fetch user data for ${address}`);
+}
+
 async function updateUser(address: string): Promise<void> {
   let userData: UserData;
   if (/[^a-zA-Z0-9]/.test(address)) {
@@ -61,142 +97,120 @@ async function updateUser(address: string): Promise<void> {
   console.log('Attempting to update user stats for:', address);
   const db = await getDb();
 
-  try {
-    try {
-      const response = await fetch(apiUrl);
+  userData = await fetchUserDataWithRetry(address, apiUrl);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      userData = (await response.json()) as UserData;
-    } catch (error: any) {
-      if (error.cause?.code === 'ERR_INVALID_URL') {
-        // When API_URL is a filesystem path (local logs), enforce a safe root
-        const basePath = process.env.API_URL || '';
-        const resolved = validateAndResolveUserPath(address, basePath);
-        userData = await readJsonStable(resolved, {
-          retries: 6,
-          backoffMs: 50,
-        }) as UserData;
-      } else throw error;
+  await db.transaction(async (manager) => {
+    const userRepository = manager.getRepository(User);
+    const user = await userRepository.findOne({ where: { address } });
+    if (user) {
+      user.authorised = userData.authorised.toString();
+      user.isActive = true;
+      await userRepository.save(user);
+    } else {
+      await userRepository.insert({
+        address,
+        authorised: userData.authorised.toString(),
+        isActive: true,
+        updatedAt: new Date().toISOString(),
+      });
     }
 
-    await db.transaction(async (manager) => {
-      const userRepository = manager.getRepository(User);
-      const user = await userRepository.findOne({ where: { address } });
-      if (user) {
-        user.authorised = userData.authorised.toString();
-        user.isActive = true;
-        await userRepository.save(user);
-      } else {
-        await userRepository.insert({
-          address,
-          authorised: userData.authorised.toString(),
-          isActive: true,
-          updatedAt: new Date().toISOString(),
-        });
+    const userStatsRepository = manager.getRepository(UserStats);
+    const safeConvertFloat = (v: any) => {
+      try {
+        if (v === null || v === undefined || v === '') return 0;
+        return convertHashrateFloat(v.toString());
+      } catch (err) {
+        console.error('convertHashrateFloat failed for value:', v, err);
+        return 0;
       }
+    };
 
-      const userStatsRepository = manager.getRepository(UserStats);
-      const safeConvertFloat = (v: any) => {
-        try {
-          if (v === null || v === undefined || v === '') return 0;
-          return convertHashrateFloat(v.toString());
-        } catch (err) {
-          console.error('convertHashrateFloat failed for value:', v, err);
-          return 0;
-        }
+    const userStats = userStatsRepository.create({
+      userAddress: address,
+      hashrate1m: safeConvertFloat(userData.hashrate1m),
+      hashrate5m: safeConvertFloat(userData.hashrate5m),
+      hashrate1hr: safeConvertFloat(userData.hashrate1hr),
+      hashrate1d: safeConvertFloat(userData.hashrate1d),
+      hashrate7d: safeConvertFloat(userData.hashrate7d),
+      lastShare: bigIntStringFromFloatLike(userData.lastshare),
+      workerCount: userData.workers,
+      shares: safeParseFloat(userData.shares, 0),
+      bestShare: safeParseFloat(userData.bestshare, 0),
+      bestEver: safeParseFloat(userData.bestever, 0),
+    });
+    await userStatsRepository.save(userStats);
+
+    // Invalidate caches for this user
+    cacheDelete(`userHistorical:${address}`);
+    cacheDelete(`userWithWorkers:${address}`);
+
+    const workerRepository = manager.getRepository(Worker);
+    const workerStatsRepository = manager.getRepository(WorkerStats);
+
+    for (const workerData of userData.worker) {
+      const workerName = parseWorkerName(workerData.workername, address);
+
+      const worker = await workerRepository.findOne({
+        where: {
+          userAddress: address,
+          name: workerName,
+        },
+      });
+
+      const rawUa = (workerData.useragent ?? '').trim();
+      const token = normalizeUserAgent(rawUa);
+
+      const workerValues = {
+        userAgent: token,
+        userAgentRaw: rawUa || null,
+        hashrate1m: safeConvertFloat(workerData.hashrate1m),
+        hashrate5m: safeConvertFloat(workerData.hashrate5m),
+        hashrate1hr: safeConvertFloat(workerData.hashrate1hr),
+        hashrate1d: safeConvertFloat(workerData.hashrate1d),
+        hashrate7d: safeConvertFloat(workerData.hashrate7d),
+        lastUpdate: new Date(workerData.lastshare * 1000),
+        started: workerData.started ? workerData.started.toString() : '0',
+        shares: safeParseFloat(workerData.shares, 0),
+        bestShare: safeParseFloat(workerData.bestshare, 0),
+        bestEver: safeParseFloat(workerData.bestever, 0),
       };
 
-      const userStats = userStatsRepository.create({
-        userAddress: address,
-        hashrate1m: safeConvertFloat(userData.hashrate1m),
-        hashrate5m: safeConvertFloat(userData.hashrate5m),
-        hashrate1hr: safeConvertFloat(userData.hashrate1hr),
-        hashrate1d: safeConvertFloat(userData.hashrate1d),
-        hashrate7d: safeConvertFloat(userData.hashrate7d),
-        lastShare: bigIntStringFromFloatLike(userData.lastshare),
-        workerCount: userData.workers,
-        shares: safeParseFloat(userData.shares, 0),
-        bestShare: safeParseFloat(userData.bestshare, 0),
-        bestEver: safeParseFloat(userData.bestever, 0),
-      });
-      await userStatsRepository.save(userStats);
-
-      // Invalidate caches for this user
-      cacheDelete(`userHistorical:${address}`);
-      cacheDelete(`userWithWorkers:${address}`);
-
-      const workerRepository = manager.getRepository(Worker);
-      const workerStatsRepository = manager.getRepository(WorkerStats);
-
-      for (const workerData of userData.worker) {
-        const workerName = parseWorkerName(workerData.workername, address);
-
-        const worker = await workerRepository.findOne({
-          where: {
-            userAddress: address,
-            name: workerName,
-          },
+      let workerId: number;
+      if (worker) {
+        Object.assign(worker, workerValues);
+        const savedWorker = await workerRepository.save(worker);
+        workerId = savedWorker.id;
+      } else {
+        const newWorker = await workerRepository.save({
+          userAddress: address,
+          name: workerName,
+          updatedAt: new Date().toISOString(),
+          ...workerValues,
         });
-
-        const rawUa = (workerData.useragent ?? '').trim();
-        const token = normalizeUserAgent(rawUa);
-
-        const workerValues = {
-          userAgent: token,
-          userAgentRaw: rawUa || null,
-          hashrate1m: safeConvertFloat(workerData.hashrate1m),
-          hashrate5m: safeConvertFloat(workerData.hashrate5m),
-          hashrate1hr: safeConvertFloat(workerData.hashrate1hr),
-          hashrate1d: safeConvertFloat(workerData.hashrate1d),
-          hashrate7d: safeConvertFloat(workerData.hashrate7d),
-          lastUpdate: new Date(workerData.lastshare * 1000),
-          started: workerData.started ? workerData.started.toString() : '0',
-          shares: safeParseFloat(workerData.shares, 0),
-          bestShare: safeParseFloat(workerData.bestshare, 0),
-          bestEver: safeParseFloat(workerData.bestever, 0),
-        };
-
-        let workerId: number;
-        if (worker) {
-          Object.assign(worker, workerValues);
-          const savedWorker = await workerRepository.save(worker);
-          workerId = savedWorker.id;
-        } else {
-          const newWorker = await workerRepository.save({
-            userAddress: address,
-            name: workerName,
-            updatedAt: new Date().toISOString(),
-            ...workerValues,
-          });
-          workerId = newWorker.id;
-        }
-
-        const workerStats = workerStatsRepository.create({
-          workerId,
-          hashrate1m: workerValues.hashrate1m,
-          hashrate5m: workerValues.hashrate5m,
-          hashrate1hr: workerValues.hashrate1hr,
-          hashrate1d: workerValues.hashrate1d,
-          hashrate7d: workerValues.hashrate7d,
-          started: workerValues.started,
-          shares: workerValues.shares,
-          bestShare: workerValues.bestShare,
-          bestEver: workerValues.bestEver,
-        });
-        await workerStatsRepository.save(workerStats);
-
-        // Invalidate cache for this worker
-        cacheDelete(`workerWithStats:${address}:${workerName}`);
+        workerId = newWorker.id;
       }
-    });
 
-    console.log(`Updated user and workers for: ${address}`);
-  } catch (error) {
-    throw error;
-  }
+      const workerStats = workerStatsRepository.create({
+        workerId,
+        hashrate1m: workerValues.hashrate1m,
+        hashrate5m: workerValues.hashrate5m,
+        hashrate1hr: workerValues.hashrate1hr,
+        hashrate1d: workerValues.hashrate1d,
+        hashrate7d: workerValues.hashrate7d,
+        started: workerValues.started,
+        shares: workerValues.shares,
+        bestShare: workerValues.bestShare,
+        bestEver: workerValues.bestEver,
+      });
+      await workerStatsRepository.save(workerStats);
+
+      // Invalidate cache for this worker
+      cacheDelete(`workerWithStats:${address}:${workerName}`);
+    }
+  });
+
+  console.log(`Updated user and workers for: ${address}`);
 }
 
 async function main() {
