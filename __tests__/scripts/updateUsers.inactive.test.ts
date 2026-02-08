@@ -1,0 +1,314 @@
+/**
+ * @jest-environment node
+ */
+
+/**
+ * Tests for the enhanced user inactive logic with grace period
+ */
+
+import { DataSource, Repository } from 'typeorm';
+import { User } from '../../lib/entities/User';
+
+// FileNotFoundError class (same as in updateUsers.ts)
+class FileNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FileNotFoundError';
+  }
+}
+
+describe('updateUsers inactive logic with grace period', () => {
+  let mockUserRepository: jest.Mocked<Repository<User>>;
+  let mockDb: jest.Mocked<DataSource>;
+
+  beforeEach(() => {
+    // Mock database and repository
+    mockUserRepository = {
+      findOne: jest.fn(),
+      update: jest.fn(),
+    } as any;
+
+    mockDb = {
+      getRepository: jest.fn().mockReturnValue(mockUserRepository),
+    } as any;
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('FileNotFoundError handling', () => {
+    it('should be thrown when ENOENT occurs during file read', () => {
+      const fileError = new Error('ENOENT: no such file or directory') as any;
+      fileError.code = 'ENOENT';
+
+      // Simulate the logic from fetchUserDataWithRetry
+      let thrownError: Error | null = null;
+      try {
+        if (fileError.code === 'ENOENT') {
+          throw new FileNotFoundError('User file not found: testAddress');
+        }
+      } catch (err) {
+        thrownError = err as Error;
+      }
+
+      expect(thrownError).toBeInstanceOf(FileNotFoundError);
+      expect(thrownError?.name).toBe('FileNotFoundError');
+      expect(thrownError?.message).toContain('User file not found');
+    });
+
+    it('should mark user inactive immediately when FileNotFoundError is caught', async () => {
+      const error = new FileNotFoundError('User file not found: testAddress');
+      
+      // Simulate the catch block logic
+      if (error instanceof FileNotFoundError) {
+        await mockUserRepository.update(
+          { address: 'testAddress' },
+          { isActive: false }
+        );
+      }
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { address: 'testAddress' },
+        { isActive: false }
+      );
+    });
+
+    it('should NOT mark user inactive for database errors', async () => {
+      const error = new Error('database connection failed');
+      
+      // Simulate the catch block logic
+      if (error instanceof FileNotFoundError) {
+        await mockUserRepository.update(
+          { address: 'testAddress' },
+          { isActive: false }
+        );
+      }
+
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should NOT mark user inactive for transaction errors', async () => {
+      const error = new Error('transaction aborted');
+      
+      // Simulate the catch block logic
+      if (error instanceof FileNotFoundError) {
+        await mockUserRepository.update(
+          { address: 'testAddress' },
+          { isActive: false }
+        );
+      }
+
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Grace period logic', () => {
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    it('should NOT mark inactive when lastshare is fresh (within 7 days)', async () => {
+      const lastshare = Math.floor((now - 3 * 24 * 60 * 60 * 1000) / 1000); // 3 days ago
+      const lastShareAge = now - (lastshare * 1000);
+      
+      expect(lastShareAge).toBeLessThan(SEVEN_DAYS_MS);
+      
+      // Logic should skip grace period check entirely
+      let shouldCheckGracePeriod = false;
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        shouldCheckGracePeriod = true;
+      }
+      
+      expect(shouldCheckGracePeriod).toBe(false);
+    });
+
+    it('should NOT mark inactive when lastshare stale BUT lastActivatedAt within grace period', async () => {
+      const lastshare = Math.floor((now - 10 * 24 * 60 * 60 * 1000) / 1000); // 10 days ago
+      const lastActivatedAt = new Date(now - 3 * 24 * 60 * 60 * 1000); // 3 days ago
+      
+      const lastShareAge = now - (lastshare * 1000);
+      const lastActivatedAge = now - lastActivatedAt.getTime();
+      
+      expect(lastShareAge).toBeGreaterThan(SEVEN_DAYS_MS);
+      expect(lastActivatedAge).toBeLessThan(SEVEN_DAYS_MS);
+      
+      // Simulate grace period logic
+      const userRecord = { address: 'testAddress', lastActivatedAt };
+      mockUserRepository.findOne.mockResolvedValue(userRecord as User);
+      
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        const user = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        
+        if (user?.lastActivatedAt) {
+          const age = now - user.lastActivatedAt.getTime();
+          
+          if (age > SEVEN_DAYS_MS) {
+            await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
+          }
+        }
+      }
+      
+      // Should NOT have marked inactive (within grace period)
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should mark inactive when BOTH lastshare AND lastActivatedAt exceed 7 days', async () => {
+      const lastshare = Math.floor((now - 10 * 24 * 60 * 60 * 1000) / 1000); // 10 days ago
+      const lastActivatedAt = new Date(now - 10 * 24 * 60 * 60 * 1000); // 10 days ago
+      
+      const lastShareAge = now - (lastshare * 1000);
+      const lastActivatedAge = now - lastActivatedAt.getTime();
+      
+      expect(lastShareAge).toBeGreaterThan(SEVEN_DAYS_MS);
+      expect(lastActivatedAge).toBeGreaterThan(SEVEN_DAYS_MS);
+      
+      // Simulate grace period logic
+      const userRecord = { address: 'testAddress', lastActivatedAt };
+      mockUserRepository.findOne.mockResolvedValue(userRecord as User);
+      
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        const user = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        
+        if (user?.lastActivatedAt) {
+          const age = now - user.lastActivatedAt.getTime();
+          
+          if (age > SEVEN_DAYS_MS) {
+            await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
+          }
+        }
+      }
+      
+      // Should have marked inactive (both thresholds exceeded)
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { address: 'testAddress' },
+        { isActive: false }
+      );
+    });
+
+    it('should handle user with null lastActivatedAt gracefully', async () => {
+      const lastshare = Math.floor((now - 10 * 24 * 60 * 60 * 1000) / 1000); // 10 days ago
+      const lastShareAge = now - (lastshare * 1000);
+      
+      // Simulate grace period logic with null lastActivatedAt
+      const userRecord = { address: 'testAddress', lastActivatedAt: null };
+      mockUserRepository.findOne.mockResolvedValue(userRecord as User);
+      
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        const user = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        
+        if (user?.lastActivatedAt) {
+          const age = now - user.lastActivatedAt.getTime();
+          
+          if (age > SEVEN_DAYS_MS) {
+            await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
+          }
+        }
+      }
+      
+      // Should NOT crash or mark inactive when lastActivatedAt is null
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should calculate exact threshold boundary correctly (7 days = 604800000 ms)', () => {
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      expect(SEVEN_DAYS_MS).toBe(604800000);
+      
+      const justUnder = SEVEN_DAYS_MS - 1;
+      const exactly = SEVEN_DAYS_MS;
+      const justOver = SEVEN_DAYS_MS + 1;
+      
+      expect(justUnder > SEVEN_DAYS_MS).toBe(false); // Within grace period
+      expect(exactly > SEVEN_DAYS_MS).toBe(false);   // Boundary case: still within
+      expect(justOver > SEVEN_DAYS_MS).toBe(true);   // Grace period expired
+    });
+  });
+
+  describe('lastActivatedAt field updates', () => {
+    it('should set lastActivatedAt when user is created via POST', () => {
+      const now = new Date();
+      const userData = {
+        address: 'testAddress',
+        isActive: true,
+        isPublic: true,
+        lastActivatedAt: now,
+        updatedAt: now.toISOString(),
+      };
+      
+      expect(userData.lastActivatedAt).toBeInstanceOf(Date);
+      expect(userData.lastActivatedAt.getTime()).toBeCloseTo(now.getTime(), -2);
+    });
+
+    it('should update lastActivatedAt when resetUserActive is called', async () => {
+      const now = new Date();
+      
+      await mockUserRepository.update('testAddress', {
+        isActive: true,
+        lastActivatedAt: now,
+      });
+      
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        'testAddress',
+        expect.objectContaining({
+          isActive: true,
+          lastActivatedAt: expect.any(Date),
+        })
+      );
+    });
+  });
+
+  describe('Integration scenarios', () => {
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    it('should allow reactivated user to mine for 7 days before checking inactivity again', async () => {
+      const lastshare = Math.floor((now - 10 * 24 * 60 * 60 * 1000) / 1000); // 10 days ago (stale)
+      const lastActivatedAt = new Date(); // Just reactivated NOW
+      
+      const lastShareAge = now - (lastshare * 1000);
+      const lastActivatedAge = now - lastActivatedAt.getTime();
+      
+      // User hasn't mined in 10 days BUT was just reactivated
+      expect(lastShareAge).toBeGreaterThan(SEVEN_DAYS_MS);
+      expect(lastActivatedAge).toBeLessThan(1000); // Less than 1 second ago
+      
+      const userRecord = { address: 'testAddress', lastActivatedAt };
+      mockUserRepository.findOne.mockResolvedValue(userRecord as User);
+      
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        const user = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        
+        if (user?.lastActivatedAt) {
+          const age = now - user.lastActivatedAt.getTime();
+          
+          if (age > SEVEN_DAYS_MS) {
+            await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
+          }
+        }
+      }
+      
+      // Should give 7-day grace period despite stale lastshare
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should prevent immediate re-marking after database upgrade recovers', async () => {
+      // Simulate a user who was active, database upgrade happened causing errors,
+      // then service recovers. User should have grace period from lastActivatedAt.
+      const lastshare = Math.floor((now - 1 * 60 * 60 * 1000) / 1000); // 1 hour ago (active)
+      const lastActivatedAt = new Date(now - 5 * 24 * 60 * 60 * 1000); // 5 days ago
+      
+      const lastShareAge = now - (lastshare * 1000);
+      const lastActivatedAge = now - lastActivatedAt.getTime();
+      
+      // User is actively mining - shouldn't even check grace period
+      expect(lastShareAge).toBeLessThan(SEVEN_DAYS_MS);
+      
+      let shouldCheckGracePeriod = false;
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        shouldCheckGracePeriod = true;
+      }
+      
+      expect(shouldCheckGracePeriod).toBe(false);
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+  });
+});

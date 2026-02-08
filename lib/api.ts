@@ -441,7 +441,10 @@ export async function getOnlineDevices(limit: number = 10) {
 export async function resetUserActive(address: string): Promise<void> {
   const db = await getDb();
   const userRepository = db.getRepository(User);
-  await userRepository.update(address, { isActive: true });
+  await userRepository.update(address, {
+    isActive: true,
+    lastActivatedAt: new Date(),
+  });
   // Clear the cached user data so the next fetch gets fresh DB data
   cacheDelete(`userWithWorkers:${address}`);
 }

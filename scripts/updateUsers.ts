@@ -3,6 +3,13 @@ import 'reflect-metadata';
 import { readJsonStable, delay } from '../utils/readFileStable';
 import { validateAndResolveUserPath } from '../utils/validateLocalPath';
 
+class FileNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FileNotFoundError';
+  }
+}
+
 import { getDb } from '../lib/db';
 import { cacheDelete } from '../lib/api';
 import { User } from '../lib/entities/User';
@@ -52,6 +59,8 @@ interface UserData {
 }
 
 async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<UserData> {
+  let lastError: any;
+  
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const response = await fetch(apiUrl);
@@ -62,19 +71,40 @@ async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<
 
       return (await response.json()) as UserData;
     } catch (error: any) {
+      lastError = error;
+      
       if (error.cause?.code === 'ERR_INVALID_URL') {
         // When API_URL is a filesystem path (local logs), enforce a safe root
         const basePath = process.env.API_URL || '';
-        const resolved = validateAndResolveUserPath(address, basePath);
-        return await readJsonStable(resolved, {
-          retries: 6,
-          backoffMs: 50,
-        }) as UserData;
+        
+        try {
+          const resolved = validateAndResolveUserPath(address, basePath);
+          return await readJsonStable(resolved, {
+            retries: 6,
+            backoffMs: 50,
+          }) as UserData;
+        } catch (fileError: any) {
+          lastError = fileError;
+          
+          // ENOENT could be ckpool recreating file - allow retry
+          if (fileError.code === 'ENOENT' && attempt < MAX_RETRIES) {
+            console.log(`File not found for ${address} (attempt ${attempt}/${MAX_RETRIES}), retrying...`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempt));
+            continue;
+          }
+          
+          // After max retries, if still ENOENT, it's truly missing
+          if (fileError.code === 'ENOENT') {
+            throw new FileNotFoundError(`User file not found: ${address}`);
+          }
+          
+          throw fileError; // Other file errors propagate immediately
+        }
       }
 
       if (attempt === MAX_RETRIES) {
         console.error(`Failed to fetch data for ${address} after ${MAX_RETRIES} attempts`);
-        throw error;
+        throw lastError;
       }
 
       console.log(`Attempt ${attempt} failed for ${address}. Retrying...`);
@@ -98,6 +128,30 @@ async function updateUser(address: string): Promise<void> {
   const db = await getDb();
 
   userData = await fetchUserDataWithRetry(address, apiUrl);
+
+  // Check for stale mining activity (7 days threshold for both lastshare and lastActivatedAt)
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const lastShareAge = now - (userData.lastshare * 1000); // lastshare is in seconds
+  
+  if (lastShareAge > SEVEN_DAYS_MS) {
+    // User hasn't mined in 7+ days - check grace period
+    const userRepository = db.getRepository(User);
+    const userRecord = await userRepository.findOne({ where: { address } });
+    
+    if (userRecord?.lastActivatedAt) {
+      const lastActivatedAge = now - userRecord.lastActivatedAt.getTime();
+      
+      if (lastActivatedAge > SEVEN_DAYS_MS) {
+        // Both thresholds exceeded - mark inactive and skip update
+        await userRepository.update({ address }, { isActive: false });
+        console.log(`Marked user ${address} as inactive (7-day grace period expired)`);
+        return; // Skip stats update for inactive user
+      } else {
+        console.log(`User ${address} hasn't mined in 7+ days but within grace period`);
+      }
+    }
+  }
 
   await db.transaction(async (manager) => {
     const userRepository = manager.getRepository(User);
@@ -241,13 +295,19 @@ async function main() {
             await updateUser(user.address);
           } catch (error) {
             console.error(`Failed to update user ${user.address}:`, error);
-            // Try to mark user as inactive, but don't let this secondary operation fail the batch
-            try {
-              await userRepository.update({ address: user.address }, { isActive: false });
-              console.log(`Marked user ${user.address} as inactive`);
-            } catch (markError) {
-              console.error(`Could not mark user ${user.address} as inactive:`, markError);
-              // Silently continue - user will remain active with stale data
+            
+            // ONLY mark inactive for FileNotFoundError (immediate) or stale lastshare + lastActivatedAt (grace period)
+            if (error instanceof FileNotFoundError) {
+              // File doesn't exist - mark inactive immediately
+              try {
+                await userRepository.update({ address: user.address }, { isActive: false });
+                console.log(`Marked user ${user.address} as inactive (file not found)`);
+              } catch (markError) {
+                console.error(`Could not mark user ${user.address} as inactive:`, markError);
+              }
+            } else {
+              // Database error, transaction failure, etc. - just log
+              console.error(`Non-file error for ${user.address}, skipping inactive marking`);
             }
           }
         })

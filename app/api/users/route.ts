@@ -49,6 +49,7 @@ export async function POST(request: Request) {
       address,
       isActive: true,
       isPublic: true,
+      lastActivatedAt: new Date(),
       updatedAt: new Date().toISOString(),
     });
 
