@@ -165,6 +165,7 @@ async function updateUser(address: string): Promise<void> {
         address,
         authorised: userData.authorised.toString(),
         isActive: true,
+        lastActivatedAt: new Date(),
         updatedAt: new Date().toISOString(),
       });
     }

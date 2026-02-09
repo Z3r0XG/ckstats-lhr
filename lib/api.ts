@@ -543,6 +543,7 @@ export async function updateSingleUser(
           address,
           authorised: String(userData.authorised),
           isActive: true,
+          lastActivatedAt: new Date(),
           updatedAt: new Date().toISOString(),
         });
         anyChanged = true;

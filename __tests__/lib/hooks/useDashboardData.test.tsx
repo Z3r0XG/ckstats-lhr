@@ -31,6 +31,7 @@ const mockPayload: DashboardPayload = {
   historicalStats: [],
   topUserHashrates: [],
   topUserDifficulties: [],
+  topUserLoyalty: [],
   onlineDevices: [],
   highScores: [],
   limits: {

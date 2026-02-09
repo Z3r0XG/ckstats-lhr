@@ -128,8 +128,8 @@ describe('updateUsers retry logic', () => {
     global.setTimeout = jest.fn((callback: any, delay: number) => {
       delays.push(delay);
       // Call the real setTimeout
-      return originalSetTimeout(callback, delay) as any;
-    });
+      return originalSetTimeout(callback, delay);
+    }) as unknown as typeof global.setTimeout;
 
     try {
       fetchMock.mockRejectedValue(new Error('Network error'));
