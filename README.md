@@ -30,7 +30,7 @@ that made this enhanced version possible.
 ## Compatibility
 
 Designed for CKPool instances supporting **fractional difficulty** (sub-"1"):
-- **Recommended**: [CKPool-LHR](https://github.com/Z3r0XG/ckpool-lhr)
+- **Recommended**: [ckpool-lhr](https://github.com/Z3r0XG/ckpool-lhr)
 - **Limited**: Original CKPool (difficulty tracking ≥1.0 only)
 - **Untested**: Other CKPool forks (may work with reduced functionality)
 
