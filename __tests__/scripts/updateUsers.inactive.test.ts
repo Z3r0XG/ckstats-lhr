@@ -202,11 +202,17 @@ describe('updateUsers inactive logic with grace period', () => {
           if (age > SEVEN_DAYS_MS) {
             await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
           }
+        } else {
+          // lastActivatedAt is null -> treat as expired, deactivate
+          await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
         }
       }
       
-      // Should NOT crash or mark inactive when lastActivatedAt is null
-      expect(mockUserRepository.update).not.toHaveBeenCalled();
+      // Should mark inactive when lastActivatedAt is null and lastShareAge > 7 days
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { address: 'testAddress' },
+        { isActive: false }
+      );
     });
 
     it('should calculate exact threshold boundary correctly (7 days = 604800000 ms)', () => {

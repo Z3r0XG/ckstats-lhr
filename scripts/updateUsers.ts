@@ -150,6 +150,11 @@ async function updateUser(address: string): Promise<void> {
       } else {
         console.log(`User ${address} hasn't mined in 7+ days but within grace period`);
       }
+    } else {
+      // lastActivatedAt is null -> treat as expired, deactivate
+      await userRepository.update({ address }, { isActive: false });
+      console.log(`Marked user ${address} as inactive (lastActivatedAt null)`);
+      return; // Skip stats update
     }
   }
 
@@ -157,6 +162,11 @@ async function updateUser(address: string): Promise<void> {
     const userRepository = manager.getRepository(User);
     const user = await userRepository.findOne({ where: { address } });
     if (user) {
+      // Repair null lastActivatedAt for active users (still mining within 7 days)
+      if (user.lastActivatedAt === null) {
+        user.lastActivatedAt = user.createdAt || new Date();
+        console.log(`Repaired null lastActivatedAt for user ${address}`);
+      }
       user.authorised = userData.authorised.toString();
       user.isActive = true;
       await userRepository.save(user);

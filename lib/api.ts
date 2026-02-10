@@ -528,6 +528,13 @@ export async function updateSingleUser(
       const userRepository = manager.getRepository(User);
       const user = await userRepository.findOne({ where: { address } });
       if (user) {
+        // Repair null lastActivatedAt for active users (still mining within 7 days)
+        if (user.lastActivatedAt === null) {
+          user.lastActivatedAt = user.createdAt || new Date();
+          await userRepository.save(user);
+          anyChanged = true;
+          console.log(`Repaired null lastActivatedAt for user ${address}`);
+        }
         const newAuthorised = String(userData.authorised);
         if (
           String(user.authorised) !== newAuthorised ||
