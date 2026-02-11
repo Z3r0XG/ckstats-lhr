@@ -308,10 +308,25 @@ async function main() {
             
             // Mark inactive only if the file was not found
             if (error instanceof FileNotFoundError) {
-              // File doesn't exist - mark inactive immediately
+              // File doesn't exist - check grace period before marking inactive
               try {
+                const userRecord = await userRepository.findOne({ where: { address: user.address } });
+                
+                if (userRecord?.lastActivatedAt) {
+                  const activatedAge = Date.now() - userRecord.lastActivatedAt.getTime();
+                  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+                  
+                  if (activatedAge <= SEVEN_DAYS_MS) {
+                    // Within grace period - user has time to start mining
+                    const daysRemaining = Math.ceil((SEVEN_DAYS_MS - activatedAge) / (24 * 60 * 60 * 1000));
+                    console.log(`User ${user.address} has no pool file but within grace period (${daysRemaining} days remaining)`);
+                    return; // Skip inactive marking, exit this user's processing
+                  }
+                }
+                
+                // No lastActivatedAt or grace period expired - mark inactive
                 await userRepository.update({ address: user.address }, { isActive: false });
-                console.log(`Marked user ${user.address} as inactive (file not found)`);
+                console.log(`Marked user ${user.address} as inactive (no pool file, grace period expired)`);
                 // Invalidate caches to prevent stale data
                 cacheDelete(`userWithWorkers:${user.address}`);
                 cacheDelete(`userHistorical:${user.address}`);

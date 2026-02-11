@@ -38,6 +38,9 @@ describe('updateUsers inactive logic with grace period', () => {
   });
 
   describe('FileNotFoundError handling', () => {
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
     it('should be thrown when ENOENT occurs during file read', () => {
       const fileError = new Error('ENOENT: no such file or directory') as any;
       fileError.code = 'ENOENT';
@@ -57,21 +60,144 @@ describe('updateUsers inactive logic with grace period', () => {
       expect(thrownError?.message).toContain('User file not found');
     });
 
-    it('should mark user inactive immediately when FileNotFoundError is caught', async () => {
+    it('should NOT mark inactive when FileNotFoundError and within grace period (1 day old)', async () => {
+      // User activated 1 day ago, no pool file yet
+      const lastActivatedAt = new Date(now - 1 * 24 * 60 * 60 * 1000); // 1 day ago
       const error = new FileNotFoundError('User file not found: testAddress');
       
-      // Simulate the catch block logic
+      mockUserRepository.findOne.mockResolvedValue({ 
+        address: 'testAddress', 
+        lastActivatedAt 
+      } as User);
+      
+      // Simulate the catch block logic with grace period check
       if (error instanceof FileNotFoundError) {
+        const userRecord = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        
+        if (userRecord?.lastActivatedAt) {
+          const activatedAge = now - userRecord.lastActivatedAt.getTime();
+          
+          if (activatedAge <= SEVEN_DAYS_MS) {
+            // Within grace period - skip inactive marking
+            expect(activatedAge).toBeLessThan(SEVEN_DAYS_MS);
+            return; // Don't mark inactive
+          }
+        }
+        
         await mockUserRepository.update(
           { address: 'testAddress' },
           { isActive: false }
         );
       }
 
+      // Should NOT have marked inactive (within grace period)
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should mark inactive when FileNotFoundError and grace period expired (8 days old)', async () => {
+      // User activated 8 days ago, no pool file, grace expired
+      const lastActivatedAt = new Date(now - 8 * 24 * 60 * 60 * 1000); // 8 days ago
+      const error = new FileNotFoundError('User file not found: testAddress');
+      
+      mockUserRepository.findOne.mockResolvedValue({ 
+        address: 'testAddress', 
+        lastActivatedAt 
+      } as User);
+      
+      // Simulate the catch block logic with grace period check
+      if (error instanceof FileNotFoundError) {
+        const userRecord = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        
+        if (userRecord?.lastActivatedAt) {
+          const activatedAge = now - userRecord.lastActivatedAt.getTime();
+          
+          if (activatedAge <= SEVEN_DAYS_MS) {
+            // Within grace period - skip inactive marking
+            return;
+          }
+        }
+        
+        // Grace period expired - mark inactive
+        await mockUserRepository.update(
+          { address: 'testAddress' },
+          { isActive: false }
+        );
+      }
+
+      // Should have marked inactive (grace expired)
       expect(mockUserRepository.update).toHaveBeenCalledWith(
         { address: 'testAddress' },
         { isActive: false }
       );
+    });
+
+    it('should mark inactive immediately when FileNotFoundError and NULL lastActivatedAt', async () => {
+      // User with NULL lastActivatedAt, no pool file
+      const error = new FileNotFoundError('User file not found: testAddress');
+      
+      mockUserRepository.findOne.mockResolvedValue({ 
+        address: 'testAddress', 
+        lastActivatedAt: null 
+      } as User);
+      
+      // Simulate the catch block logic with grace period check
+      if (error instanceof FileNotFoundError) {
+        const userRecord = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        
+        if (userRecord?.lastActivatedAt) {
+          const activatedAge = now - userRecord.lastActivatedAt.getTime();
+          
+          if (activatedAge <= SEVEN_DAYS_MS) {
+            return;
+          }
+        }
+        
+        // No lastActivatedAt - mark inactive immediately
+        await mockUserRepository.update(
+          { address: 'testAddress' },
+          { isActive: false }
+        );
+      }
+
+      // Should mark inactive (no grace period without lastActivatedAt)
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { address: 'testAddress' },
+        { isActive: false }
+      );
+    });
+
+    it('should NOT mark inactive at grace period boundary (exactly 7 days)', async () => {
+      // User activated exactly 7 days ago
+      const lastActivatedAt = new Date(now - SEVEN_DAYS_MS);
+      const error = new FileNotFoundError('User file not found: testAddress');
+      
+      mockUserRepository.findOne.mockResolvedValue({ 
+        address: 'testAddress', 
+        lastActivatedAt 
+      } as User);
+      
+      // Simulate the catch block logic with grace period check
+      if (error instanceof FileNotFoundError) {
+        const userRecord = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        
+        if (userRecord?.lastActivatedAt) {
+          const activatedAge = now - userRecord.lastActivatedAt.getTime();
+          
+          if (activatedAge <= SEVEN_DAYS_MS) {
+            // Still within grace (boundary case)
+            expect(activatedAge).toBe(SEVEN_DAYS_MS);
+            return;
+          }
+        }
+        
+        await mockUserRepository.update(
+          { address: 'testAddress' },
+          { isActive: false }
+        );
+      }
+
+      // Should NOT mark inactive (boundary case still within grace)
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
     });
 
     it('should NOT mark user inactive for database errors', async () => {
