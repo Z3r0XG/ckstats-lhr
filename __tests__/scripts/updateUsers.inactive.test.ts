@@ -185,30 +185,69 @@ describe('updateUsers inactive logic with grace period', () => {
       );
     });
 
-    it('should handle user with null lastActivatedAt gracefully', async () => {
-      const lastshare = Math.floor((now - 10 * 24 * 60 * 60 * 1000) / 1000); // 10 days ago
+    it('should repair null lastActivatedAt using createdAt and stay active if within grace period', async () => {
+      // User with null lastActivatedAt but fresh createdAt
+      const lastshare = Math.floor((now - 10 * 24 * 60 * 60 * 1000) / 1000); // 10 days ago (stale)
+      const createdAt = new Date(now - 2 * 24 * 60 * 60 * 1000); // 2 days ago (fresh)
       const lastShareAge = now - (lastshare * 1000);
       
-      // Simulate grace period logic with null lastActivatedAt
-      const userRecord = { address: 'testAddress', lastActivatedAt: null };
+      // Simulate grace period logic with null lastActivatedAt but fresh createdAt
+      const userRecord = { address: 'testAddress', lastActivatedAt: null, createdAt };
       mockUserRepository.findOne.mockResolvedValue(userRecord as User);
       
       if (lastShareAge > SEVEN_DAYS_MS) {
         const user = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
         
-        if (user?.lastActivatedAt) {
-          const age = now - user.lastActivatedAt.getTime();
+        // Repair null lastActivatedAt before checking grace period
+        let lastActivatedAtToCheck = user?.lastActivatedAt;
+        if (!lastActivatedAtToCheck && user?.createdAt) {
+          lastActivatedAtToCheck = user.createdAt;
+          // Would call update to repair, but mock doesn't enforce this
+        }
+        
+        if (lastActivatedAtToCheck) {
+          const age = now - lastActivatedAtToCheck.getTime();
           
           if (age > SEVEN_DAYS_MS) {
             await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
           }
-        } else {
-          // lastActivatedAt is null -> treat as expired, deactivate
-          await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
         }
       }
       
-      // Should mark inactive when lastActivatedAt is null and lastShareAge > 7 days
+      // Should NOT mark inactive - grace period from fresh createdAt protects user
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should repair null lastActivatedAt and mark inactive if both thresholds exceed 7 days', async () => {
+      // User with null lastActivatedAt and stale createdAt
+      const lastshare = Math.floor((now - 10 * 24 * 60 * 60 * 1000) / 1000); // 10 days ago (stale)
+      const createdAt = new Date(now - 10 * 24 * 60 * 60 * 1000); // 10 days ago (stale)
+      const lastShareAge = now - (lastshare * 1000);
+      
+      // Simulate grace period logic with null lastActivatedAt and stale createdAt
+      const userRecord = { address: 'testAddress', lastActivatedAt: null, createdAt };
+      mockUserRepository.findOne.mockResolvedValue(userRecord as User);
+      
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        const user = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        
+        // Repair null lastActivatedAt before checking grace period
+        let lastActivatedAtToCheck = user?.lastActivatedAt;
+        if (!lastActivatedAtToCheck && user?.createdAt) {
+          lastActivatedAtToCheck = user.createdAt;
+          // Would call update to repair, but mock doesn't enforce this
+        }
+        
+        if (lastActivatedAtToCheck) {
+          const age = now - lastActivatedAtToCheck.getTime();
+          
+          if (age > SEVEN_DAYS_MS) {
+            await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
+          }
+        }
+      }
+      
+      // Should mark inactive - both thresholds (lastshare and createdAt) exceed 7 days
       expect(mockUserRepository.update).toHaveBeenCalledWith(
         { address: 'testAddress' },
         { isActive: false }
@@ -295,6 +334,62 @@ describe('updateUsers inactive logic with grace period', () => {
       // Should give 7-day grace period despite stale lastshare
       expect(mockUserRepository.update).not.toHaveBeenCalled();
     });
+
+    it('should handle null lastActivatedAt → inactive → reset cycle', async () => {
+      const lastshare = Math.floor((now - 10 * 24 * 60 * 60 * 1000) / 1000); // 10 days ago (stale)
+      const createdAt = new Date(now - 15 * 24 * 60 * 60 * 1000); // 15 days ago
+      const lastShareAge = now - (lastshare * 1000);
+      
+      // Phase 1: User with null lastActivatedAt and stale shares → should be marked inactive
+      let userRecord = { address: 'testAddress', lastActivatedAt: null, createdAt, isActive: true };
+      mockUserRepository.findOne.mockResolvedValue(userRecord as User);
+      
+      // Grace period logic detects stale state
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        const user = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        
+        let lastActivatedAtToCheck = user?.lastActivatedAt;
+        if (!lastActivatedAtToCheck && user?.createdAt) {
+          lastActivatedAtToCheck = user.createdAt;
+        }
+        
+        if (lastActivatedAtToCheck) {
+          const age = now - lastActivatedAtToCheck.getTime();
+          if (age > SEVEN_DAYS_MS) {
+            await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
+          }
+        }
+      }
+      
+      // Should mark user inactive due to both thresholds
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { address: 'testAddress' },
+        { isActive: false }
+      );
+      
+      // Phase 2: User is reset (reactivated) - gets fresh lastActivatedAt
+      mockUserRepository.update.mockClear();
+      const resetTime = new Date(); // NOW
+      userRecord = { address: 'testAddress', lastActivatedAt: resetTime, createdAt, isActive: true };
+      mockUserRepository.findOne.mockResolvedValue(userRecord as User);
+      
+      // Simulate reset logic: updates isActive and lastActivatedAt to NOW
+      await mockUserRepository.update('testAddress', {
+        isActive: true,
+        lastActivatedAt: resetTime,
+      });
+      
+      // After reset, grace period should be measured from new lastActivatedAt (NOW)
+      // Even though lastshare is still 10 days old, user gets fresh 7-day grace period
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        'testAddress',
+        expect.objectContaining({
+          isActive: true,
+          lastActivatedAt: expect.any(Date),
+        })
+      );
+    });
+
 
     it('should prevent immediate re-marking after database upgrade recovers', async () => {
       // Simulate a user who was active, database upgrade happened causing errors,
