@@ -298,21 +298,38 @@ describe('updateUsers inactive logic with grace period', () => {
 
     it('should prevent immediate re-marking after database upgrade recovers', async () => {
       // Simulate a user who was active, database upgrade happened causing errors,
-      // then service recovers. User should have grace period from lastActivatedAt.
-      const lastshare = Math.floor((now - 1 * 60 * 60 * 1000) / 1000); // 1 hour ago (active)
-      const lastActivatedAt = new Date(now - 5 * 24 * 60 * 60 * 1000); // 5 days ago
+      // then service recovers. User should stay active due to fresh mining despite stale lastActivatedAt.
+      const lastshare = Math.floor((now - 1 * 60 * 60 * 1000) / 1000); // 1 hour ago (active/fresh)
+      const lastActivatedAt = new Date(now - 5 * 24 * 60 * 60 * 1000); // 5 days ago (stale)
       
       const lastShareAge = now - (lastshare * 1000);
       
-      // User is actively mining - shouldn't even check grace period
+      // User is actively mining (fresh shares) - shouldn't even check grace period
       expect(lastShareAge).toBeLessThan(SEVEN_DAYS_MS);
       
+      // Set up mock to simulate the database state
+      const userRecord = { address: 'testAddress', lastActivatedAt };
+      mockUserRepository.findOne.mockResolvedValue(userRecord as User);
+      
+      // Simulate the actual grace period check logic
       let shouldCheckGracePeriod = false;
       if (lastShareAge > SEVEN_DAYS_MS) {
+        // User hasn't mined in 7+ days - would check grace period
         shouldCheckGracePeriod = true;
+        
+        const user = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        if (user?.lastActivatedAt) {
+          const age = now - user.lastActivatedAt.getTime();
+          
+          if (age > SEVEN_DAYS_MS) {
+            await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
+          }
+        }
       }
       
+      // Fresh mining means grace period check is skipped entirely
       expect(shouldCheckGracePeriod).toBe(false);
+      // User should not be marked inactive
       expect(mockUserRepository.update).not.toHaveBeenCalled();
     });
   });
