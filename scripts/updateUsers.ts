@@ -86,14 +86,7 @@ async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<
         } catch (fileError: any) {
           lastError = fileError;
           
-          // ENOENT could be ckpool recreating file - allow retry
-          if (fileError.code === 'ENOENT' && attempt < MAX_RETRIES) {
-            console.log(`File not found for ${address} (attempt ${attempt}/${MAX_RETRIES}), retrying...`);
-            await delay(RETRY_DELAY_MS * attempt);
-            continue;
-          }
-          
-          // After max retries, if still ENOENT, it's truly missing
+          // readJsonStable handles temporary missing files; if it still fails, file is gone
           if (fileError.code === 'ENOENT') {
             throw new FileNotFoundError(`User file not found: ${address}`);
           }
