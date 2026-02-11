@@ -89,7 +89,7 @@ async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<
           // ENOENT could be ckpool recreating file - allow retry
           if (fileError.code === 'ENOENT' && attempt < MAX_RETRIES) {
             console.log(`File not found for ${address} (attempt ${attempt}/${MAX_RETRIES}), retrying...`);
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempt));
+            await delay(RETRY_DELAY_MS * attempt);
             continue;
           }
           
