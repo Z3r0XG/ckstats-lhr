@@ -266,6 +266,98 @@ describe('updateUsers inactive logic with grace period', () => {
       expect(exactly > SEVEN_DAYS_MS).toBe(false);   // Boundary case: still within
       expect(justOver > SEVEN_DAYS_MS).toBe(true);   // Grace period expired
     });
+
+    it('should keep user active when shares fresh but lastActivatedAt is stale', async () => {
+      // Scenario 2: Fresh shares bypass grace period regardless of lastActivatedAt
+      const lastshare = Math.floor((now - 1 * 60 * 60 * 1000) / 1000); // 1 hour ago (fresh)
+      const lastActivatedAt = new Date(now - 10 * 24 * 60 * 60 * 1000); // 10 days ago (stale)
+      
+      const lastShareAge = now - (lastshare * 1000);
+      const lastActivatedAge = now - lastActivatedAt.getTime();
+      
+      expect(lastShareAge).toBeLessThan(SEVEN_DAYS_MS);
+      expect(lastActivatedAge).toBeGreaterThan(SEVEN_DAYS_MS);
+      
+      // Fresh shares should skip grace period check entirely
+      let shouldCheckGracePeriod = false;
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        shouldCheckGracePeriod = true;
+      }
+      
+      // Outer check fails → grace period logic never runs
+      expect(shouldCheckGracePeriod).toBe(false);
+    });
+
+    it('should keep user active when shares fresh and lastActivatedAt is NULL', async () => {
+      // Scenario 3: Fresh shares + NULL lastActivatedAt (outer check skips before NULL repair)
+      const lastshare = Math.floor((now - 2 * 60 * 60 * 1000) / 1000); // 2 hours ago (fresh)
+      const lastShareAge = now - (lastshare * 1000);
+      
+      expect(lastShareAge).toBeLessThan(SEVEN_DAYS_MS);
+      
+      // NULL lastActivatedAt is irrelevant when shares are fresh
+      // Outer check skips before reaching NULL repair logic
+      let shouldCheckGracePeriod = false;
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        shouldCheckGracePeriod = true;
+      }
+      
+      expect(shouldCheckGracePeriod).toBe(false);
+    });
+
+    it('should keep reset user active when actively mining', async () => {
+      // Scenario 10: Reset + fresh shares → always active
+      const lastshare = Math.floor((now - 30 * 60 * 1000) / 1000); // 30 minutes ago (fresh)
+      const lastActivatedAt = new Date(); // Just reset NOW
+      
+      const lastShareAge = now - (lastshare * 1000);
+      const lastActivatedAge = now - lastActivatedAt.getTime();
+      
+      expect(lastShareAge).toBeLessThan(SEVEN_DAYS_MS);
+      expect(lastActivatedAge).toBeLessThan(1000); // Less than 1 second
+      
+      // Fresh shares → outer check skips (even though lastActivatedAt is fresh too)
+      let shouldCheckGracePeriod = false;
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        shouldCheckGracePeriod = true;
+      }
+      
+      expect(shouldCheckGracePeriod).toBe(false);
+    });
+
+    it('should mark inactive when reset grace period expires without mining', async () => {
+      // Scenario 13: Reset 10 days ago, no mining for 15 days → both stale → inactive
+      const lastshare = Math.floor((now - 15 * 24 * 60 * 60 * 1000) / 1000); // 15 days ago (stale)
+      const lastActivatedAt = new Date(now - 10 * 24 * 60 * 60 * 1000); // 10 days ago (reset 10d ago, stale)
+      
+      const lastShareAge = now - (lastshare * 1000);
+      const lastActivatedAge = now - lastActivatedAt.getTime();
+      
+      expect(lastShareAge).toBeGreaterThan(SEVEN_DAYS_MS);
+      expect(lastActivatedAge).toBeGreaterThan(SEVEN_DAYS_MS);
+      
+      // Simulate grace period logic
+      const userRecord = { address: 'testAddress', lastActivatedAt };
+      mockUserRepository.findOne.mockResolvedValue(userRecord as User);
+      
+      if (lastShareAge > SEVEN_DAYS_MS) {
+        const user = await mockUserRepository.findOne({ where: { address: 'testAddress' } });
+        
+        if (user?.lastActivatedAt) {
+          const age = now - user.lastActivatedAt.getTime();
+          
+          if (age > SEVEN_DAYS_MS) {
+            await mockUserRepository.update({ address: 'testAddress' }, { isActive: false });
+          }
+        }
+      }
+      
+      // Both thresholds exceeded → inactive
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { address: 'testAddress' },
+        { isActive: false }
+      );
+    });
   });
 
   describe('lastActivatedAt field updates', () => {

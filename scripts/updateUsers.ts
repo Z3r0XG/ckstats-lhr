@@ -121,47 +121,42 @@ async function updateUser(address: string): Promise<void> {
 
   userData = await fetchUserDataWithRetry(address, apiUrl);
 
-  // Check for stale mining activity (7 days threshold for both lastshare and lastActivatedAt)
+  // Grace period constants
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
   const now = Date.now();
   const lastShareAge = now - (userData.lastshare * 1000); // lastshare is in seconds
   
-  if (lastShareAge > SEVEN_DAYS_MS) {
-    // User hasn't mined in 7+ days - check grace period
-    const userRepository = db.getRepository(User);
-    const userRecord = await userRepository.findOne({ where: { address } });
+  // Track whether user should be marked inactive (used after transaction for cache invalidation)
+  let shouldMarkInactive = false;
+
+  await db.transaction(async (manager) => {
+    const userRepository = manager.getRepository(User);
+    const user = await userRepository.findOne({ where: { address } });
     
-    // Repair null lastActivatedAt before checking grace period (use createdAt as fallback)
-    // This ensures fair treatment: all users get grace period, even if never explicitly activated
-    let lastActivatedAtToCheck = userRecord?.lastActivatedAt;
-    if (!lastActivatedAtToCheck && userRecord?.createdAt) {
-      lastActivatedAtToCheck = userRecord.createdAt;
-      await userRepository.update({ address }, { lastActivatedAt: userRecord.createdAt });
+    // Repair null lastActivatedAt BEFORE any grace period evaluation (use createdAt as fallback)
+    // This ensures all users have lastActivatedAt set for future grace period checks
+    if (user && !user.lastActivatedAt && user.createdAt) {
+      user.lastActivatedAt = user.createdAt;
       console.log(`Repaired null lastActivatedAt for user ${address}`);
     }
     
-    if (lastActivatedAtToCheck) {
-      const lastActivatedAge = now - lastActivatedAtToCheck.getTime();
+    // Check for stale mining activity (7 days threshold for both lastshare and lastActivatedAt)
+    if (lastShareAge > SEVEN_DAYS_MS && user && user.lastActivatedAt) {
+      // User hasn't mined in 7+ days - check grace period
+      const lastActivatedAge = now - user.lastActivatedAt.getTime();
       
       if (lastActivatedAge > SEVEN_DAYS_MS) {
-        // Both thresholds exceeded - mark inactive and skip update
-        await userRepository.update({ address }, { isActive: false });
+        // Both thresholds exceeded - mark inactive and skip stats update
+        user.isActive = false;
+        await userRepository.save(user);
+        shouldMarkInactive = true;
         console.log(`Marked user ${address} as inactive (7-day grace period expired)`);
-        // Invalidate caches to prevent stale data
-        cacheDelete(`userWithWorkers:${address}`);
-        cacheDelete(`userHistorical:${address}`);
-        cacheDeletePrefix('topUserHashrates');
-        cacheDeletePrefix('topUserLoyalty');
         return; // Skip stats update for inactive user
       } else {
         console.log(`User ${address} hasn't mined in 7+ days but within grace period`);
       }
     }
-  }
-
-  await db.transaction(async (manager) => {
-    const userRepository = manager.getRepository(User);
-    const user = await userRepository.findOne({ where: { address } });
+    
     if (user) {
       user.authorised = userData.authorised.toString();
       user.isActive = true;
@@ -270,6 +265,14 @@ async function updateUser(address: string): Promise<void> {
       cacheDelete(`workerWithStats:${address}:${workerName}`);
     }
   });
+
+  // Invalidate caches after transaction commits (for inactive users)
+  if (shouldMarkInactive) {
+    cacheDelete(`userWithWorkers:${address}`);
+    cacheDelete(`userHistorical:${address}`);
+    cacheDeletePrefix('topUserHashrates');
+    cacheDeletePrefix('topUserLoyalty');
+  }
 
   console.log(`Updated user and workers for: ${address}`);
 }
