@@ -317,7 +317,7 @@ async function main() {
           } catch (error) {
             console.error(`Failed to update user ${user.address}:`, error);
             
-            // ONLY mark inactive for FileNotFoundError (immediate) or stale lastshare + lastActivatedAt (grace period)
+            // Mark inactive only if the file was not found
             if (error instanceof FileNotFoundError) {
               // File doesn't exist - mark inactive immediately
               try {
