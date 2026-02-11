@@ -11,7 +11,7 @@ class FileNotFoundError extends Error {
 }
 
 import { getDb } from '../lib/db';
-import { cacheDelete } from '../lib/api';
+import { cacheDelete, cacheDeletePrefix } from '../lib/api';
 import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
@@ -146,6 +146,11 @@ async function updateUser(address: string): Promise<void> {
         // Both thresholds exceeded - mark inactive and skip update
         await userRepository.update({ address }, { isActive: false });
         console.log(`Marked user ${address} as inactive (7-day grace period expired)`);
+        // Invalidate caches to prevent stale data
+        cacheDelete(`userWithWorkers:${address}`);
+        cacheDelete(`userHistorical:${address}`);
+        cacheDeletePrefix('topUser');
+        cacheDeletePrefix('onlineDevices');
         return; // Skip stats update for inactive user
       } else {
         console.log(`User ${address} hasn't mined in 7+ days but within grace period`);
@@ -154,6 +159,11 @@ async function updateUser(address: string): Promise<void> {
       // lastActivatedAt is null -> treat as expired, deactivate
       await userRepository.update({ address }, { isActive: false });
       console.log(`Marked user ${address} as inactive (lastActivatedAt null)`);
+      // Invalidate caches to prevent stale data
+      cacheDelete(`userWithWorkers:${address}`);
+      cacheDelete(`userHistorical:${address}`);
+      cacheDeletePrefix('topUser');
+      cacheDeletePrefix('onlineDevices');
       return; // Skip stats update
     }
   }
@@ -313,6 +323,11 @@ async function main() {
               try {
                 await userRepository.update({ address: user.address }, { isActive: false });
                 console.log(`Marked user ${user.address} as inactive (file not found)`);
+                // Invalidate caches to prevent stale data
+                cacheDelete(`userWithWorkers:${user.address}`);
+                cacheDelete(`userHistorical:${user.address}`);
+                cacheDeletePrefix('topUser');
+                cacheDeletePrefix('onlineDevices');
               } catch (markError) {
                 console.error(`Could not mark user ${user.address} as inactive:`, markError);
               }
