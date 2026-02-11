@@ -84,8 +84,6 @@ async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<
             backoffMs: 50,
           }) as UserData;
         } catch (fileError: any) {
-          lastError = fileError;
-          
           // readJsonStable handles temporary missing files; if it still fails, file is gone
           if (fileError.code === 'ENOENT') {
             throw new FileNotFoundError(`User file not found: ${address}`);
