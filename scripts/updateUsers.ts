@@ -131,8 +131,17 @@ async function updateUser(address: string): Promise<void> {
     const userRepository = db.getRepository(User);
     const userRecord = await userRepository.findOne({ where: { address } });
     
-    if (userRecord?.lastActivatedAt) {
-      const lastActivatedAge = now - userRecord.lastActivatedAt.getTime();
+    // Repair null lastActivatedAt before checking grace period (use createdAt as fallback)
+    // This ensures fair treatment: all users get grace period, even if never explicitly activated
+    let lastActivatedAtToCheck = userRecord?.lastActivatedAt;
+    if (!lastActivatedAtToCheck && userRecord?.createdAt) {
+      lastActivatedAtToCheck = userRecord.createdAt;
+      await userRepository.update({ address }, { lastActivatedAt: userRecord.createdAt });
+      console.log(`Repaired null lastActivatedAt for user ${address}`);
+    }
+    
+    if (lastActivatedAtToCheck) {
+      const lastActivatedAge = now - lastActivatedAtToCheck.getTime();
       
       if (lastActivatedAge > SEVEN_DAYS_MS) {
         // Both thresholds exceeded - mark inactive and skip update
@@ -147,16 +156,6 @@ async function updateUser(address: string): Promise<void> {
       } else {
         console.log(`User ${address} hasn't mined in 7+ days but within grace period`);
       }
-    } else {
-      // lastActivatedAt is null -> treat as expired, deactivate
-      await userRepository.update({ address }, { isActive: false });
-      console.log(`Marked user ${address} as inactive (lastActivatedAt null)`);
-      // Invalidate caches to prevent stale data
-      cacheDelete(`userWithWorkers:${address}`);
-      cacheDelete(`userHistorical:${address}`);
-      cacheDeletePrefix('topUserHashrates');
-      cacheDeletePrefix('topUserLoyalty');
-      return; // Skip stats update
     }
   }
 
@@ -164,11 +163,6 @@ async function updateUser(address: string): Promise<void> {
     const userRepository = manager.getRepository(User);
     const user = await userRepository.findOne({ where: { address } });
     if (user) {
-      // Repair null lastActivatedAt for active users (still mining within 7 days)
-      if (user.lastActivatedAt === null) {
-        user.lastActivatedAt = user.createdAt || new Date();
-        console.log(`Repaired null lastActivatedAt for user ${address}`);
-      }
       user.authorised = userData.authorised.toString();
       user.isActive = true;
       await userRepository.save(user);
