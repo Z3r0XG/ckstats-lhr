@@ -412,30 +412,33 @@ export async function getTopUserLoyalty(limit: number = 10) {
 }
 
 export async function getOnlineDevices(limit: number = 10) {
-  const db = await getDb();
+  const key = `onlineDevices:${limit}`;
+  return getCached(key, 30, async () => {
+    const db = await getDb();
 
-  const rows: Array<{
-    client: string;
-    active_workers: number;
-    total_hashrate: number;
-    bestshare: number;
-    computed_at: string;
-  }> = await db.query(
-    `SELECT client, active_workers, total_hashrate, bestshare, computed_at
-     FROM "online_devices"
-     WHERE active_workers > 0
-     ORDER BY total_hashrate DESC, client ASC
-     LIMIT $1;`,
-    [limit]
-  );
+    const rows: Array<{
+      client: string;
+      active_workers: number;
+      total_hashrate: number;
+      bestshare: number;
+      computed_at: string;
+    }> = await db.query(
+      `SELECT client, active_workers, total_hashrate, bestshare, computed_at
+       FROM "online_devices"
+       WHERE active_workers > 0
+       ORDER BY total_hashrate DESC, client ASC
+       LIMIT $1;`,
+      [limit]
+    );
 
-  return rows.map((r) => ({
-    client: r.client,
-    activeWorkers: Number(r.active_workers || 0),
-    uniqueUsers: 0,
-    hashrate1hr: Number(r.total_hashrate || 0),
-    bestEver: Number(r.bestshare || 0),
-  }));
+    return rows.map((r) => ({
+      client: r.client,
+      activeWorkers: Number(r.active_workers || 0),
+      uniqueUsers: 0,
+      hashrate1hr: Number(r.total_hashrate || 0),
+      bestEver: Number(r.bestshare || 0),
+    }));
+  });
 }
 
 export async function resetUserActive(address: string): Promise<void> {
@@ -447,6 +450,8 @@ export async function resetUserActive(address: string): Promise<void> {
   });
   // Clear the cached user data so the next fetch gets fresh DB data
   cacheDelete(`userWithWorkers:${address}`);
+  cacheDeletePrefix('topUserHashrates');
+  cacheDeletePrefix('topUserLoyalty');
 }
 
 export async function updateSingleUser(
@@ -640,8 +645,8 @@ export async function updateSingleUser(
 
     cacheDelete(`userWithWorkers:${address}`);
     cacheDelete(`userHistorical:${address}`);
-    cacheDeletePrefix('topUser');
-    cacheDeletePrefix('onlineDevices');
+    cacheDeletePrefix('topUserHashrates');
+    cacheDeletePrefix('topUserLoyalty');
     cacheDeletePrefix(`workerWithStats:${address}:`);
     return anyChanged;
   } catch (error) {

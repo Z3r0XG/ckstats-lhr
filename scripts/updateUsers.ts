@@ -103,7 +103,8 @@ async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<
     }
   }
 
-  throw new Error(`Failed to fetch user data for ${address}`);
+  // This should never be reached since attempt===MAX_RETRIES always throws
+  throw new Error(`Unexpected: fetchUserDataWithRetry loop ended without throwing for ${address}`);
 }
 
 async function updateUser(address: string): Promise<void> {
@@ -140,8 +141,8 @@ async function updateUser(address: string): Promise<void> {
         // Invalidate caches to prevent stale data
         cacheDelete(`userWithWorkers:${address}`);
         cacheDelete(`userHistorical:${address}`);
-        cacheDeletePrefix('topUser');
-        cacheDeletePrefix('onlineDevices');
+        cacheDeletePrefix('topUserHashrates');
+        cacheDeletePrefix('topUserLoyalty');
         return; // Skip stats update for inactive user
       } else {
         console.log(`User ${address} hasn't mined in 7+ days but within grace period`);
@@ -153,8 +154,8 @@ async function updateUser(address: string): Promise<void> {
       // Invalidate caches to prevent stale data
       cacheDelete(`userWithWorkers:${address}`);
       cacheDelete(`userHistorical:${address}`);
-      cacheDeletePrefix('topUser');
-      cacheDeletePrefix('onlineDevices');
+      cacheDeletePrefix('topUserHashrates');
+      cacheDeletePrefix('topUserLoyalty');
       return; // Skip stats update
     }
   }
@@ -317,8 +318,8 @@ async function main() {
                 // Invalidate caches to prevent stale data
                 cacheDelete(`userWithWorkers:${user.address}`);
                 cacheDelete(`userHistorical:${user.address}`);
-                cacheDeletePrefix('topUser');
-                cacheDeletePrefix('onlineDevices');
+                cacheDeletePrefix('topUserHashrates');
+                cacheDeletePrefix('topUserLoyalty');
               } catch (markError) {
                 console.error(`Could not mark user ${user.address} as inactive:`, markError);
               }
