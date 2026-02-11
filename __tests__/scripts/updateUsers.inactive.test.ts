@@ -303,7 +303,6 @@ describe('updateUsers inactive logic with grace period', () => {
       const lastActivatedAt = new Date(now - 5 * 24 * 60 * 60 * 1000); // 5 days ago
       
       const lastShareAge = now - (lastshare * 1000);
-      const lastActivatedAge = now - lastActivatedAt.getTime();
       
       // User is actively mining - shouldn't even check grace period
       expect(lastShareAge).toBeLessThan(SEVEN_DAYS_MS);
