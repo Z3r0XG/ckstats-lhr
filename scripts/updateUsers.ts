@@ -44,7 +44,7 @@ async function repairNullLastActivatedAt(): Promise<void> {
   });
   
   if (usersWithNull.length === 0) {
-    return; // Nothing to repair
+    return;
   }
   
   console.log(`Repairing NULL lastActivatedAt for ${usersWithNull.length} users`);
@@ -167,10 +167,9 @@ async function updateUser(address: string): Promise<void> {
     const user = await userRepository.findOne({ where: { address } });
     
     // Check for stale mining activity (7 days threshold for both lastshare and lastActivatedAt)
-    // Note: lastActivatedAt is guaranteed to be set by upfront repair phase
-    if (lastShareAge > SEVEN_DAYS_MS && user && user.lastActivatedAt) {
+    if (lastShareAge > SEVEN_DAYS_MS && user) {
       // User hasn't mined in 7+ days - check grace period
-      const lastActivatedAge = now - user.lastActivatedAt.getTime();
+      const lastActivatedAge = now - user.lastActivatedAt!.getTime();
       
       if (lastActivatedAge > SEVEN_DAYS_MS) {
         // Both thresholds exceeded - mark inactive and skip stats update
@@ -308,10 +307,9 @@ async function main() {
   let db;
 
   try {
-    // PHASE 1: Database hygiene - repair ALL NULL lastActivatedAt values upfront
+    // Repair any NULL lastActivatedAt values before processing
     await repairNullLastActivatedAt();
     
-    // PHASE 2: Normal processing - now ALL users have lastActivatedAt guaranteed
     db = await getDb();
     const userRepository = db.getRepository(User);
 
@@ -342,12 +340,6 @@ async function main() {
               // File doesn't exist - check grace period before marking inactive
               try {
                 const userRecord = await userRepository.findOne({ where: { address: user.address } });
-                
-                // lastActivatedAt is guaranteed by upfront repair, but defensive check
-                if (!userRecord?.lastActivatedAt) {
-                  console.error(`ERROR: User ${user.address} has NULL lastActivatedAt after repair phase`);
-                  return; // Skip processing, this should never happen
-                }
                 
                 const activatedAge = Date.now() - userRecord.lastActivatedAt.getTime();
                 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
