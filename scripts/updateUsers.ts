@@ -13,6 +13,7 @@ class FileNotFoundError extends Error {
 import { getDb } from '../lib/db';
 import { cacheDelete, cacheDeletePrefix } from '../lib/api';
 import { User } from '../lib/entities/User';
+import { IsNull } from 'typeorm';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
 import { WorkerStats } from '../lib/entities/WorkerStats';
@@ -27,6 +28,38 @@ import {
 const BATCH_SIZE = 10;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
+
+/**
+ * Repair all users with NULL lastActivatedAt by setting it to their createdAt timestamp.
+ * This ensures all users have a valid lastActivatedAt for grace period calculations.
+ * Runs once at the start of each cron execution before processing any users.
+ */
+async function repairNullLastActivatedAt(): Promise<void> {
+  const db = await getDb();
+  const userRepository = db.getRepository(User);
+  
+  const usersWithNull = await userRepository.find({
+    where: { lastActivatedAt: IsNull() },
+    select: ['address', 'createdAt']
+  });
+  
+  if (usersWithNull.length === 0) {
+    return; // Nothing to repair
+  }
+  
+  console.log(`Repairing NULL lastActivatedAt for ${usersWithNull.length} users`);
+  
+  for (const user of usersWithNull) {
+    if (user.createdAt) {
+      await userRepository.update(
+        { address: user.address },
+        { lastActivatedAt: user.createdAt }
+      );
+    }
+  }
+  
+  console.log(`✓ Repaired ${usersWithNull.length} users`);
+}
 
 interface WorkerData {
   workername: string;
@@ -133,14 +166,8 @@ async function updateUser(address: string): Promise<void> {
     const userRepository = manager.getRepository(User);
     const user = await userRepository.findOne({ where: { address } });
     
-    // Repair null lastActivatedAt BEFORE any grace period evaluation (use createdAt as fallback)
-    // This ensures all users have lastActivatedAt set for future grace period checks
-    if (user && !user.lastActivatedAt && user.createdAt) {
-      user.lastActivatedAt = user.createdAt;
-      console.log(`Repaired null lastActivatedAt for user ${address}`);
-    }
-    
     // Check for stale mining activity (7 days threshold for both lastshare and lastActivatedAt)
+    // Note: lastActivatedAt is guaranteed to be set by upfront repair phase
     if (lastShareAge > SEVEN_DAYS_MS && user && user.lastActivatedAt) {
       // User hasn't mined in 7+ days - check grace period
       const lastActivatedAge = now - user.lastActivatedAt.getTime();
@@ -281,6 +308,10 @@ async function main() {
   let db;
 
   try {
+    // PHASE 1: Database hygiene - repair ALL NULL lastActivatedAt values upfront
+    await repairNullLastActivatedAt();
+    
+    // PHASE 2: Normal processing - now ALL users have lastActivatedAt guaranteed
     db = await getDb();
     const userRepository = db.getRepository(User);
 
@@ -312,19 +343,23 @@ async function main() {
               try {
                 const userRecord = await userRepository.findOne({ where: { address: user.address } });
                 
-                if (userRecord?.lastActivatedAt) {
-                  const activatedAge = Date.now() - userRecord.lastActivatedAt.getTime();
-                  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-                  
-                  if (activatedAge <= SEVEN_DAYS_MS) {
-                    // Within grace period - user has time to start mining
-                    const daysRemaining = Math.ceil((SEVEN_DAYS_MS - activatedAge) / (24 * 60 * 60 * 1000));
-                    console.log(`User ${user.address} has no pool file but within grace period (${daysRemaining} days remaining)`);
-                    return; // Skip inactive marking, exit this user's processing
-                  }
+                // lastActivatedAt is guaranteed by upfront repair, but defensive check
+                if (!userRecord?.lastActivatedAt) {
+                  console.error(`ERROR: User ${user.address} has NULL lastActivatedAt after repair phase`);
+                  return; // Skip processing, this should never happen
                 }
                 
-                // No lastActivatedAt or grace period expired - mark inactive
+                const activatedAge = Date.now() - userRecord.lastActivatedAt.getTime();
+                const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+                
+                if (activatedAge <= SEVEN_DAYS_MS) {
+                  // Within grace period - user has time to start mining
+                  const daysRemaining = Math.ceil((SEVEN_DAYS_MS - activatedAge) / (24 * 60 * 60 * 1000));
+                  console.log(`User ${user.address} has no pool file but within grace period (${daysRemaining} days remaining)`);
+                  return; // Skip inactive marking, exit this user's processing
+                }
+                
+                // Grace period expired - mark inactive
                 await userRepository.update({ address: user.address }, { isActive: false });
                 console.log(`Marked user ${user.address} as inactive (no pool file, grace period expired)`);
                 // Invalidate caches to prevent stale data
