@@ -452,6 +452,7 @@ export async function resetUserActive(address: string): Promise<void> {
   cacheDelete(`userWithWorkers:${address}`);
   cacheDeletePrefix('topUserHashrates');
   cacheDeletePrefix('topUserLoyalty');
+  cacheDeletePrefix(`workerWithStats:${address}:`);
 }
 
 export async function updateSingleUser(

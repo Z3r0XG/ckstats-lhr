@@ -298,6 +298,7 @@ async function updateUser(address: string): Promise<void> {
     cacheDelete(`userHistorical:${address}`);
     cacheDeletePrefix('topUserHashrates');
     cacheDeletePrefix('topUserLoyalty');
+    cacheDeletePrefix(`workerWithStats:${address}:`);
   }
 
   console.log(`Updated user and workers for: ${address}`);
@@ -359,6 +360,7 @@ async function main() {
                 cacheDelete(`userHistorical:${user.address}`);
                 cacheDeletePrefix('topUserHashrates');
                 cacheDeletePrefix('topUserLoyalty');
+                cacheDeletePrefix(`workerWithStats:${user.address}:`);
               } catch (markError) {
                 console.error(`Could not mark user ${user.address} as inactive:`, markError);
               }
