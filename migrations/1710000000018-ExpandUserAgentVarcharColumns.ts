@@ -19,13 +19,12 @@ export class ExpandUserAgentVarcharColumns1710000000018 implements MigrationInte
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Note: Downgrading back to varchar(64) may truncate data
     await queryRunner.query(
-      `ALTER TABLE "online_devices" ALTER COLUMN "client" TYPE varchar(64)`
+      `ALTER TABLE "online_devices" ALTER COLUMN "client" TYPE varchar(64) USING substring("client", 1, 64)`
     );
     
     await queryRunner.query(
-      `ALTER TABLE "Worker" ALTER COLUMN "userAgent" TYPE varchar(64)`
+      `ALTER TABLE "Worker" ALTER COLUMN "userAgent" TYPE varchar(64) USING substring("userAgent", 1, 64)`
     );
   }
 }
