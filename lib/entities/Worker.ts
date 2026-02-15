@@ -65,7 +65,7 @@ export class Worker {
   @OneToMany('WorkerStats', 'worker')
   stats: WorkerStats[];
 
-  @Column({ length: 64, default: '' })
+  @Column({ length: 256, default: '' })
   userAgent: string;
 
   @Column({ type: 'text', nullable: true })
