@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import { readJsonStable, delay } from '../utils/readFileStable';
 import { validateAndResolveUserPath } from '../utils/validateLocalPath';
 
-class FileNotFoundError extends Error {
+export class FileNotFoundError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'FileNotFoundError';
@@ -26,15 +26,17 @@ import {
 } from '../utils/helpers';
 
 const BATCH_SIZE = 10;
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 500;
+export const MAX_RETRIES = 3;
+export const RETRY_DELAY_MS = 500;
+
+export const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Repair all users with NULL lastActivatedAt by setting it to their createdAt timestamp.
  * This ensures all users have a valid lastActivatedAt for grace period calculations.
  * Runs once at the start of each cron execution before processing any users.
  */
-async function repairNullLastActivatedAt(): Promise<void> {
+export async function repairNullLastActivatedAt(): Promise<void> {
   const db = await getDb();
   const userRepository = db.getRepository(User);
   
@@ -76,7 +78,7 @@ interface WorkerData {
   bestever: string;
 }
 
-interface UserData {
+export interface UserData {
   authorised: number;
   hashrate1m: number;
   hashrate5m: number;
@@ -91,7 +93,7 @@ interface UserData {
   worker: WorkerData[];
 }
 
-async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<UserData> {
+export async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<UserData> {
   let lastError: any;
   
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -140,6 +142,58 @@ async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<
   throw new Error(`Unexpected: fetchUserDataWithRetry loop ended without throwing for ${address}`);
 }
 
+/**
+ * Pure function to determine if a user should be marked inactive based on grace period logic.
+ * 
+ * @param lastShareTimestamp - Unix timestamp in seconds of last share
+ * @param lastActivatedAt - Date when user was last activated
+ * @param createdAt - Date when user was created (fallback if lastActivatedAt is null)
+ * @param now - Current timestamp in milliseconds
+ * @returns Object with shouldMarkInactive flag and optional daysRemaining
+ */
+export function shouldMarkUserInactive(
+  lastShareTimestamp: number,
+  lastActivatedAt: Date | null,
+  createdAt: Date,
+  now: number
+): { shouldMarkInactive: boolean; daysRemaining?: number } {
+  const lastShareAge = now - (lastShareTimestamp * 1000);
+  
+  // If user hasn't mined in 7+ days, check grace period
+  if (lastShareAge > SEVEN_DAYS_MS) {
+    const activationDate = lastActivatedAt || createdAt;
+    const lastActivatedAge = now - activationDate.getTime();
+    
+    if (lastActivatedAge > SEVEN_DAYS_MS) {
+      // Both thresholds exceeded - mark inactive
+      return { shouldMarkInactive: true };
+    } else {
+      // Within grace period
+      const daysRemaining = Math.ceil((SEVEN_DAYS_MS - lastActivatedAge) / (24 * 60 * 60 * 1000));
+      return { shouldMarkInactive: false, daysRemaining };
+    }
+  }
+  
+  // User is actively mining
+  return { shouldMarkInactive: false };
+}
+
+/**
+ * Calculate days remaining in grace period.
+ * 
+ * @param lastActivatedAt - Date when user was last activated
+ * @param now - Current timestamp in milliseconds
+ * @returns Number of days remaining, or 0 if grace period expired
+ */
+export function calculateGracePeriodRemaining(
+  lastActivatedAt: Date,
+  now: number
+): number {
+  const lastActivatedAge = now - lastActivatedAt.getTime();
+  const remaining = SEVEN_DAYS_MS - lastActivatedAge;
+  return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)));
+}
+
 async function updateUser(address: string): Promise<void> {
   let userData: UserData;
   if (/[^a-zA-Z0-9]/.test(address)) {
@@ -154,31 +208,32 @@ async function updateUser(address: string): Promise<void> {
 
   userData = await fetchUserDataWithRetry(address, apiUrl);
 
-  // Grace period constants
-  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
   const now = Date.now();
-  const lastShareAge = now - (userData.lastshare * 1000); // lastshare is in seconds
   
   // Track whether user should be marked inactive (used after transaction for cache invalidation)
-  let shouldMarkInactive = false;
+  let userMarkedInactive = false;
 
   await db.transaction(async (manager) => {
     const userRepository = manager.getRepository(User);
     const user = await userRepository.findOne({ where: { address } });
     
-    // Check for stale mining activity (7 days threshold for both lastshare and lastActivatedAt)
-    if (lastShareAge > SEVEN_DAYS_MS && user) {
-      // User hasn't mined in 7+ days - check grace period
-      const lastActivatedAge = now - user.lastActivatedAt!.getTime();
+    // Check for stale mining activity using extracted grace period logic
+    if (user) {
+      const decision = shouldMarkUserInactive(
+        userData.lastshare,
+        user.lastActivatedAt,
+        user.createdAt,
+        now
+      );
       
-      if (lastActivatedAge > SEVEN_DAYS_MS) {
+      if (decision.shouldMarkInactive) {
         // Both thresholds exceeded - mark inactive and skip stats update
         user.isActive = false;
         await userRepository.save(user);
-        shouldMarkInactive = true;
+        userMarkedInactive = true;
         console.log(`Marked user ${address} as inactive (7-day grace period expired)`);
         return; // Skip stats update for inactive user
-      } else {
+      } else if (decision.daysRemaining !== undefined) {
         console.log(`User ${address} hasn't mined in 7+ days but within grace period`);
       }
     }
@@ -293,7 +348,7 @@ async function updateUser(address: string): Promise<void> {
   });
 
   // Invalidate caches after transaction commits (for inactive users)
-  if (shouldMarkInactive) {
+  if (userMarkedInactive) {
     cacheDelete(`userWithWorkers:${address}`);
     cacheDelete(`userHistorical:${address}`);
     cacheDeletePrefix('topUserHashrates');
@@ -334,8 +389,6 @@ async function main() {
           try {
             await updateUser(user.address);
           } catch (error) {
-            console.error(`Failed to update user ${user.address}:`, error);
-            
             // Mark inactive only if the file was not found
             if (error instanceof FileNotFoundError) {
               // File doesn't exist - check grace period before marking inactive
@@ -365,7 +418,8 @@ async function main() {
                 console.error(`Could not mark user ${user.address} as inactive:`, markError);
               }
             } else {
-              // Database error, transaction failure, etc. - just log
+              // Database error, transaction failure, etc. - log the actual error
+              console.error(`Failed to update user ${user.address}:`, error);
               console.error(`Non-file error for ${user.address}, skipping inactive marking`);
             }
           }
