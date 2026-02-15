@@ -42,7 +42,11 @@ describe('updateUsers retry logic', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
-    process.env.API_URL = originalEnv;
+    if (originalEnv === undefined) {
+      delete process.env.API_URL;
+    } else {
+      process.env.API_URL = originalEnv;
+    }
   });
 
   describe('HTTP fetch retry behavior', () => {
