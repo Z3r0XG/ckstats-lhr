@@ -35,32 +35,23 @@ export const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
  * Repair all users with NULL lastActivatedAt by setting it to their createdAt timestamp.
  * This ensures all users have a valid lastActivatedAt for grace period calculations.
  * Runs once at the start of each cron execution before processing any users.
+ * Uses a single bulk UPDATE for performance.
  */
 export async function repairNullLastActivatedAt(): Promise<void> {
   const db = await getDb();
   const userRepository = db.getRepository(User);
   
-  const usersWithNull = await userRepository.find({
-    where: { lastActivatedAt: IsNull() },
-    select: ['address', 'createdAt']
-  });
+  // Single bulk UPDATE: SET lastActivatedAt = createdAt WHERE lastActivatedAt IS NULL
+  const result = await userRepository
+    .createQueryBuilder()
+    .update(User)
+    .set({ lastActivatedAt: () => '"createdAt"' })
+    .where('lastActivatedAt IS NULL')
+    .execute();
   
-  if (usersWithNull.length === 0) {
-    return;
+  if (result.affected && result.affected > 0) {
+    console.log(`✓ Repaired ${result.affected} users with NULL lastActivatedAt`);
   }
-  
-  console.log(`Repairing NULL lastActivatedAt for ${usersWithNull.length} users`);
-  
-  for (const user of usersWithNull) {
-    if (user.createdAt) {
-      await userRepository.update(
-        { address: user.address },
-        { lastActivatedAt: user.createdAt }
-      );
-    }
-  }
-  
-  console.log(`✓ Repaired ${usersWithNull.length} users`);
 }
 
 interface WorkerData {

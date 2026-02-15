@@ -159,15 +159,16 @@ describe('updateUsers inactive logic with grace period', () => {
   });
 
   describe('repairNullLastActivatedAt()', () => {
-    it('should repair users with NULL lastActivatedAt', async () => {
-      const mockUsers = [
-        { address: 'user1', createdAt: new Date('2026-01-01'), lastActivatedAt: null },
-        { address: 'user2', createdAt: new Date('2026-01-15'), lastActivatedAt: null },
-      ];
+    it('should repair users with NULL lastActivatedAt using bulk UPDATE', async () => {
+      const mockQueryBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 2 }),
+      };
 
       const mockUserRepository = {
-        find: jest.fn().mockResolvedValue(mockUsers),
-        update: jest.fn().mockResolvedValue({ affected: 1 }),
+        createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
       };
 
       const mockDb = {
@@ -178,26 +179,23 @@ describe('updateUsers inactive logic with grace period', () => {
 
       await repairNullLastActivatedAt();
 
-      expect(mockUserRepository.find).toHaveBeenCalledWith({
-        where: { lastActivatedAt: expect.anything() }, // IsNull()
-        select: ['address', 'createdAt'],
-      });
-
-      expect(mockUserRepository.update).toHaveBeenCalledTimes(2);
-      expect(mockUserRepository.update).toHaveBeenCalledWith(
-        { address: 'user1' },
-        { lastActivatedAt: mockUsers[0].createdAt }
-      );
-      expect(mockUserRepository.update).toHaveBeenCalledWith(
-        { address: 'user2' },
-        { lastActivatedAt: mockUsers[1].createdAt }
-      );
+      expect(mockUserRepository.createQueryBuilder).toHaveBeenCalled();
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(User);
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith({ lastActivatedAt: expect.any(Function) });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('lastActivatedAt IS NULL');
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
     });
 
     it('should do nothing when no users have NULL lastActivatedAt', async () => {
+      const mockQueryBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 0 }),
+      };
+
       const mockUserRepository = {
-        find: jest.fn().mockResolvedValue([]),
-        update: jest.fn(),
+        createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
       };
 
       const mockDb = {
@@ -208,8 +206,8 @@ describe('updateUsers inactive logic with grace period', () => {
 
       await repairNullLastActivatedAt();
 
-      expect(mockUserRepository.find).toHaveBeenCalled();
-      expect(mockUserRepository.update).not.toHaveBeenCalled();
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
+      // Should not log anything when affected is 0
     });
   });
 
