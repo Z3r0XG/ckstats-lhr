@@ -15,10 +15,11 @@ import {
 } from '../../scripts/updateUsers';
 import * as readFileStableModule from '../../utils/readFileStable';
 
-// Mock delay function to speed up tests
+// Mock delay and readJsonStable functions
 jest.mock('../../utils/readFileStable', () => ({
   ...jest.requireActual('../../utils/readFileStable'),
   delay: jest.fn().mockResolvedValue(undefined),
+  readJsonStable: jest.fn(),
 }));
 
 // Mock validateAndResolveUserPath
@@ -192,6 +193,115 @@ describe('updateUsers retry logic', () => {
       ).rejects.toThrow('HTTP error! status: 404');
 
       expect(fetchMock).toHaveBeenCalledTimes(MAX_RETRIES);
+    });
+  });
+
+  describe('Filesystem fallback behavior', () => {
+    const { validateAndResolveUserPath } = require('../../utils/validateLocalPath');
+    const { readJsonStable } = readFileStableModule;
+
+    beforeEach(() => {
+      // Set API_URL to a filesystem path to trigger ERR_INVALID_URL
+      process.env.API_URL = '/local/path/to/logs';
+      jest.clearAllMocks();
+    });
+
+    it('should convert ENOENT errors to FileNotFoundError', async () => {
+      // Simulate fetch throwing ERR_INVALID_URL
+      const errInvalidUrl = new Error('Invalid URL');
+      (errInvalidUrl as any).cause = { code: 'ERR_INVALID_URL' };
+      fetchMock.mockRejectedValue(errInvalidUrl);
+
+      // Mock filesystem operations
+      validateAndResolveUserPath.mockReturnValue('/safe/path/testAddress.json');
+      
+      // Simulate ENOENT error from readJsonStable
+      const enoentError = new Error('File not found') as any;
+      enoentError.code = 'ENOENT';
+      (readJsonStable as jest.Mock).mockRejectedValue(enoentError);
+
+      // Verify FileNotFoundError is thrown with correct message
+      await expect(
+        fetchUserDataWithRetry('testAddress', 'file:///local/path/to/logs/testAddress')
+      ).rejects.toThrow(FileNotFoundError);
+
+      await expect(
+        fetchUserDataWithRetry('testAddress', 'file:///local/path/to/logs/testAddress')
+      ).rejects.toThrow('User file not found: testAddress');
+
+      // Verify the error is catchable with instanceof
+      try {
+        await fetchUserDataWithRetry('testAddress', 'file:///local/path/to/logs/testAddress');
+        fail('Should have thrown FileNotFoundError');
+      } catch (error) {
+        expect(error instanceof FileNotFoundError).toBe(true);
+      }
+    });
+
+    it('should propagate non-ENOENT file errors without conversion', async () => {
+      // Simulate fetch throwing ERR_INVALID_URL
+      const errInvalidUrl = new Error('Invalid URL');
+      (errInvalidUrl as any).cause = { code: 'ERR_INVALID_URL' };
+      fetchMock.mockRejectedValue(errInvalidUrl);
+
+      // Mock filesystem operations
+      validateAndResolveUserPath.mockReturnValue('/safe/path/testAddress.json');
+      
+      // Simulate EACCES (permission denied) error from readJsonStable
+      const eaccesError = new Error('Permission denied') as any;
+      eaccesError.code = 'EACCES';
+      (readJsonStable as jest.Mock).mockRejectedValue(eaccesError);
+
+      await expect(
+        fetchUserDataWithRetry('testAddress', 'file:///local/path/to/logs/testAddress')
+      ).rejects.toThrow('Permission denied');
+
+      // Verify it's NOT converted to FileNotFoundError
+      try {
+        await fetchUserDataWithRetry('testAddress', 'file:///local/path/to/logs/testAddress');
+        fail('Should have thrown error');
+      } catch (error) {
+        expect(error instanceof FileNotFoundError).toBe(false);
+        expect((error as any).code).toBe('EACCES');
+      }
+    });
+
+    it('should successfully read from filesystem when file exists', async () => {
+      const mockData = {
+        authorised: 999,
+        workers: 5,
+        hashrate1m: 500,
+        hashrate5m: 500,
+        hashrate1hr: 500,
+        hashrate1d: 500,
+        hashrate7d: 500,
+        lastshare: 5000,
+        shares: '5000',
+        bestshare: '5',
+        bestever: '5',
+        worker: []
+      };
+
+      // Simulate fetch throwing ERR_INVALID_URL
+      const errInvalidUrl = new Error('Invalid URL');
+      (errInvalidUrl as any).cause = { code: 'ERR_INVALID_URL' };
+      fetchMock.mockRejectedValueOnce(errInvalidUrl);
+
+      // Mock filesystem operations
+      validateAndResolveUserPath.mockReturnValueOnce('/safe/path/testAddress.json');
+      (readJsonStable as jest.Mock).mockResolvedValueOnce(mockData);
+
+      const result = await fetchUserDataWithRetry(
+        'testAddress',
+        'file:///local/path/to/logs/testAddress'
+      );
+
+      expect(result).toEqual(mockData);
+      expect(validateAndResolveUserPath).toHaveBeenCalledWith('testAddress', '/local/path/to/logs');
+      expect(readJsonStable).toHaveBeenCalledWith('/safe/path/testAddress.json', {
+        retries: 6,
+        backoffMs: 50,
+      });
     });
   });
 
