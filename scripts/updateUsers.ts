@@ -41,6 +41,7 @@ export async function repairNullLastActivatedAt(): Promise<void> {
   const userRepository = db.getRepository(User);
   
   // Single bulk UPDATE: SET lastActivatedAt = createdAt WHERE lastActivatedAt IS NULL
+  console.log('[Null Fields Check]');
   const result = await userRepository
     .createQueryBuilder()
     .update(User)
@@ -48,9 +49,7 @@ export async function repairNullLastActivatedAt(): Promise<void> {
     .where('lastActivatedAt IS NULL')
     .execute();
   
-  if (result.affected && result.affected > 0) {
-    console.log(`✓ Repaired ${result.affected} users with NULL lastActivatedAt`);
-  }
+  console.log(`Null check repaired ${result.affected || 0} users`);
 }
 
 interface WorkerData {
@@ -370,6 +369,7 @@ async function main() {
       console.log('No active users found');
     }
 
+    console.log('[User Data Updates]');
     for (let i = 0; i < users.length; i += BATCH_SIZE) {
       const batch = users.slice(i, i + BATCH_SIZE);
       console.log(
