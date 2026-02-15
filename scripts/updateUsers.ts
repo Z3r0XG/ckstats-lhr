@@ -154,7 +154,7 @@ export function shouldMarkUserInactive(
     const activationDate = lastActivatedAt || createdAt;
     const lastActivatedAge = now - activationDate.getTime();
     
-    if (lastActivatedAge > SEVEN_DAYS_MS) {
+    if (lastActivatedAge >= SEVEN_DAYS_MS) {
       // Both thresholds exceeded - mark inactive
       return { shouldMarkInactive: true };
     } else {

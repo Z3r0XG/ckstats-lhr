@@ -118,9 +118,8 @@ describe('updateUsers inactive logic with grace period', () => {
       
       const result = shouldMarkUserInactive(lastShareTimestamp, lastActivatedAt, createdAt, now);
       
-      // At exactly 7 days, grace period has expired (> not >=)
-      expect(result.shouldMarkInactive).toBe(false);
-      expect(result.daysRemaining).toBe(0);
+      // At exactly 7 days, grace period has expired
+      expect(result.shouldMarkInactive).toBe(true);
     });
   });
 
@@ -257,6 +256,83 @@ describe('updateUsers inactive logic with grace period', () => {
       
       // Both thresholds exceeded = mark inactive
       expect(result.shouldMarkInactive).toBe(true);
+    });
+  });
+
+  describe('FileNotFoundError grace period handling (path-specific tests)', () => {
+    it('should calculate daysRemaining correctly when file not found with active grace period', () => {
+      const lastActivatedAt = new Date(now - 2 * 24 * 60 * 60 * 1000); // 2 days ago
+      
+      // This simulates the FileNotFoundError handler logic
+      const daysRemaining = calculateGracePeriodRemaining(lastActivatedAt, now);
+      
+      expect(daysRemaining).toBe(5); // 7 - 2 = 5 days remaining
+      expect(daysRemaining).toBeGreaterThan(0); // Should protect user from being marked inactive
+    });
+
+    it('should calculate daysRemaining correctly when file not found with expired grace period', () => {
+      const lastActivatedAt = new Date(now - 10 * 24 * 60 * 60 * 1000); // 10 days ago
+      
+      // This simulates the FileNotFoundError handler logic
+      const daysRemaining = calculateGracePeriodRemaining(lastActivatedAt, now);
+      
+      expect(daysRemaining).toBe(0); // Grace period fully expired
+      expect(daysRemaining).toBe(0); // Should NOT protect user; should be marked inactive
+    });
+
+    it('should use createdAt fallback in FileNotFoundError when lastActivatedAt is null', () => {
+      const lastActivatedAt = null;
+      const createdAt = new Date(now - 3 * 24 * 60 * 60 * 1000); // 3 days ago
+      
+      // This simulates: const lastActivated = user.lastActivatedAt || user.createdAt;
+      const activateTime = lastActivatedAt || createdAt;
+      const daysRemaining = calculateGracePeriodRemaining(activateTime, now);
+      
+      expect(daysRemaining).toBe(4); // 7 - 3 = 4 days remaining
+      expect(daysRemaining).toBeGreaterThan(0);
+    });
+
+    it('should mark inactive in FileNotFoundError when both createdAt and grace period are stale', () => {
+      const lastActivatedAt = null;
+      const createdAt = new Date(now - 10 * 24 * 60 * 60 * 1000); // 10 days ago
+      
+      // This simulates: const lastActivated = user.lastActivatedAt || user.createdAt;
+      const activateTime = lastActivatedAt || createdAt;
+      const daysRemaining = calculateGracePeriodRemaining(activateTime, now);
+      
+      expect(daysRemaining).toBe(0); // Grace period expired
+      // In handler: if (daysRemaining > 0) return; // Skip marking
+      // So daysRemaining === 0 means mark inactive
+      expect(daysRemaining).not.toBeGreaterThan(0);
+    });
+
+    it('should handle grace period boundary (exactly 7 days) in FileNotFoundError', () => {
+      const lastActivatedAt = new Date(now - SEVEN_DAYS_MS); // exactly 7 days ago
+      
+      const daysRemaining = calculateGracePeriodRemaining(lastActivatedAt, now);
+      
+      expect(daysRemaining).toBe(0); // At boundary, grace period has fully expired
+      // In handler: if (daysRemaining > 0) return; // daysRemaining === 0, so will mark inactive
+    });
+
+    it('should protect user 1 second before grace period expires', () => {
+      const almostExpiredAge = SEVEN_DAYS_MS - 1000; // 1 second before expiry
+      const lastActivatedAt = new Date(now - almostExpiredAge);
+      
+      const daysRemaining = calculateGracePeriodRemaining(lastActivatedAt, now);
+      
+      expect(daysRemaining).toBeGreaterThan(0); // Should still have grace
+      // In handler: if (daysRemaining > 0) return; // Will skip marking, protecting user
+    });
+
+    it('should mark inactive 1 second after grace period expires', () => {
+      const justExpiredAge = SEVEN_DAYS_MS + 1000; // 1 second past expiry
+      const lastActivatedAt = new Date(now - justExpiredAge);
+      
+      const daysRemaining = calculateGracePeriodRemaining(lastActivatedAt, now);
+      
+      expect(daysRemaining).toBe(0); // Grace has expired
+      // In handler: if (daysRemaining > 0) return; // daysRemaining === 0, will mark inactive
     });
   });
 });
