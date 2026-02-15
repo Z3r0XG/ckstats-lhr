@@ -383,12 +383,11 @@ async function main() {
             if (error instanceof FileNotFoundError) {
               // File doesn't exist - check grace period before marking inactive
               try {
-                const activatedAge = Date.now() - (user.lastActivatedAt || user.createdAt).getTime();
-                const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+                const lastActivated = user.lastActivatedAt || user.createdAt;
+                const daysRemaining = calculateGracePeriodRemaining(lastActivated, Date.now());
                 
-                if (activatedAge <= SEVEN_DAYS_MS) {
+                if (daysRemaining > 0) {
                   // Within grace period - user has time to start mining
-                  const daysRemaining = Math.ceil((SEVEN_DAYS_MS - activatedAge) / (24 * 60 * 60 * 1000));
                   console.log(`User ${user.address} has no pool file but within grace period (${daysRemaining} days remaining)`);
                   return; // Skip inactive marking, exit this user's processing
                 }
