@@ -49,7 +49,7 @@ export async function repairNullLastActivatedAt(): Promise<void> {
     .where('lastActivatedAt IS NULL')
     .execute();
   
-  console.log(`Null check repaired ${result.affected || 0} users`);
+  console.log(`Null check repaired ${result.affected || 0} users\n`);
 }
 
 interface WorkerData {
@@ -183,7 +183,14 @@ export function calculateGracePeriodRemaining(
   return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)));
 }
 
-async function updateUser(address: string): Promise<void> {
+interface MessageCollectors {
+  gracePeriod?: string[];
+  success?: string[];
+  deactivations?: string[];
+  errors?: string[];
+}
+
+async function updateUser(address: string, messages?: MessageCollectors): Promise<void> {
   let userData: UserData;
   if (/[^a-zA-Z0-9]/.test(address)) {
     throw new Error('updateUser(): address contains invalid characters');
@@ -192,7 +199,6 @@ async function updateUser(address: string): Promise<void> {
   const apiUrl =
     (process.env.API_URL || 'https://solo.ckpool.org') + `/users/${address}`;
 
-  console.log('Attempting to update user stats for:', address);
   const db = await getDb();
 
   userData = await fetchUserDataWithRetry(address, apiUrl);
@@ -221,10 +227,20 @@ async function updateUser(address: string): Promise<void> {
         user.isActive = false;
         await userRepository.save(user);
         userMarkedInactive = true;
-        console.log(`Marked user ${address} as inactive (7-day grace period expired)`);
+        const deactivationMsg = `Marked user ${address} as inactive (7-day grace period expired)`;
+        if (messages?.deactivations) {
+          messages.deactivations.push(deactivationMsg);
+        } else {
+          console.log(deactivationMsg);
+        }
         return; // Skip stats update for inactive user
       } else if (decision.daysRemaining !== undefined) {
-        console.log(`User ${address} hasn't mined in 7+ days but within grace period`);
+        const message = `User ${address} hasn't mined in 7+ days but within grace period`;
+        if (messages?.gracePeriod) {
+          messages.gracePeriod.push(message);
+        } else {
+          console.log(message);
+        }
       }
     }
     
@@ -347,7 +363,12 @@ async function updateUser(address: string): Promise<void> {
     cacheDeletePrefix(`workerWithStats:${address}:`);
   }
 
-  console.log(`Updated user and ${workerCount} workers for: ${address}`);
+  const successMsg = `Updated user and ${workerCount} workers for: ${address}`;
+  if (messages?.success) {
+    messages.success.push(successMsg);
+  } else {
+    console.log(successMsg);
+  }
 }
 
 async function main() {
@@ -369,17 +390,20 @@ async function main() {
       console.log('No active users found');
     }
 
-    console.log('[User Data Updates]');
+    const messages: MessageCollectors = {
+      gracePeriod: [],
+      success: [],
+      deactivations: [],
+      errors: [],
+    };
+
     for (let i = 0; i < users.length; i += BATCH_SIZE) {
       const batch = users.slice(i, i + BATCH_SIZE);
-      console.log(
-        `Processing batch ${i / BATCH_SIZE + 1} of ${Math.ceil(users.length / BATCH_SIZE)}`
-      );
 
       await Promise.all(
         batch.map(async (user) => {
           try {
-            await updateUser(user.address);
+            await updateUser(user.address, messages);
           } catch (error) {
             // Mark inactive only if the file was not found
             if (error instanceof FileNotFoundError) {
@@ -390,13 +414,13 @@ async function main() {
                 
                 if (daysRemaining > 0) {
                   // Within grace period - user has time to start mining
-                  console.log(`User ${user.address} has no pool file but within grace period (${daysRemaining} days remaining)`);
+                  messages.gracePeriod!.push(`User ${user.address} has no pool file but within grace period (${daysRemaining} days remaining)`);
                   return; // Skip inactive marking, exit this user's processing
                 }
                 
                 // Grace period expired - mark inactive
                 await userRepository.update({ address: user.address }, { isActive: false });
-                console.log(`Marked user ${user.address} as inactive (no pool file, grace period expired)`);
+                messages.deactivations!.push(`Marked user ${user.address} as inactive (no pool file, grace period expired)`);
                 // Invalidate caches to prevent stale data
                 cacheDelete(`userWithWorkers:${user.address}`);
                 cacheDelete(`userHistorical:${user.address}`);
@@ -404,17 +428,49 @@ async function main() {
                 cacheDeletePrefix('topUserLoyalty');
                 cacheDeletePrefix(`workerWithStats:${user.address}:`);
               } catch (markError) {
-                console.error(`Could not mark user ${user.address} as inactive:`, markError);
+                messages.errors!.push(`Could not mark user ${user.address} as inactive: ${markError}`);
               }
             } else {
               // Database error, transaction failure, etc. - log the actual error
-              console.error(`Failed to update user ${user.address}:`, error);
-              console.error(`Non-file error for ${user.address}, skipping inactive marking`);
+              messages.errors!.push(`Failed to update user ${user.address}: ${error}`);
             }
           }
         })
       );
     }
+
+    // Print all message sections
+    if (messages.success!.length > 0) {
+      console.log('[Successfully Updated]');
+      messages.success!.forEach(msg => console.log(msg));
+    }
+
+    if (messages.deactivations!.length > 0) {
+      console.log('\n[Deactivations]');
+      messages.deactivations!.forEach(msg => console.log(msg));
+    }
+
+    if (messages.gracePeriod!.length > 0) {
+      console.log('\n[Grace Period Notices]');
+      messages.gracePeriod!.forEach(msg => console.log(msg));
+    }
+
+    if (messages.errors!.length > 0) {
+      console.log('\n[Errors]');
+      messages.errors!.forEach(msg => console.log(msg));
+    }
+
+    // Summary: batches, users and workers (placed at the end)
+    const totalBatches = Math.ceil(users.length / BATCH_SIZE);
+    const usersProcessed = messages.success!.length;
+    const workersProcessed = messages.success!.reduce((acc, msg) => {
+      const m = msg.match(/Updated user and (\d+) workers/);
+      return acc + (m ? Number(m[1]) : 0);
+    }, 0);
+
+    console.log('\n[User Data Updates]');
+    console.log(`Processed ${totalBatches} batch${totalBatches === 1 ? '' : 'es'}, ${usersProcessed} users, ${workersProcessed} workers`);
+    console.log('');
   } catch (error) {
     console.error('Error in main loop:', error);
     throw error;
