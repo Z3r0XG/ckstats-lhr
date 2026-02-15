@@ -3,8 +3,15 @@ import 'reflect-metadata';
 import { readJsonStable, delay } from '../utils/readFileStable';
 import { validateAndResolveUserPath } from '../utils/validateLocalPath';
 
+export class FileNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FileNotFoundError';
+  }
+}
+
 import { getDb } from '../lib/db';
-import { cacheDelete } from '../lib/api';
+import { cacheDelete, cacheDeletePrefix } from '../lib/api';
 import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
@@ -18,8 +25,33 @@ import {
 } from '../utils/helpers';
 
 const BATCH_SIZE = 10;
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 500;
+export const MAX_RETRIES = 3;
+export const RETRY_DELAY_MS = 500;
+
+export const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Repair all users with NULL lastActivatedAt by setting it to their createdAt timestamp.
+ * This ensures all users have a valid lastActivatedAt for grace period calculations.
+ * Runs once at the start of each cron execution before processing any users.
+ * Uses a single bulk UPDATE for performance.
+ */
+export async function repairNullLastActivatedAt(): Promise<void> {
+  const db = await getDb();
+  const userRepository = db.getRepository(User);
+  
+  // Single bulk UPDATE: SET lastActivatedAt = createdAt WHERE lastActivatedAt IS NULL
+  const result = await userRepository
+    .createQueryBuilder()
+    .update(User)
+    .set({ lastActivatedAt: () => '"createdAt"' })
+    .where('lastActivatedAt IS NULL')
+    .execute();
+  
+  if (result.affected && result.affected > 0) {
+    console.log(`✓ Repaired ${result.affected} users with NULL lastActivatedAt`);
+  }
+}
 
 interface WorkerData {
   workername: string;
@@ -36,7 +68,7 @@ interface WorkerData {
   bestever: string;
 }
 
-interface UserData {
+export interface UserData {
   authorised: number;
   hashrate1m: number;
   hashrate5m: number;
@@ -51,7 +83,9 @@ interface UserData {
   worker: WorkerData[];
 }
 
-async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<UserData> {
+export async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<UserData> {
+  let lastError: any;
+  
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const response = await fetch(apiUrl);
@@ -62,19 +96,31 @@ async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<
 
       return (await response.json()) as UserData;
     } catch (error: any) {
+      lastError = error;
+      
       if (error.cause?.code === 'ERR_INVALID_URL') {
         // When API_URL is a filesystem path (local logs), enforce a safe root
         const basePath = process.env.API_URL || '';
-        const resolved = validateAndResolveUserPath(address, basePath);
-        return await readJsonStable(resolved, {
-          retries: 6,
-          backoffMs: 50,
-        }) as UserData;
+        
+        try {
+          const resolved = validateAndResolveUserPath(address, basePath);
+          return await readJsonStable(resolved, {
+            retries: 6,
+            backoffMs: 50,
+          }) as UserData;
+        } catch (fileError: any) {
+          // readJsonStable handles temporary missing files; if it still fails, file is gone
+          if (fileError.code === 'ENOENT') {
+            throw new FileNotFoundError(`User file not found: ${address}`);
+          }
+          
+          throw fileError; // Other file errors propagate immediately
+        }
       }
 
       if (attempt === MAX_RETRIES) {
         console.error(`Failed to fetch data for ${address} after ${MAX_RETRIES} attempts`);
-        throw error;
+        throw lastError;
       }
 
       console.log(`Attempt ${attempt} failed for ${address}. Retrying...`);
@@ -82,7 +128,60 @@ async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<
     }
   }
 
-  throw new Error(`Failed to fetch user data for ${address}`);
+  // This should never be reached since attempt===MAX_RETRIES always throws
+  throw new Error(`Unexpected: fetchUserDataWithRetry loop ended without throwing for ${address}`);
+}
+
+/**
+ * Pure function to determine if a user should be marked inactive based on grace period logic.
+ * 
+ * @param lastShareTimestamp - Unix timestamp in seconds of last share
+ * @param lastActivatedAt - Date when user was last activated
+ * @param createdAt - Date when user was created (fallback if lastActivatedAt is null)
+ * @param now - Current timestamp in milliseconds
+ * @returns Object with shouldMarkInactive flag and optional daysRemaining
+ */
+export function shouldMarkUserInactive(
+  lastShareTimestamp: number,
+  lastActivatedAt: Date | null,
+  createdAt: Date,
+  now: number
+): { shouldMarkInactive: boolean; daysRemaining?: number } {
+  const lastShareAge = now - (lastShareTimestamp * 1000);
+  
+  // If user hasn't mined in 7+ days, check grace period
+  if (lastShareAge > SEVEN_DAYS_MS) {
+    const activationDate = lastActivatedAt || createdAt;
+    const lastActivatedAge = now - activationDate.getTime();
+    
+    if (lastActivatedAge >= SEVEN_DAYS_MS) {
+      // Both thresholds exceeded - mark inactive
+      return { shouldMarkInactive: true };
+    } else {
+      // Within grace period
+      const daysRemaining = Math.ceil((SEVEN_DAYS_MS - lastActivatedAge) / (24 * 60 * 60 * 1000));
+      return { shouldMarkInactive: false, daysRemaining };
+    }
+  }
+  
+  // User is actively mining
+  return { shouldMarkInactive: false };
+}
+
+/**
+ * Calculate days remaining in grace period.
+ * 
+ * @param lastActivatedAt - Date when user was last activated
+ * @param now - Current timestamp in milliseconds
+ * @returns Number of days remaining, or 0 if grace period expired
+ */
+export function calculateGracePeriodRemaining(
+  lastActivatedAt: Date,
+  now: number
+): number {
+  const lastActivatedAge = now - lastActivatedAt.getTime();
+  const remaining = SEVEN_DAYS_MS - lastActivatedAge;
+  return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)));
 }
 
 async function updateUser(address: string): Promise<void> {
@@ -99,9 +198,37 @@ async function updateUser(address: string): Promise<void> {
 
   userData = await fetchUserDataWithRetry(address, apiUrl);
 
+  const now = Date.now();
+  
+  // Track whether user should be marked inactive (used after transaction for cache invalidation)
+  let userMarkedInactive = false;
+  let workerCount = 0;
+
   await db.transaction(async (manager) => {
     const userRepository = manager.getRepository(User);
     const user = await userRepository.findOne({ where: { address } });
+    
+    // Check for stale mining activity using extracted grace period logic
+    if (user) {
+      const decision = shouldMarkUserInactive(
+        userData.lastshare,
+        user.lastActivatedAt,
+        user.createdAt,
+        now
+      );
+      
+      if (decision.shouldMarkInactive) {
+        // Both thresholds exceeded - mark inactive and skip stats update
+        user.isActive = false;
+        await userRepository.save(user);
+        userMarkedInactive = true;
+        console.log(`Marked user ${address} as inactive (7-day grace period expired)`);
+        return; // Skip stats update for inactive user
+      } else if (decision.daysRemaining !== undefined) {
+        console.log(`User ${address} hasn't mined in 7+ days but within grace period`);
+      }
+    }
+    
     if (user) {
       user.authorised = userData.authorised.toString();
       user.isActive = true;
@@ -111,6 +238,7 @@ async function updateUser(address: string): Promise<void> {
         address,
         authorised: userData.authorised.toString(),
         isActive: true,
+        lastActivatedAt: new Date(),
         updatedAt: new Date().toISOString(),
       });
     }
@@ -207,16 +335,29 @@ async function updateUser(address: string): Promise<void> {
 
       // Invalidate cache for this worker
       cacheDelete(`workerWithStats:${address}:${workerName}`);
+      workerCount++;
     }
   });
 
-  console.log(`Updated user and workers for: ${address}`);
+  // Invalidate caches after transaction commits (for inactive users)
+  if (userMarkedInactive) {
+    cacheDelete(`userWithWorkers:${address}`);
+    cacheDelete(`userHistorical:${address}`);
+    cacheDeletePrefix('topUserHashrates');
+    cacheDeletePrefix('topUserLoyalty');
+    cacheDeletePrefix(`workerWithStats:${address}:`);
+  }
+
+  console.log(`Updated user and ${workerCount} workers for: ${address}`);
 }
 
 async function main() {
   let db;
 
   try {
+    // Repair any NULL lastActivatedAt values before processing
+    await repairNullLastActivatedAt();
+    
     db = await getDb();
     const userRepository = db.getRepository(User);
 
@@ -240,14 +381,35 @@ async function main() {
           try {
             await updateUser(user.address);
           } catch (error) {
-            console.error(`Failed to update user ${user.address}:`, error);
-            // Try to mark user as inactive, but don't let this secondary operation fail the batch
-            try {
-              await userRepository.update({ address: user.address }, { isActive: false });
-              console.log(`Marked user ${user.address} as inactive`);
-            } catch (markError) {
-              console.error(`Could not mark user ${user.address} as inactive:`, markError);
-              // Silently continue - user will remain active with stale data
+            // Mark inactive only if the file was not found
+            if (error instanceof FileNotFoundError) {
+              // File doesn't exist - check grace period before marking inactive
+              try {
+                const lastActivated = user.lastActivatedAt || user.createdAt;
+                const daysRemaining = calculateGracePeriodRemaining(lastActivated, Date.now());
+                
+                if (daysRemaining > 0) {
+                  // Within grace period - user has time to start mining
+                  console.log(`User ${user.address} has no pool file but within grace period (${daysRemaining} days remaining)`);
+                  return; // Skip inactive marking, exit this user's processing
+                }
+                
+                // Grace period expired - mark inactive
+                await userRepository.update({ address: user.address }, { isActive: false });
+                console.log(`Marked user ${user.address} as inactive (no pool file, grace period expired)`);
+                // Invalidate caches to prevent stale data
+                cacheDelete(`userWithWorkers:${user.address}`);
+                cacheDelete(`userHistorical:${user.address}`);
+                cacheDeletePrefix('topUserHashrates');
+                cacheDeletePrefix('topUserLoyalty');
+                cacheDeletePrefix(`workerWithStats:${user.address}:`);
+              } catch (markError) {
+                console.error(`Could not mark user ${user.address} as inactive:`, markError);
+              }
+            } else {
+              // Database error, transaction failure, etc. - log the actual error
+              console.error(`Failed to update user ${user.address}:`, error);
+              console.error(`Non-file error for ${user.address}, skipping inactive marking`);
             }
           }
         })

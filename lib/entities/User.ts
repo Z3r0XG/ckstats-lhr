@@ -40,4 +40,8 @@ export class User {
   @Column({ default: true })
   @Index('User_isPublic_idx')
   isPublic: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  @Index('User_lastActivatedAt_idx')
+  lastActivatedAt: Date | null;
 }

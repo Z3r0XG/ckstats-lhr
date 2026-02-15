@@ -14,8 +14,6 @@ const mockPayload: TopLoyaltyPayload = {
       authorised: 1000,
       workerCount: 5,
       hashrate1hr: 1000000,
-      hashrate1d: 950000,
-      hashrate7d: 900000,
       shares: 50000,
       bestShare: 45.5,
     },
@@ -24,8 +22,6 @@ const mockPayload: TopLoyaltyPayload = {
       authorised: 2000,
       workerCount: 3,
       hashrate1hr: 800000,
-      hashrate1d: 750000,
-      hashrate7d: 700000,
       shares: 40000,
       bestShare: 43.0,
     },
@@ -50,8 +46,6 @@ describe('useTopLoyalty hook', () => {
       expect(entry).toHaveProperty('authorised');
       expect(entry).toHaveProperty('workerCount');
       expect(entry).toHaveProperty('hashrate1hr');
-      expect(entry).toHaveProperty('hashrate1d');
-      expect(entry).toHaveProperty('hashrate7d');
       expect(entry).toHaveProperty('shares');
       expect(entry).toHaveProperty('bestShare');
     });
