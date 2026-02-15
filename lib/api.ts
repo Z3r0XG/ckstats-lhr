@@ -400,14 +400,16 @@ export async function getTopUserLoyalty(limit: number = 10) {
       .take(limit)
       .getRawMany();
 
-    return users.map((s: any) => ({
-      address: maskAddress(s.userStats_userAddress),
-      authorised: Number(s.user_authorised),
-      workerCount: Number(s.userStats_workerCount),
-      hashrate1hr: Number(s.userStats_hashrate1hr),
-      shares: Number(s.userStats_shares),
-      bestShare: Number(s.userStats_bestShare),
-    }));
+    return users
+      .map((s: any) => ({
+        address: maskAddress(s.userStats_userAddress),
+        authorised: Number(s.user_authorised),
+        workerCount: Number(s.userStats_workerCount),
+        hashrate1hr: Number(s.userStats_hashrate1hr),
+        shares: Number(s.userStats_shares),
+        bestShare: Number(s.userStats_bestShare),
+      }))
+      .slice(0, limit);
   });
 }
 
