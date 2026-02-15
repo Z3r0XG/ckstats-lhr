@@ -202,6 +202,7 @@ async function updateUser(address: string): Promise<void> {
   
   // Track whether user should be marked inactive (used after transaction for cache invalidation)
   let userMarkedInactive = false;
+  let workerCount = 0;
 
   await db.transaction(async (manager) => {
     const userRepository = manager.getRepository(User);
@@ -334,6 +335,7 @@ async function updateUser(address: string): Promise<void> {
 
       // Invalidate cache for this worker
       cacheDelete(`workerWithStats:${address}:${workerName}`);
+      workerCount++;
     }
   });
 
@@ -346,7 +348,7 @@ async function updateUser(address: string): Promise<void> {
     cacheDeletePrefix(`workerWithStats:${address}:`);
   }
 
-  console.log(`Updated user and workers for: ${address}`);
+  console.log(`Updated user and ${workerCount} workers for: ${address}`);
 }
 
 async function main() {
