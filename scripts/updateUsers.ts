@@ -13,7 +13,6 @@ export class FileNotFoundError extends Error {
 import { getDb } from '../lib/db';
 import { cacheDelete, cacheDeletePrefix } from '../lib/api';
 import { User } from '../lib/entities/User';
-import { IsNull } from 'typeorm';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
 import { WorkerStats } from '../lib/entities/WorkerStats';
