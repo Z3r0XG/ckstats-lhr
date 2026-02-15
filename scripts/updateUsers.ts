@@ -383,9 +383,7 @@ async function main() {
             if (error instanceof FileNotFoundError) {
               // File doesn't exist - check grace period before marking inactive
               try {
-                const userRecord = await userRepository.findOne({ where: { address: user.address } });
-                
-                const activatedAge = Date.now() - (userRecord.lastActivatedAt || userRecord.createdAt).getTime();
+                const activatedAge = Date.now() - (user.lastActivatedAt || user.createdAt).getTime();
                 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
                 
                 if (activatedAge <= SEVEN_DAYS_MS) {
