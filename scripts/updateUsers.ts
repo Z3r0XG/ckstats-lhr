@@ -183,11 +183,24 @@ export function calculateGracePeriodRemaining(
   return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)));
 }
 
-interface MessageCollectors {
+export function formatUserDataSummary(messages: MessageCollectors, totalUsers: number, batchSize: number): string {
+  const totalBatches = Math.ceil(totalUsers / batchSize);
+  const usersProcessed = messages.successCount || (messages.success || []).length || 0;
+  const workersProcessed = messages.workersCount || 0;
+  return `Processed ${totalBatches} batch${totalBatches === 1 ? '' : 'es'}, ${usersProcessed} users, ${workersProcessed} workers`;
+}
+
+export interface MessageCollectors {
   gracePeriod?: string[];
   success?: string[];
   deactivations?: string[];
   errors?: string[];
+  // numeric counters (kept in sync with message arrays)
+  successCount?: number;
+  workersCount?: number;
+  deactivationsCount?: number;
+  gracePeriodCount?: number;
+  errorsCount?: number;
 }
 
 async function updateUser(address: string, messages?: MessageCollectors): Promise<void> {
@@ -235,9 +248,10 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
         }
         return; // Skip stats update for inactive user
       } else if (decision.daysRemaining !== undefined) {
-        const message = `User ${address} hasn't mined in 7+ days but within grace period`;
+            const message = `User ${address} hasn't mined in 7+ days but within grace period`;
         if (messages?.gracePeriod) {
           messages.gracePeriod.push(message);
+          messages.gracePeriodCount = (messages.gracePeriodCount || 0) + 1;
         } else {
           console.log(message);
         }
@@ -366,6 +380,8 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
   const successMsg = `Updated user and ${workerCount} workers for: ${address}`;
   if (messages?.success) {
     messages.success.push(successMsg);
+    messages.successCount = (messages.successCount || 0) + 1;
+    messages.workersCount = (messages.workersCount || 0) + workerCount;
   } else {
     console.log(successMsg);
   }
@@ -421,6 +437,7 @@ async function main() {
                 // Grace period expired - mark inactive
                 await userRepository.update({ address: user.address }, { isActive: false });
                 messages.deactivations!.push(`Marked user ${user.address} as inactive (no pool file, grace period expired)`);
+                messages.deactivationsCount = (messages.deactivationsCount || 0) + 1;
                 // Invalidate caches to prevent stale data
                 cacheDelete(`userWithWorkers:${user.address}`);
                 cacheDelete(`userHistorical:${user.address}`);
@@ -433,6 +450,7 @@ async function main() {
             } else {
               // Database error, transaction failure, etc. - log the actual error
               messages.errors!.push(`Failed to update user ${user.address}: ${error}`);
+              messages.errorsCount = (messages.errorsCount || 0) + 1;
             }
           }
         })
@@ -455,21 +473,21 @@ async function main() {
       messages.gracePeriod!.forEach(msg => console.log(msg));
     }
 
+    // expose numeric counts for summary (ensure defaults)
+    messages.successCount = messages.successCount || messages.success!.length || 0;
+    messages.workersCount = messages.workersCount || 0;
+    messages.deactivationsCount = messages.deactivationsCount || messages.deactivations!.length || 0;
+    messages.gracePeriodCount = messages.gracePeriodCount || messages.gracePeriod!.length || 0;
+    messages.errorsCount = messages.errorsCount || messages.errors!.length || 0;
+
     if (messages.errors!.length > 0) {
       console.log('\n[Errors]');
       messages.errors!.forEach(msg => console.log(msg));
     }
 
-    // Summary: batches, users and workers (placed at the end)
-    const totalBatches = Math.ceil(users.length / BATCH_SIZE);
-    const usersProcessed = messages.success!.length;
-    const workersProcessed = messages.success!.reduce((acc, msg) => {
-      const m = msg.match(/Updated user and (\d+) workers/);
-      return acc + (m ? Number(m[1]) : 0);
-    }, 0);
-
+    const summary = formatUserDataSummary(messages, users.length, BATCH_SIZE);
     console.log('\n[User Data Updates]');
-    console.log(`Processed ${totalBatches} batch${totalBatches === 1 ? '' : 'es'}, ${usersProcessed} users, ${workersProcessed} workers`);
+    console.log(summary);
     console.log('');
   } catch (error) {
     console.error('Error in main loop:', error);
