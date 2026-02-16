@@ -243,7 +243,7 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
         user.isActive = false;
         await userRepository.save(user);
         userMarkedInactive = true;
-        const deactivationMsg = `Marked user ${address} as inactive (7-day grace period expired)`;
+        const deactivationMsg = `Marked user ${address} as inactive (last share over 7 days ago, grace period expired)`;
         if (messages?.deactivations) {
           messages.deactivations.push(deactivationMsg);
         } else {
@@ -251,7 +251,7 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
         }
         return; // Skip stats update for inactive user
       } else if (decision.daysRemaining !== undefined) {
-            const message = `User ${address} hasn't mined in 7+ days but within grace period`;
+        const message = `User ${address} last share over 7 days ago (grace period: ${decision.daysRemaining} days remaining)`;
         if (messages?.gracePeriod) {
           messages.gracePeriod.push(message);
         } else {
@@ -432,7 +432,7 @@ async function main() {
                 
                 if (daysRemaining > 0) {
                   // Within grace period - user has time to start mining
-                  messages.gracePeriod!.push(`User ${user.address} has no pool file but within grace period (${daysRemaining} days remaining)`);
+                  messages.gracePeriod!.push(`User ${user.address} no pool file (grace period: ${daysRemaining} days remaining)`);
                   return; // Skip inactive marking, exit this user's processing
                 }
                 
