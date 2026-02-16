@@ -264,7 +264,9 @@ export async function getWorkerWithStats(
 }
 
 export async function getTopUserDifficulties(limit: number = 10) {
-  const key = `topUserDifficulties:${limit}`;
+  // Sanitize limit to positive integer
+  const sanitizedLimit = Math.max(1, Math.floor(limit));
+  const key = `topUserDifficulties:${sanitizedLimit}`;
   return getCached(key, 30, async () => {
     const db = await getDb();
     const repository = db.getRepository(UserStats);
@@ -294,7 +296,7 @@ export async function getTopUserDifficulties(limit: number = 10) {
         return `userStats.timestamp = ${subQuery}`;
       })
       .orderBy('userStats.bestEver', 'DESC')
-      .take(limit)
+      .limit(sanitizedLimit)
       .getMany();
 
     return topUsers.map((stats) => ({
@@ -310,7 +312,9 @@ export async function getTopUserDifficulties(limit: number = 10) {
 }
 
 export async function getTopUserHashrates(limit: number = 10) {
-  const key = `topUserHashrates:${limit}`;
+  // Sanitize limit to positive integer
+  const sanitizedLimit = Math.max(1, Math.floor(limit));
+  const key = `topUserHashrates:${sanitizedLimit}`;
   return getCached(key, 30, async () => {
     const db = await getDb();
     const repository = db.getRepository(UserStats);
@@ -342,7 +346,7 @@ export async function getTopUserHashrates(limit: number = 10) {
       })
       .andWhere('userStats.workerCount > 0')
       .orderBy('userStats.hashrate1hr', 'DESC')
-      .take(limit)
+      .limit(sanitizedLimit)
       .getMany();
 
     return topUsers.map((stats) => ({
@@ -365,7 +369,9 @@ export async function getTopUserHashrates(limit: number = 10) {
  * @returns Array of users sorted by join time (oldest first)
  */
 export async function getTopUserLoyalty(limit: number = 10) {
-  const key = `topUserLoyalty:${limit}`;
+  // Sanitize limit to positive integer
+  const sanitizedLimit = Math.max(1, Math.floor(limit));
+  const key = `topUserLoyalty:${sanitizedLimit}`;
   return getCached(key, 30, async () => {
     const db = await getDb();
     const repository = db.getRepository(UserStats);
@@ -397,7 +403,7 @@ export async function getTopUserLoyalty(limit: number = 10) {
       .andWhere('userStats.workerCount > 0')
       .andWhere('user.authorised > 0')
       .orderBy('user.authorised', 'ASC')
-      .take(limit)
+      .limit(sanitizedLimit)
       .getRawMany();
 
     return users.map((s: any) => ({

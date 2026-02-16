@@ -13,13 +13,25 @@ describe('getTopUserLoyalty', () => {
       { userStats_userAddress: 'addr3', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_shares: 300, userStats_timestamp: 0, user_authorised: '3000' },
     ];
 
+    const calls = {
+      orderBy: null as { field: string; direction: string } | null,
+      limit: null as number | null,
+    };
+
     const chain = {
       innerJoin() { return this; },
       select() { return this; },
       where() { return this; },
       andWhere() { return this; },
-      orderBy() { return this; },
+      orderBy(field: string, direction: string) {
+        calls.orderBy = { field, direction };
+        return this;
+      },
       take() { return this; },
+      limit(value: number) {
+        calls.limit = value;
+        return this;
+      },
       async getRawMany() { return fakeRows; },
     } as any;
     const fakeCreate = jest.fn(() => chain);
@@ -28,6 +40,11 @@ describe('getTopUserLoyalty', () => {
 
     const res = await getTopUserLoyalty(10);
 
+    // Verify query building
+    expect(calls.orderBy).toEqual({ field: 'user.authorised', direction: 'ASC' });
+    expect(calls.limit).toBe(10);
+
+    // Verify results
     expect(res).toHaveLength(3);
     expect(res[0].address).toBe('addr2');
     expect(res[0].authorised).toBe(1000);
@@ -45,6 +62,8 @@ describe('getTopUserLoyalty', () => {
       { userStats_userAddress: 'addr3', userStats_workerCount: 1, userStats_hashrate1hr: 0, userStats_hashrate1d: 0, userStats_hashrate7d: 0, userStats_bestShare: 0, userStats_shares: 300, userStats_timestamp: 0, user_authorised: '3000' },
     ];
 
+    const calls = { limit: null as number | null };
+
     const chain = {
       innerJoin() { return this; },
       select() { return this; },
@@ -52,6 +71,10 @@ describe('getTopUserLoyalty', () => {
       andWhere() { return this; },
       orderBy() { return this; },
       take() { return this; },
+      limit(value: number) {
+        calls.limit = value;
+        return this;
+      },
       async getRawMany() { return fakeRows; },
     } as any;
     const fakeCreate = jest.fn(() => chain);
@@ -60,9 +83,54 @@ describe('getTopUserLoyalty', () => {
 
     const res = await getTopUserLoyalty(2);
 
+    // Verify limit was applied
+    expect(calls.limit).toBe(2);
+
     // Verify filtering: only users with authorised > 0 are returned (SQL filters out authorised <= 0)
     expect(res).toHaveLength(2);
     expect(res.map((r) => r.authorised)).toEqual([2000, 3000]);
     expect(res.every((r) => r.authorised > 0)).toBe(true);
+  });
+
+  it('sanitizes negative limit to 1', async () => {
+    const calls = { limit: null as number | null };
+    const chain = {
+      innerJoin() { return this; },
+      select() { return this; },
+      where() { return this; },
+      andWhere() { return this; },
+      orderBy() { return this; },
+      take() { return this; },
+      limit(value: number) { calls.limit = value; return this; },
+      async getRawMany() { return []; },
+    } as any;
+
+    jest.spyOn(dbModule, 'getDb').mockResolvedValue({
+      getRepository: () => ({ createQueryBuilder: () => chain }),
+    } as any);
+
+    await getTopUserLoyalty(-10);
+    expect(calls.limit).toBe(1);
+  });
+
+  it('sanitizes float limit by flooring', async () => {
+    const calls = { limit: null as number | null };
+    const chain = {
+      innerJoin() { return this; },
+      select() { return this; },
+      where() { return this; },
+      andWhere() { return this; },
+      orderBy() { return this; },
+      take() { return this; },
+      limit(value: number) { calls.limit = value; return this; },
+      async getRawMany() { return []; },
+    } as any;
+
+    jest.spyOn(dbModule, 'getDb').mockResolvedValue({
+      getRepository: () => ({ createQueryBuilder: () => chain }),
+    } as any);
+
+    await getTopUserLoyalty(7.8);
+    expect(calls.limit).toBe(7);
   });
 });

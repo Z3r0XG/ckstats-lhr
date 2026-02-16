@@ -35,6 +35,11 @@ describe('Top User Leaderboards', () => {
         },
       ];
 
+      const calls = {
+        orderBy: null as { field: string; direction: string } | null,
+        limit: null as number | null,
+      };
+
       const chain = {
         innerJoin() {
           return this;
@@ -48,10 +53,15 @@ describe('Top User Leaderboards', () => {
         andWhere() {
           return this;
         },
-        orderBy() {
+        orderBy(field: string, direction: string) {
+          calls.orderBy = { field, direction };
           return this;
         },
         take() {
+          return this;
+        },
+        limit(value: number) {
+          calls.limit = value;
           return this;
         },
         async getMany() {
@@ -69,10 +79,57 @@ describe('Top User Leaderboards', () => {
 
       const result = await getTopUserDifficulties(10);
 
+      // Verify query building
+      expect(calls.orderBy).toEqual({ field: 'userStats.bestEver', direction: 'DESC' });
+      expect(calls.limit).toBe(10);
+
+      // Verify results
       expect(result).toHaveLength(2);
       expect(result[0].difficulty).toBe(50.0);
       expect(result[1].difficulty).toBe(48.0);
       expect(result[0].workerCount).toBe(5);
+    });
+
+    it('sanitizes negative limit to 1', async () => {
+      const calls = { limit: null as number | null };
+      const chain = {
+        innerJoin() { return this; },
+        select() { return this; },
+        where() { return this; },
+        andWhere() { return this; },
+        orderBy() { return this; },
+        take() { return this; },
+        limit(value: number) { calls.limit = value; return this; },
+        async getMany() { return []; },
+      } as any;
+
+      jest.spyOn(dbModule, 'getDb').mockResolvedValue({
+        getRepository: () => ({ createQueryBuilder: () => chain }),
+      } as any);
+
+      await getTopUserDifficulties(-5);
+      expect(calls.limit).toBe(1);
+    });
+
+    it('sanitizes float limit by flooring', async () => {
+      const calls = { limit: null as number | null };
+      const chain = {
+        innerJoin() { return this; },
+        select() { return this; },
+        where() { return this; },
+        andWhere() { return this; },
+        orderBy() { return this; },
+        take() { return this; },
+        limit(value: number) { calls.limit = value; return this; },
+        async getMany() { return []; },
+      } as any;
+
+      jest.spyOn(dbModule, 'getDb').mockResolvedValue({
+        getRepository: () => ({ createQueryBuilder: () => chain }),
+      } as any);
+
+      await getTopUserDifficulties(5.9);
+      expect(calls.limit).toBe(5);
     });
   });
 
@@ -103,6 +160,11 @@ describe('Top User Leaderboards', () => {
         },
       ];
 
+      const calls = {
+        orderBy: null as { field: string; direction: string } | null,
+        limit: null as number | null,
+      };
+
       const chain = {
         innerJoin() {
           return this;
@@ -116,10 +178,15 @@ describe('Top User Leaderboards', () => {
         andWhere() {
           return this;
         },
-        orderBy() {
+        orderBy(field: string, direction: string) {
+          calls.orderBy = { field, direction };
           return this;
         },
         take() {
+          return this;
+        },
+        limit(value: number) {
+          calls.limit = value;
           return this;
         },
         async getMany() {
@@ -137,6 +204,11 @@ describe('Top User Leaderboards', () => {
 
       const result = await getTopUserHashrates(10);
 
+      // Verify query building
+      expect(calls.orderBy).toEqual({ field: 'userStats.hashrate1hr', direction: 'DESC' });
+      expect(calls.limit).toBe(10);
+
+      // Verify results
       expect(result).toHaveLength(2);
       expect(result[0].hashrate1hr).toBe(5000000);
       expect(result[1].hashrate1hr).toBe(4200000);
@@ -177,6 +249,9 @@ describe('Top User Leaderboards', () => {
         take() {
           return this;
         },
+        limit() {
+          return this;
+        },
         async getMany() {
           return fakeData;
         },
@@ -197,6 +272,27 @@ describe('Top User Leaderboards', () => {
       expect(result[0]).toHaveProperty('hashrate1hr');
       expect(result[0]).toHaveProperty('hashrate1d');
       expect(result[0]).toHaveProperty('bestEver');
+    });
+
+    it('sanitizes limit correctly', async () => {
+      const calls = { limit: null as number | null };
+      const chain = {
+        innerJoin() { return this; },
+        select() { return this; },
+        where() { return this; },
+        andWhere() { return this; },
+        orderBy() { return this; },
+        take() { return this; },
+        limit(value: number) { calls.limit = value; return this; },
+        async getMany() { return []; },
+      } as any;
+
+      jest.spyOn(dbModule, 'getDb').mockResolvedValue({
+        getRepository: () => ({ createQueryBuilder: () => chain }),
+      } as any);
+
+      await getTopUserHashrates(0);
+      expect(calls.limit).toBe(1); // Zero becomes 1
     });
   });
 });

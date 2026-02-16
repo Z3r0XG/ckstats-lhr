@@ -41,6 +41,7 @@ export async function repairNullLastActivatedAt(): Promise<void> {
   const userRepository = db.getRepository(User);
   
   // Single bulk UPDATE: SET lastActivatedAt = createdAt WHERE lastActivatedAt IS NULL
+  console.log('[Null Fields Check]');
   const result = await userRepository
     .createQueryBuilder()
     .update(User)
@@ -48,9 +49,7 @@ export async function repairNullLastActivatedAt(): Promise<void> {
     .where('lastActivatedAt IS NULL')
     .execute();
   
-  if (result.affected && result.affected > 0) {
-    console.log(`✓ Repaired ${result.affected} users with NULL lastActivatedAt`);
-  }
+  console.log(`Null check repaired ${result.affected || 0} users\n`);
 }
 
 interface WorkerData {
@@ -184,7 +183,30 @@ export function calculateGracePeriodRemaining(
   return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)));
 }
 
-async function updateUser(address: string): Promise<void> {
+export function formatUserDataSummary(messages: MessageCollectors, totalUsers: number, batchSize: number): string {
+  const totalBatches = Math.ceil(totalUsers / batchSize);
+  // Derive counts from arrays if not explicitly set (for tests or direct calls)
+  const successCount = messages.successCount ?? (messages.success || []).length;
+  const deactivationsCount = messages.deactivationsCount ?? (messages.deactivations || []).length;
+  const usersProcessed = successCount + deactivationsCount;
+  const workersProcessed = messages.workersCount || 0;
+  return `Processed ${totalBatches} batch${totalBatches === 1 ? '' : 'es'}, ${usersProcessed} user${usersProcessed === 1 ? '' : 's'}, ${workersProcessed} worker${workersProcessed === 1 ? '' : 's'}`;
+}
+
+export interface MessageCollectors {
+  gracePeriod?: string[];
+  success?: string[];
+  deactivations?: string[];
+  errors?: string[];
+  // numeric counters (kept in sync with message arrays)
+  successCount?: number;
+  workersCount?: number;
+  deactivationsCount?: number;
+  gracePeriodCount?: number;
+  errorsCount?: number;
+}
+
+async function updateUser(address: string, messages?: MessageCollectors): Promise<void> {
   let userData: UserData;
   if (/[^a-zA-Z0-9]/.test(address)) {
     throw new Error('updateUser(): address contains invalid characters');
@@ -193,7 +215,6 @@ async function updateUser(address: string): Promise<void> {
   const apiUrl =
     (process.env.API_URL || 'https://solo.ckpool.org') + `/users/${address}`;
 
-  console.log('Attempting to update user stats for:', address);
   const db = await getDb();
 
   userData = await fetchUserDataWithRetry(address, apiUrl);
@@ -222,10 +243,20 @@ async function updateUser(address: string): Promise<void> {
         user.isActive = false;
         await userRepository.save(user);
         userMarkedInactive = true;
-        console.log(`Marked user ${address} as inactive (7-day grace period expired)`);
+        const deactivationMsg = `Marked user ${address} as inactive (last share over 7 days ago, grace period expired)`;
+        if (messages?.deactivations) {
+          messages.deactivations.push(deactivationMsg);
+        } else {
+          console.log(deactivationMsg);
+        }
         return; // Skip stats update for inactive user
       } else if (decision.daysRemaining !== undefined) {
-        console.log(`User ${address} hasn't mined in 7+ days but within grace period`);
+        const message = `User ${address} last share over 7 days ago (grace period: ${decision.daysRemaining} days remaining)`;
+        if (messages?.gracePeriod) {
+          messages.gracePeriod.push(message);
+        } else {
+          console.log(message);
+        }
       }
     }
     
@@ -346,9 +377,16 @@ async function updateUser(address: string): Promise<void> {
     cacheDeletePrefix('topUserHashrates');
     cacheDeletePrefix('topUserLoyalty');
     cacheDeletePrefix(`workerWithStats:${address}:`);
+    return; // Skip success message for inactive users
   }
 
-  console.log(`Updated user and ${workerCount} workers for: ${address}`);
+  const successMsg = `Updated user and ${workerCount} workers for: ${address}`;
+  if (messages?.success) {
+    messages.success.push(successMsg);
+    messages.workersCount = (messages.workersCount || 0) + workerCount;
+  } else {
+    console.log(successMsg);
+  }
 }
 
 async function main() {
@@ -370,16 +408,20 @@ async function main() {
       console.log('No active users found');
     }
 
+    const messages: MessageCollectors = {
+      gracePeriod: [],
+      success: [],
+      deactivations: [],
+      errors: [],
+    };
+
     for (let i = 0; i < users.length; i += BATCH_SIZE) {
       const batch = users.slice(i, i + BATCH_SIZE);
-      console.log(
-        `Processing batch ${i / BATCH_SIZE + 1} of ${Math.ceil(users.length / BATCH_SIZE)}`
-      );
 
       await Promise.all(
         batch.map(async (user) => {
           try {
-            await updateUser(user.address);
+            await updateUser(user.address, messages);
           } catch (error) {
             // Mark inactive only if the file was not found
             if (error instanceof FileNotFoundError) {
@@ -390,13 +432,13 @@ async function main() {
                 
                 if (daysRemaining > 0) {
                   // Within grace period - user has time to start mining
-                  console.log(`User ${user.address} has no pool file but within grace period (${daysRemaining} days remaining)`);
+                  messages.gracePeriod!.push(`User ${user.address} no pool file (grace period: ${daysRemaining} days remaining)`);
                   return; // Skip inactive marking, exit this user's processing
                 }
                 
                 // Grace period expired - mark inactive
                 await userRepository.update({ address: user.address }, { isActive: false });
-                console.log(`Marked user ${user.address} as inactive (no pool file, grace period expired)`);
+                messages.deactivations!.push(`Marked user ${user.address} as inactive (no pool file, grace period expired)`);
                 // Invalidate caches to prevent stale data
                 cacheDelete(`userWithWorkers:${user.address}`);
                 cacheDelete(`userHistorical:${user.address}`);
@@ -404,17 +446,50 @@ async function main() {
                 cacheDeletePrefix('topUserLoyalty');
                 cacheDeletePrefix(`workerWithStats:${user.address}:`);
               } catch (markError) {
-                console.error(`Could not mark user ${user.address} as inactive:`, markError);
+                messages.errors!.push(`Could not mark user ${user.address} as inactive: ${markError}`);
               }
             } else {
               // Database error, transaction failure, etc. - log the actual error
-              console.error(`Failed to update user ${user.address}:`, error);
-              console.error(`Non-file error for ${user.address}, skipping inactive marking`);
+              messages.errors!.push(`Failed to update user ${user.address}: ${error}`);
             }
           }
         })
       );
     }
+
+    // Print all message sections
+    if (messages.success!.length > 0) {
+      console.log('[Successfully Updated]');
+      messages.success!.forEach(msg => console.log(msg));
+    }
+
+    if (messages.deactivations!.length > 0) {
+      console.log('\n[Deactivations]');
+      messages.deactivations!.forEach(msg => console.log(msg));
+    }
+
+    if (messages.gracePeriod!.length > 0) {
+      console.log('\n[Grace Period Notices]');
+      messages.gracePeriod!.forEach(msg => console.log(msg));
+    }
+
+    // Derive counts from arrays (single source of truth)
+    // Note: workersCount is accumulated (sum of worker counts), not derived from array length
+    messages.successCount = (messages.success || []).length;
+    messages.workersCount = messages.workersCount || 0;
+    messages.deactivationsCount = (messages.deactivations || []).length;
+    messages.gracePeriodCount = (messages.gracePeriod || []).length;
+    messages.errorsCount = (messages.errors || []).length;
+
+    if (messages.errors!.length > 0) {
+      console.log('\n[Errors]');
+      messages.errors!.forEach(msg => console.log(msg));
+    }
+
+    const summary = formatUserDataSummary(messages, users.length, BATCH_SIZE);
+    console.log('\n[User Data Updates]');
+    console.log(summary);
+    console.log('');
   } catch (error) {
     console.error('Error in main loop:', error);
     throw error;
