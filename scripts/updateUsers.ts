@@ -254,7 +254,6 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
             const message = `User ${address} hasn't mined in 7+ days but within grace period`;
         if (messages?.gracePeriod) {
           messages.gracePeriod.push(message);
-          messages.gracePeriodCount = (messages.gracePeriodCount || 0) + 1;
         } else {
           console.log(message);
         }
@@ -384,7 +383,6 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
   const successMsg = `Updated user and ${workerCount} workers for: ${address}`;
   if (messages?.success) {
     messages.success.push(successMsg);
-    messages.successCount = (messages.successCount || 0) + 1;
     messages.workersCount = (messages.workersCount || 0) + workerCount;
   } else {
     console.log(successMsg);
@@ -441,7 +439,6 @@ async function main() {
                 // Grace period expired - mark inactive
                 await userRepository.update({ address: user.address }, { isActive: false });
                 messages.deactivations!.push(`Marked user ${user.address} as inactive (no pool file, grace period expired)`);
-                messages.deactivationsCount = (messages.deactivationsCount || 0) + 1;
                 // Invalidate caches to prevent stale data
                 cacheDelete(`userWithWorkers:${user.address}`);
                 cacheDelete(`userHistorical:${user.address}`);
@@ -454,7 +451,6 @@ async function main() {
             } else {
               // Database error, transaction failure, etc. - log the actual error
               messages.errors!.push(`Failed to update user ${user.address}: ${error}`);
-              messages.errorsCount = (messages.errorsCount || 0) + 1;
             }
           }
         })
@@ -477,9 +473,10 @@ async function main() {
       messages.gracePeriod!.forEach(msg => console.log(msg));
     }
 
-    // expose numeric counts for summary (derive from array lengths for accuracy)
+    // Derive counts from arrays (single source of truth)
+    // Note: workersCount is accumulated (sum of worker counts), not derived from array length
     messages.successCount = (messages.success || []).length;
-    messages.workersCount = messages.workersCount || 0; // This is accumulated, not counted
+    messages.workersCount = messages.workersCount || 0;
     messages.deactivationsCount = (messages.deactivations || []).length;
     messages.gracePeriodCount = (messages.gracePeriod || []).length;
     messages.errorsCount = (messages.errors || []).length;
