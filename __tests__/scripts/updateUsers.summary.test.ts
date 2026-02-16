@@ -32,6 +32,6 @@ describe('updateUsers summary formatter', () => {
     };
 
     const summary = formatUserDataSummary(messages, 1, 100);
-    expect(summary).toBe('Processed 1 batch, 1 users, 0 workers'); // 1 success + 0 deactivations = 1 user
+    expect(summary).toBe('Processed 1 batch, 1 user, 0 workers'); // 1 success + 0 deactivations = 1 user
   });
 });

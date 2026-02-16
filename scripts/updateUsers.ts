@@ -190,7 +190,7 @@ export function formatUserDataSummary(messages: MessageCollectors, totalUsers: n
   const deactivationsCount = messages.deactivationsCount ?? (messages.deactivations || []).length;
   const usersProcessed = successCount + deactivationsCount;
   const workersProcessed = messages.workersCount || 0;
-  return `Processed ${totalBatches} batch${totalBatches === 1 ? '' : 'es'}, ${usersProcessed} users, ${workersProcessed} workers`;
+  return `Processed ${totalBatches} batch${totalBatches === 1 ? '' : 'es'}, ${usersProcessed} user${usersProcessed === 1 ? '' : 's'}, ${workersProcessed} worker${workersProcessed === 1 ? '' : 's'}`;
 }
 
 export interface MessageCollectors {
