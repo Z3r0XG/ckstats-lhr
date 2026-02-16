@@ -19,7 +19,7 @@ describe('updateUsers summary formatter', () => {
     };
 
     const summary = formatUserDataSummary(messages, /* totalUsers */ 2, /* batchSize */ 100);
-    expect(summary).toBe('Processed 1 batch, 2 users, 3 workers');
+    expect(summary).toBe('Processed 1 batch, 3 users, 3 workers'); // 2 success + 1 deactivation = 3 users
   });
 
   it('falls back to array lengths when counters are missing', () => {
@@ -28,10 +28,10 @@ describe('updateUsers summary formatter', () => {
       deactivations: [],
       gracePeriod: [],
       errors: [],
-      // counters omitted intentionally
+      // counters omitted intentionally - will be derived from array lengths
     };
 
     const summary = formatUserDataSummary(messages, 1, 100);
-    expect(summary).toBe('Processed 1 batch, 1 users, 0 workers');
+    expect(summary).toBe('Processed 1 batch, 1 users, 0 workers'); // 1 success + 0 deactivations = 1 user
   });
 });

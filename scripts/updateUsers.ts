@@ -185,7 +185,10 @@ export function calculateGracePeriodRemaining(
 
 export function formatUserDataSummary(messages: MessageCollectors, totalUsers: number, batchSize: number): string {
   const totalBatches = Math.ceil(totalUsers / batchSize);
-  const usersProcessed = messages.successCount || (messages.success || []).length || 0;
+  // Derive counts from arrays if not explicitly set (for tests or direct calls)
+  const successCount = messages.successCount ?? (messages.success || []).length;
+  const deactivationsCount = messages.deactivationsCount ?? (messages.deactivations || []).length;
+  const usersProcessed = successCount + deactivationsCount;
   const workersProcessed = messages.workersCount || 0;
   return `Processed ${totalBatches} batch${totalBatches === 1 ? '' : 'es'}, ${usersProcessed} users, ${workersProcessed} workers`;
 }
@@ -375,6 +378,7 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
     cacheDeletePrefix('topUserHashrates');
     cacheDeletePrefix('topUserLoyalty');
     cacheDeletePrefix(`workerWithStats:${address}:`);
+    return; // Skip success message for inactive users
   }
 
   const successMsg = `Updated user and ${workerCount} workers for: ${address}`;
@@ -473,12 +477,12 @@ async function main() {
       messages.gracePeriod!.forEach(msg => console.log(msg));
     }
 
-    // expose numeric counts for summary (ensure defaults)
-    messages.successCount = messages.successCount || messages.success!.length || 0;
-    messages.workersCount = messages.workersCount || 0;
-    messages.deactivationsCount = messages.deactivationsCount || messages.deactivations!.length || 0;
-    messages.gracePeriodCount = messages.gracePeriodCount || messages.gracePeriod!.length || 0;
-    messages.errorsCount = messages.errorsCount || messages.errors!.length || 0;
+    // expose numeric counts for summary (derive from array lengths for accuracy)
+    messages.successCount = (messages.success || []).length;
+    messages.workersCount = messages.workersCount || 0; // This is accumulated, not counted
+    messages.deactivationsCount = (messages.deactivations || []).length;
+    messages.gracePeriodCount = (messages.gracePeriod || []).length;
+    messages.errorsCount = (messages.errors || []).length;
 
     if (messages.errors!.length > 0) {
       console.log('\n[Errors]');
