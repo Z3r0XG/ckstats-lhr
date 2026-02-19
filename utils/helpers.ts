@@ -520,11 +520,13 @@ export function computeRejectedPercent(
 
 export function normalizeUserAgent(rawUa: string | undefined): string {
   if (!rawUa) return '';
-  return String(rawUa)
-    .split('/')[0]
-    .split(' ')[0]
-    .replace(/[^\x20-\x7E]/g, '')
-    .slice(0, 64);
+
+  // Keep the segment before any `/`, trim leading/trailing spaces, remove control chars,
+  // then truncate safely by Unicode code points (preserve surrogate pairs).
+  const firstSegment = String(rawUa).split('/')[0].trim();
+  const cleaned = firstSegment.replace(/[\x00-\x1F\x7F]/g, '');
+  const cps = Array.from(cleaned); // operate on code points to avoid splitting surrogates
+  return cps.length <= 256 ? cleaned : cps.slice(0, 256).join('');
 }
 
 export function parseWorkerName(
