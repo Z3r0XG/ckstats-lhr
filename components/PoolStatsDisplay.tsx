@@ -253,6 +253,9 @@ export default function PoolStatsDisplay({
                             </div>
                           );
                         })()}
+
+                      {['SPS1m', 'SPS5m', 'SPS15m', 'SPS1h'].includes(key) &&
+                        renderPercentageChange(key)}
                     </div>
                   );
                 })}
