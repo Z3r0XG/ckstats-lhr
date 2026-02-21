@@ -71,7 +71,7 @@ export default function PoolStatsDisplay({
   };
 
   const statGroups = [
-    { title: 'Users', keys: ['users', 'disconnected', 'workers'] },
+    { title: 'Users', keys: ['users', 'workers'] },
     {
       title: 'Shares since last found block',
       keys: ['accepted', 'rejected', 'bestshare', 'avgTime'],
@@ -218,6 +218,11 @@ export default function PoolStatsDisplay({
                       {key === 'users' && (
                         <div className="stat-desc">
                           Idle: {formatNumber(stats.idle)}
+                        </div>
+                      )}
+                      {key === 'workers' && (
+                        <div className="stat-desc">
+                          Disconnected: {formatNumber(stats.disconnected)}
                         </div>
                       )}
                       {key === 'rejected' &&
