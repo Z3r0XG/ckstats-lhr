@@ -71,7 +71,7 @@ export default function PoolStatsDisplay({
   };
 
   const statGroups = [
-    { title: 'Users', keys: ['users', 'disconnected', 'workers'] },
+    { title: 'Users', keys: ['users', 'workers'] },
     {
       title: 'Shares since last found block',
       keys: ['accepted', 'rejected', 'bestshare', 'avgTime'],
@@ -220,6 +220,11 @@ export default function PoolStatsDisplay({
                           Idle: {formatNumber(stats.idle)}
                         </div>
                       )}
+                      {key === 'workers' && (
+                        <div className="stat-desc">
+                          Disconnected: {formatNumber(stats.disconnected)}
+                        </div>
+                      )}
                       {key === 'rejected' &&
                         (() => {
                           const { formatted, color } = computeRejectedPercent(
@@ -248,6 +253,9 @@ export default function PoolStatsDisplay({
                             </div>
                           );
                         })()}
+
+                      {['SPS1m', 'SPS5m', 'SPS15m', 'SPS1h'].includes(key) &&
+                        renderPercentageChange(key)}
                     </div>
                   );
                 })}
