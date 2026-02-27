@@ -10,7 +10,6 @@ import {
   getHistoricalPercentageChange,
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
-  computeRejectedPercent,
   calculateProximityPercent,
 } from '../utils/helpers';
 
@@ -71,7 +70,7 @@ export default function PoolStatsDisplay({
   };
 
   const statGroups = [
-    { title: 'Users', keys: ['users', 'disconnected', 'workers'] },
+    { title: 'Users', keys: ['users', 'workers'] },
     {
       title: 'Shares since last found block',
       keys: ['accepted', 'rejected', 'bestshare', 'avgTime'],
@@ -192,7 +191,10 @@ export default function PoolStatsDisplay({
                     );
                   }
                   return (
-                    <div key={key} className="stat">
+                    <div
+                      key={key}
+                      className={`stat${key === 'rejected' ? ' hidden' : ''}`}
+                    >
                       <div className="stat-title">{formatKey(key)}</div>
                       <div className="stat-value text-2xl">
                         {formatValue(key, stats[key])}
@@ -220,21 +222,11 @@ export default function PoolStatsDisplay({
                           Idle: {formatNumber(stats.idle)}
                         </div>
                       )}
-                      {key === 'rejected' &&
-                        (() => {
-                          const { formatted, color } = computeRejectedPercent(
-                            stats.accepted,
-                            stats.rejected
-                          );
-                          return (
-                            <div
-                              className={`stat-desc text-left ${color} max-w-full overflow-hidden`}
-                            >
-                              {formatted === null ? 'N/A' : formatted} (Error
-                              Rate)
-                            </div>
-                          );
-                        })()}
+                      {key === 'workers' && (
+                        <div className="stat-desc">
+                          Disconnected: {formatNumber(stats.disconnected)}
+                        </div>
+                      )}
 
                       {key === 'bestshare' &&
                         (() => {
@@ -248,6 +240,9 @@ export default function PoolStatsDisplay({
                             </div>
                           );
                         })()}
+
+                      {['SPS1m', 'SPS5m', 'SPS15m', 'SPS1h'].includes(key) &&
+                        renderPercentageChange(key)}
                     </div>
                   );
                 })}
