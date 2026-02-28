@@ -29,16 +29,20 @@ describe('Helper Functions', () => {
       expect(formatNumber(1000000000000000000000)).toBe('1.00 Z');
       expect(formatNumber(999)).toBe('999');
       // BigInt-like string formatting: should preserve digits without precision loss
+      // (manual comma grouping — always uses ',', not locale-dependent)
       expect(formatNumber('9007199254740993')).toBe('9,007,199,254,740,993');
       // Numeric string within safe range should be unit formatted
       expect(formatNumber('1283860')).toBe('1.28 M');
-      // Numbers < 1000: up to 2 decimal places
-      expect(formatNumber(0.046)).toBe('0.05');
-      expect(formatNumber(0.005)).toBe('0.01');
-      expect(formatNumber(0.004)).toBe('0');
-      expect(formatNumber(42.7813)).toBe('42.78');
-      expect(formatNumber(1.5)).toBe('1.5');
-      expect(formatNumber(999.999)).toBe('1,000');
+      // Numbers < 1000: up to 2 decimal places — expected values derived at runtime
+      // so tests pass on any locale (decimal/thousands separators vary by locale)
+      const fmt2 = (n: number) =>
+        n.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+      expect(formatNumber(0.046)).toBe(fmt2(0.046));
+      expect(formatNumber(0.005)).toBe(fmt2(0.005));
+      expect(formatNumber(0.004)).toBe(fmt2(0.004));
+      expect(formatNumber(42.7813)).toBe(fmt2(42.7813));
+      expect(formatNumber(1.5)).toBe(fmt2(1.5));
+      expect(formatNumber(999.999)).toBe(fmt2(999.999));
     });
   });
 
