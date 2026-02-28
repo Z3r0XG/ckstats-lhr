@@ -11,6 +11,7 @@ describe('normalizeUserAgent', () => {
     expect(normalizeUserAgent('NerdOCTAXE-γ\x01\x02')).toBe('NerdOCTAXE-γ');
     expect(normalizeUserAgent('Nerd Miner/1.0')).toBe('Nerd Miner');
     expect(normalizeUserAgent('Nerd Miner 1.0')).toBe('Nerd Miner 1.0');
+    expect(normalizeUserAgent('Miner\u0085Name')).toBe('MinerName'); // C1 control (NEL) stripped
   });
 
   it('truncates to 256 Unicode code points (does not split surrogate pairs)', () => {
