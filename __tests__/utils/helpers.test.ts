@@ -42,7 +42,8 @@ describe('Helper Functions', () => {
       expect(formatNumber(0.004)).toBe(fmt2(0.004));
       expect(formatNumber(42.7813)).toBe(fmt2(42.7813));
       expect(formatNumber(1.5)).toBe(fmt2(1.5));
-      expect(formatNumber(999.999)).toBe(fmt2(999.999));
+      // 999.999 rounds to 1000.00 at display precision → redirected to unit tier
+      expect(formatNumber(999.999)).toBe('1.00 k');
     });
   });
 

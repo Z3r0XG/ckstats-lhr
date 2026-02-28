@@ -59,6 +59,15 @@ export function formatNumber(num: number | bigint | string): string {
 
   if (typeof num === 'bigint') return num.toString();
 
+  // Re-check thresholds against the display-rounded value to prevent
+  // toLocaleString rounding (e.g. 999.999 → "1,000") from bypassing the unit tier
+  const displayAbs = Math.round(absNum * 100) / 100;
+  for (const unit of isoUnits) {
+    if (displayAbs >= unit.threshold) {
+      return (numberVal / unit.threshold).toFixed(2) + ' ' + unit.iso;
+    }
+  }
+
   // Numbers < 1000: up to 2 decimal places (e.g. 0.046 → 0.05, 42.78, 999.5)
   // Values < 0.005 round to 0 — intentional, as 5 shares at min difficulty (0.001) = 0.005
   return numberVal.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 0 });
