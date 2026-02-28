@@ -31,7 +31,7 @@ describe('normalizeUserAgent', () => {
   it('preserves emoji, combining marks and NBSP', () => {
     expect(normalizeUserAgent('Miner🚀/v1')).toBe('Miner🚀');
     expect(normalizeUserAgent('e\u0301')).toBe('e\u0301'); // e + combining acute
-    expect(normalizeUserAgent('Name\u00A0Test')).toBe('Name\u00A0Test'.split('/')[0].split(' ')[0]);
+    expect(normalizeUserAgent('Name\u00A0Test')).toBe('Name\u00A0Test'); // NBSP is not a word boundary
     expect(normalizeUserAgent('👩\u200D🔬/1')).toBe('👩\u200D🔬'); // ZWJ sequence
   });
 });
