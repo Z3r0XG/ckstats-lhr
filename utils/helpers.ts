@@ -529,8 +529,9 @@ export function normalizeUserAgent(rawUa: string | undefined): string {
 
   // Keep the segment before any `/`, trim leading/trailing spaces, remove control chars,
   // then truncate safely by Unicode code points (preserve surrogate pairs).
+  // Covers C0 (U+0000–U+001F), DEL (U+007F), and C1 (U+0080–U+009F) — same as \p{Cc}.
   const firstSegment = String(rawUa).split('/')[0].trim();
-  const cleaned = firstSegment.replace(/[\x00-\x1F\x7F]/g, '');
+  const cleaned = firstSegment.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
   const cps = Array.from(cleaned); // operate on code points to avoid splitting surrogates
   return cps.length <= 256 ? cleaned : cps.slice(0, 256).join('');
 }

@@ -11,6 +11,7 @@ describe('normalizeUserAgent', () => {
     expect(normalizeUserAgent('NerdOCTAXE-γ\x01\x02')).toBe('NerdOCTAXE-γ');
     expect(normalizeUserAgent('Nerd Miner/1.0')).toBe('Nerd Miner');
     expect(normalizeUserAgent('Nerd Miner 1.0')).toBe('Nerd Miner 1.0');
+    expect(normalizeUserAgent('Miner\u0085Name')).toBe('MinerName'); // C1 control (NEL) stripped
   });
 
   it('truncates to 256 Unicode code points (does not split surrogate pairs)', () => {
@@ -31,7 +32,7 @@ describe('normalizeUserAgent', () => {
   it('preserves emoji, combining marks and NBSP', () => {
     expect(normalizeUserAgent('Miner🚀/v1')).toBe('Miner🚀');
     expect(normalizeUserAgent('e\u0301')).toBe('e\u0301'); // e + combining acute
-    expect(normalizeUserAgent('Name\u00A0Test')).toBe('Name\u00A0Test'.split('/')[0].split(' ')[0]);
+    expect(normalizeUserAgent('Name\u00A0Test')).toBe('Name\u00A0Test'); // NBSP is not a word boundary
     expect(normalizeUserAgent('👩\u200D🔬/1')).toBe('👩\u200D🔬'); // ZWJ sequence
   });
 });
