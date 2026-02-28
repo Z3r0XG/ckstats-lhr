@@ -59,12 +59,7 @@ export function formatNumber(num: number | bigint | string): string {
 
   if (typeof num === 'bigint') return num.toString();
 
-  // Sub-1: up to 2 decimal places (e.g. 0.046 → 0.05, 0.005 → 0.01)
-  if (absNum < 1) {
-    return numberVal.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 0 });
-  }
-
-  // [1, 1000): up to 2 decimal places (e.g. 42.7, 999.5)
+  // Numbers < 1000: up to 2 decimal places (e.g. 0.046 → 0.05, 42.78, 999.5)
   return numberVal.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 0 });
 }
 
