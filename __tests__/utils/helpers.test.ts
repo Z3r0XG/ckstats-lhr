@@ -32,6 +32,14 @@ describe('Helper Functions', () => {
       expect(formatNumber('9007199254740993')).toBe('9,007,199,254,740,993');
       // Numeric string within safe range should be unit formatted
       expect(formatNumber('1283860')).toBe('1.28 M');
+      // Sub-1: up to 2 decimal places
+      expect(formatNumber(0.046)).toBe('0.05');
+      expect(formatNumber(0.005)).toBe('0.01');
+      expect(formatNumber(0.004)).toBe('0');
+      // [1, 1000): up to 2 decimal places
+      expect(formatNumber(42.7813)).toBe('42.78');
+      expect(formatNumber(1.5)).toBe('1.5');
+      expect(formatNumber(999.999)).toBe('1,000');
     });
   });
 
