@@ -18,6 +18,10 @@ const nextConfig = {
       process.env.MEMPOOL_LINK_TAG ||
       process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG ||
       'solock',
+    NEXT_PUBLIC_SHOW_REJECTED_STAT:
+      process.env.SHOW_REJECTED_STAT ||
+      process.env.NEXT_PUBLIC_SHOW_REJECTED_STAT ||
+      'false',
   },
 };
 

@@ -10,6 +10,7 @@ import {
   getHistoricalPercentageChange,
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
+  computeRejectedPercent,
   calculateProximityPercent,
 } from '../utils/helpers';
 
@@ -193,7 +194,12 @@ export default function PoolStatsDisplay({
                   return (
                     <div
                       key={key}
-                      className={`stat${key === 'rejected' ? ' hidden' : ''}`}
+                      className={`stat${
+                        key === 'rejected' &&
+                        process.env.NEXT_PUBLIC_SHOW_REJECTED_STAT !== 'true'
+                          ? ' hidden'
+                          : ''
+                      }`}
                     >
                       <div className="stat-title">{formatKey(key)}</div>
                       <div className="stat-value text-2xl">
@@ -227,6 +233,22 @@ export default function PoolStatsDisplay({
                           Disconnected: {formatNumber(stats.disconnected)}
                         </div>
                       )}
+                      {key === 'rejected' &&
+                        process.env.NEXT_PUBLIC_SHOW_REJECTED_STAT === 'true' &&
+                        (() => {
+                          const { formatted, color } = computeRejectedPercent(
+                            stats.accepted,
+                            stats.rejected
+                          );
+                          return (
+                            <div
+                              className={`stat-desc text-left ${color} max-w-full overflow-hidden`}
+                            >
+                              {formatted === null ? 'N/A' : formatted} (Error
+                              Rate)
+                            </div>
+                          );
+                        })()}
 
                       {key === 'bestshare' &&
                         (() => {
