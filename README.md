@@ -133,10 +133,10 @@ SHOW_REJECTED_STAT="false"
 - Note: Links blocks to mempool.space with signature filtering
 
 **SHOW_REJECTED_STAT**: Show or hide the rejection rate stat box on the pool stats display. **OPTIONAL**
-- Type: Boolean string
+- Type: String
 - Default: `false`
-- Values: `true` | `false`
-- Note: When `false`, the rejected shares stat and error rate are hidden from the dashboard
+- Values: `'true'` | `'false'`
+- Note: When `'false'`, the rejected shares stat and error rate are hidden from the dashboard
 
 ### 4. Initialize Database
 
