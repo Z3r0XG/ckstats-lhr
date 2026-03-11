@@ -101,6 +101,7 @@ SITE_NAME="My Solo Pool Stats"
 MEMPOOL_LINK_TAG="custom_tag"
 DB_SSL="false"
 DB_SSL_REJECT_UNAUTHORIZED="true"
+SHOW_REJECTED_STAT="false"
 ```
 
 **Configuration Notes:**
@@ -130,6 +131,12 @@ DB_SSL_REJECT_UNAUTHORIZED="true"
 - Type: String
 - Default: `solock`
 - Note: Links blocks to mempool.space with signature filtering
+
+**SHOW_REJECTED_STAT**: Show or hide the rejection rate stat box on the pool stats display. **OPTIONAL**
+- Type: String
+- Default: `false`
+- Values: `'true'` | `'false'`
+- Note: When `'false'`, the rejected shares stat and error rate are hidden from the dashboard
 
 ### 4. Initialize Database
 

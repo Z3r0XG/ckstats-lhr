@@ -25,6 +25,9 @@ export default function PoolStatsDisplay({
   historicalStats,
   generatedAt,
 }: PoolStatsDisplayProps) {
+  const showRejectedStat =
+    process.env.NEXT_PUBLIC_SHOW_REJECTED_STAT === 'true';
+
   const formatWithUnits = (value: number): string => {
     const units = [
       { v: 1e12, s: 'T' },
@@ -192,7 +195,14 @@ export default function PoolStatsDisplay({
                     );
                   }
                   return (
-                    <div key={key} className="stat">
+                    <div
+                      key={key}
+                      className={`stat${
+                        key === 'rejected' && !showRejectedStat
+                          ? ' hidden'
+                          : ''
+                      }`}
+                    >
                       <div className="stat-title">{formatKey(key)}</div>
                       <div className="stat-value text-2xl">
                         {formatValue(key, stats[key])}
@@ -226,6 +236,7 @@ export default function PoolStatsDisplay({
                         </div>
                       )}
                       {key === 'rejected' &&
+                        showRejectedStat &&
                         (() => {
                           const { formatted, color } = computeRejectedPercent(
                             stats.accepted,
