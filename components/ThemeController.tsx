@@ -37,8 +37,9 @@ const themes = [
   'sunset',
 ];
 
+const defaultTheme = process.env.NEXT_PUBLIC_DEFAULT_THEME || 'dark';
+
 export default function ThemeController() {
-  const defaultTheme = process.env.NEXT_PUBLIC_DEFAULT_THEME || 'dark';
   const [theme, setTheme] = useState(defaultTheme);
   const [storageReady, setStorageReady] = useState(false);
 
@@ -55,7 +56,6 @@ export default function ThemeController() {
       setStorageReady(false);
       document.documentElement.setAttribute('data-theme', defaultTheme);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleThemeChange = (newTheme: string) => {

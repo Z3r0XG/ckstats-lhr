@@ -184,6 +184,21 @@ pnpm start
 
 Application runs on `http://localhost:3000` by default.
 
+---
+
+## Updating
+
+```bash
+# Stop the application and cron jobs first
+git fetch && git pull
+pnpm install          # pick up any new/changed dependencies
+pnpm migration:run    # apply any new migrations
+pnpm build
+pnpm start
+```
+
+---
+
 ### 6. Configure Automation
 
 Set up cron jobs for regular statistics updates.
