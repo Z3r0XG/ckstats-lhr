@@ -183,8 +183,7 @@ export default function PoolStatsDisplay({
                         </div>
                         <div className="stat-value text-2xl">{avgTimeStr}</div>
                         <div className="stat-desc">
-                          {process.env.NEXT_PUBLIC_COIN === 'BTC' ||
-                          !process.env.NEXT_PUBLIC_COIN ? (
+                          {(process.env.NEXT_PUBLIC_COIN ?? 'BTC') === 'BTC' ? (
                             <Link
                               href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG}`}
                               target="_blank"
@@ -221,7 +220,7 @@ export default function PoolStatsDisplay({
                             display = percent.toFixed(2) + '%';
                           }
                           return (
-                            <div className="stat-desc text-green-600 max-w-full overflow-hidden">
+                            <div className="stat-desc text-success max-w-full overflow-hidden">
                               {display} (Effort)
                             </div>
                           );
@@ -252,7 +251,6 @@ export default function PoolStatsDisplay({
                             </div>
                           );
                         })()}
-
                       {key === 'bestshare' &&
                         (() => {
                           const percent = calculateProximityPercent(
@@ -260,12 +258,11 @@ export default function PoolStatsDisplay({
                             stats.netdiff != null ? Number(stats.netdiff) : null
                           );
                           return (
-                            <div className="stat-desc text-green-600 max-w-full overflow-hidden">
+                            <div className="stat-desc text-success max-w-full overflow-hidden">
                               {percent || 'N/A'} (Proximity)
                             </div>
                           );
                         })()}
-
                       {['SPS1m', 'SPS5m', 'SPS15m', 'SPS1h'].includes(key) &&
                         renderPercentageChange(key)}
                     </div>

@@ -173,15 +173,33 @@ describe('validateBitcoinAddress — coin switching via NEXT_PUBLIC_COIN', () =>
     });
 
     test('accepts BCH CashAddr (bitcoincash:q...)', () => {
-      expect(validateBitcoinAddress('bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a')).toBe(true);
+      expect(
+        validateBitcoinAddress('bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a')
+      ).toBe(true);
     });
 
     test('accepts BCH CashAddr without prefix', () => {
-      expect(validateBitcoinAddress('qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a')).toBe(true);
+      expect(
+        validateBitcoinAddress('qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a')
+      ).toBe(true);
     });
 
     test('rejects BTC bech32 address under BCH mode', () => {
-      expect(validateBitcoinAddress('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq')).toBe(false);
+      expect(
+        validateBitcoinAddress('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq')
+      ).toBe(false);
+    });
+
+    test('rejects BTC bech32m address under BCH mode', () => {
+      expect(
+        validateBitcoinAddress(
+          'bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0'
+        )
+      ).toBe(false);
+    });
+
+    test('accepts legacy address (1...) under BCH mode', () => {
+      expect(validateBitcoinAddress('1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')).toBe(true);
     });
   });
 
@@ -195,7 +213,9 @@ describe('validateBitcoinAddress — coin switching via NEXT_PUBLIC_COIN', () =>
     });
 
     test('rejects BCH address when COIN is unset', () => {
-      expect(validateBitcoinAddress('bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a')).toBe(false);
+      expect(
+        validateBitcoinAddress('bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a')
+      ).toBe(false);
     });
   });
 });

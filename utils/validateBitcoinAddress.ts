@@ -11,11 +11,23 @@ export function validateBitcoinAddress(address: string): boolean {
   const coin = process.env.NEXT_PUBLIC_COIN || process.env.COIN || 'BTC';
 
   if (coin === 'BCH') {
+    // Accept CashAddr (with or without prefix)
     try {
-      return bchaddr.isValidAddress(address);
+      if (bchaddr.isValidAddress(address)) return true;
     } catch {
-      return false;
+      void 0;
     }
+    // Also accept legacy P2PKH/P2SH format (same encoding as BTC mainnet)
+    // Only attempt for 1.../3... prefixes — bech32 (bc1...) must be rejected
+    if (/^[13]/.test(address)) {
+      try {
+        bitcoin.address.toOutputScript(address, bitcoin.networks.bitcoin);
+        return true;
+      } catch {
+        void 0;
+      }
+    }
+    return false;
   }
 
   for (const network of [bitcoin.networks.bitcoin, bitcoin.networks.testnet]) {

@@ -104,6 +104,7 @@ DB_SSL="false"
 DB_SSL_REJECT_UNAUTHORIZED="true"
 SHOW_REJECTED_STAT="false"
 DONATION_ADDRESS="your_wallet_address_here"
+DEFAULT_THEME="forest"
 ```
 
 **Configuration Notes:**
@@ -149,7 +150,13 @@ DONATION_ADDRESS="your_wallet_address_here"
 **DONATION_ADDRESS**: Wallet address displayed in the footer donation link. **OPTIONAL**
 - Type: String
 - Default: `bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5` (BTC)
-- Note: The payment URI scheme is derived from `COIN` (BTC → `bitcoin:`, LTC → `litecoin:`, BCH → `bitcoincash:`)
+- Note: The payment URI scheme is derived from `COIN` (BTC → `bitcoin:`, BCH → `bitcoincash:`)
+
+**DEFAULT_THEME**: Default DaisyUI theme for new visitors (no saved preference). **OPTIONAL**
+- Type: String
+- Default: `dim` when `COIN=BCH`, `dark` otherwise
+- Values: Any theme name from the DaisyUI theme list (e.g. `dark`, `forest`, `light`, `dracula`)
+- Note: Users who have previously selected a theme are unaffected
 
 ### 4. Initialize Database
 
