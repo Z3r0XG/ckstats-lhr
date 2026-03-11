@@ -11,10 +11,7 @@ export async function POST(request: Request) {
     const { address } = await request.json();
 
     if (!validateBitcoinAddress(address)) {
-      return NextResponse.json(
-        { error: 'Invalid Bitcoin address' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
     }
 
     const db = await getDb();

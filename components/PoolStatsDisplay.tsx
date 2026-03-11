@@ -183,13 +183,16 @@ export default function PoolStatsDisplay({
                         </div>
                         <div className="stat-value text-2xl">{avgTimeStr}</div>
                         <div className="stat-desc">
-                          <Link
-                            href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG ?? 'solock'}`}
-                            target="_blank"
-                            className="link text-primary"
-                          >
-                            Found Blocks
-                          </Link>
+                          {process.env.NEXT_PUBLIC_COIN === 'BTC' ||
+                          !process.env.NEXT_PUBLIC_COIN ? (
+                            <Link
+                              href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG}`}
+                              target="_blank"
+                              className="link text-primary"
+                            >
+                              Found Blocks
+                            </Link>
+                          ) : null}
                         </div>
                       </div>
                     );
@@ -198,9 +201,7 @@ export default function PoolStatsDisplay({
                     <div
                       key={key}
                       className={`stat${
-                        key === 'rejected' && !showRejectedStat
-                          ? ' hidden'
-                          : ''
+                        key === 'rejected' && !showRejectedStat ? ' hidden' : ''
                       }`}
                     >
                       <div className="stat-title">{formatKey(key)}</div>

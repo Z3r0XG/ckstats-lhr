@@ -159,3 +159,43 @@ describe('validateBitcoinAddress', () => {
     ).toBe(false);
   });
 });
+
+describe('validateBitcoinAddress — coin switching via NEXT_PUBLIC_COIN', () => {
+  const originalEnv = process.env.NEXT_PUBLIC_COIN;
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_COIN = originalEnv;
+  });
+
+  describe('COIN=BCH', () => {
+    beforeEach(() => {
+      process.env.NEXT_PUBLIC_COIN = 'BCH';
+    });
+
+    test('accepts BCH CashAddr (bitcoincash:q...)', () => {
+      expect(validateBitcoinAddress('bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a')).toBe(true);
+    });
+
+    test('accepts BCH CashAddr without prefix', () => {
+      expect(validateBitcoinAddress('qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a')).toBe(true);
+    });
+
+    test('rejects BTC bech32 address under BCH mode', () => {
+      expect(validateBitcoinAddress('bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq')).toBe(false);
+    });
+  });
+
+  describe('COIN unset falls back to BTC', () => {
+    beforeEach(() => {
+      delete process.env.NEXT_PUBLIC_COIN;
+    });
+
+    test('accepts BTC address when COIN is unset', () => {
+      expect(validateBitcoinAddress('1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')).toBe(true);
+    });
+
+    test('rejects BCH address when COIN is unset', () => {
+      expect(validateBitcoinAddress('bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a')).toBe(false);
+    });
+  });
+});

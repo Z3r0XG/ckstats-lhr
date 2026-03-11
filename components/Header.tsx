@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import CountdownTimer from './CountdownTimer';
 import ThemeController from './ThemeController';
 import { useRefresh } from '../lib/contexts/RefreshContext';
-import { SITE_NAME_PUBLIC } from '../lib/site';
+import { SITE_NAME_PUBLIC, COIN_NAME_PUBLIC } from '../lib/site';
 import { validateBitcoinAddress } from '../utils/validateBitcoinAddress';
 
 export default function Header() {
@@ -65,7 +65,7 @@ export default function Header() {
   const handleAddAddress = async () => {
     const trimmedAddress = address.trim();
     if (!validateBitcoinAddress(trimmedAddress)) {
-      setModalMessage('Invalid Bitcoin address');
+      setModalMessage(`Invalid ${coinName} address`);
       setIsError(true);
       modalRef.current?.showModal();
       return;
@@ -75,6 +75,7 @@ export default function Header() {
   };
 
   const siteName = SITE_NAME_PUBLIC;
+  const coinName = COIN_NAME_PUBLIC;
 
   return (
     <header className="navbar bg-base-100 flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-0">
@@ -95,7 +96,7 @@ export default function Header() {
         <div className="form-control flex-grow md:flex-grow-0">
           <input
             type="text"
-            placeholder="Enter Bitcoin address"
+            placeholder={`Enter ${coinName} address`}
             className="input input-bordered w-full md:w-96 text-sm"
             value={address}
             onChange={(e) => setAddress(e.target.value.trim())}

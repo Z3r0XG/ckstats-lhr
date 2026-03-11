@@ -16,10 +16,7 @@ export async function GET(
     const address = params.address;
 
     if (!validateBitcoinAddress(address)) {
-      return NextResponse.json(
-        { error: 'Invalid Bitcoin address' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
     }
 
     const [userORM, poolStatsORM, historicalStatsORM] = await Promise.all([

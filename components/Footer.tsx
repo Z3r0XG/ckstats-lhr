@@ -1,18 +1,29 @@
 import React from 'react';
 
+const URI_SCHEMES: Record<string, string> = {
+  BTC: 'bitcoin',
+  BCH: 'bitcoincash',
+};
+
+const donationAddress = process.env.NEXT_PUBLIC_DONATION_ADDRESS || '';
+const coin = process.env.NEXT_PUBLIC_COIN || 'BTC';
+const uriScheme = URI_SCHEMES[coin.toUpperCase()] ?? 'bitcoin';
+
 const Footer: React.FC = () => {
   return (
     <footer className="footer footer-center p-4 sm:p-6 bg-base-200 text-base-content rounded">
       <div className="flex flex-col items-center gap-2">
-        <p className="break-all">
-          Donations:{' '}
-          <a
-            href="bitcoin:bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5"
-            className="link text-primary"
-          >
-            bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5
-          </a>
-        </p>
+        {donationAddress && (
+          <p className="break-all">
+            Donations:{' '}
+            <a
+              href={`${uriScheme}:${donationAddress}`}
+              className="link text-primary"
+            >
+              {donationAddress}
+            </a>
+          </p>
+        )}
         <p className="break-words text-center">
           Running Modified Version of CKStats (ckstats-lhr): Always free, always
           open source.
