@@ -30,11 +30,11 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                const defaultTheme = '${process.env.NEXT_PUBLIC_DEFAULT_THEME || 'dark'}';
+                const defaultTheme = ${JSON.stringify(process.env.NEXT_PUBLIC_DEFAULT_THEME || 'dark')};
                 const theme = localStorage.getItem('theme') || defaultTheme;
                 document.documentElement.setAttribute('data-theme', theme);
               } catch (e) {
-                document.documentElement.setAttribute('data-theme', '${process.env.NEXT_PUBLIC_DEFAULT_THEME || 'dark'}');
+                document.documentElement.setAttribute('data-theme', ${JSON.stringify(process.env.NEXT_PUBLIC_DEFAULT_THEME || 'dark')});
               }
             `,
           }}

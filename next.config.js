@@ -9,10 +9,14 @@ const mempoolLinkTag =
   process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG ??
   'solock';
 
+const defaultDonationAddress =
+  coin === 'BCH'
+    ? 'qz85msghggld3smflk8flv0yza4c0c5drqgdgeruug'
+    : 'bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5';
 const donationAddress =
   process.env.DONATION_ADDRESS ||
   process.env.NEXT_PUBLIC_DONATION_ADDRESS ||
-  'bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5';
+  defaultDonationAddress;
 
 const defaultTheme =
   process.env.DEFAULT_THEME ||

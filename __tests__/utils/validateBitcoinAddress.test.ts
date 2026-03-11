@@ -164,7 +164,11 @@ describe('validateBitcoinAddress — coin switching via NEXT_PUBLIC_COIN', () =>
   const originalEnv = process.env.NEXT_PUBLIC_COIN;
 
   afterEach(() => {
-    process.env.NEXT_PUBLIC_COIN = originalEnv;
+    if (originalEnv === undefined) {
+      delete process.env.NEXT_PUBLIC_COIN;
+    } else {
+      process.env.NEXT_PUBLIC_COIN = originalEnv;
+    }
   });
 
   describe('COIN=BCH', () => {
@@ -204,8 +208,19 @@ describe('validateBitcoinAddress — coin switching via NEXT_PUBLIC_COIN', () =>
   });
 
   describe('COIN unset falls back to BTC', () => {
+    const originalCoin = process.env.COIN;
+
     beforeEach(() => {
       delete process.env.NEXT_PUBLIC_COIN;
+      delete process.env.COIN;
+    });
+
+    afterEach(() => {
+      if (originalCoin === undefined) {
+        delete process.env.COIN;
+      } else {
+        process.env.COIN = originalCoin;
+      }
     });
 
     test('accepts BTC address when COIN is unset', () => {

@@ -149,7 +149,7 @@ DEFAULT_THEME="forest"
 
 **DONATION_ADDRESS**: Wallet address displayed in the footer donation link. **OPTIONAL**
 - Type: String
-- Default: `bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5` (BTC)
+- Default: `bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5` (BTC) / `qz85msghggld3smflk8flv0yza4c0c5drqgdgeruug` (BCH)
 - Note: The payment URI scheme is derived from `COIN` (BTC → `bitcoin:`, BCH → `bitcoincash:`)
 
 **DEFAULT_THEME**: Default DaisyUI theme for new visitors (no saved preference). **OPTIONAL**
