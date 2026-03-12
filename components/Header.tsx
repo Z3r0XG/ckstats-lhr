@@ -52,7 +52,7 @@ export default function Header() {
       }
     },
     onError: (error: Error) => {
-      if (error.message === 'Bitcoin address already exists') {
+      if (error.message === 'Address already exists') {
         router.push(`/users/${address}`);
       } else {
         setModalMessage(error.message);

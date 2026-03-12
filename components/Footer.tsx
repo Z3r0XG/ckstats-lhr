@@ -8,6 +8,7 @@ const URI_SCHEMES: Record<string, string> = {
 const donationAddress = process.env.NEXT_PUBLIC_DONATION_ADDRESS || '';
 const coin = process.env.NEXT_PUBLIC_COIN || 'BTC';
 const uriScheme = URI_SCHEMES[coin.toUpperCase()] ?? 'bitcoin';
+const bareAddress = donationAddress.replace(/^[a-z]+:/i, '');
 
 const Footer: React.FC = () => {
   return (
@@ -17,7 +18,7 @@ const Footer: React.FC = () => {
           <p className="break-all">
             Donations:{' '}
             <a
-              href={`${uriScheme}:${donationAddress}`}
+              href={`${uriScheme}:${bareAddress}`}
               className="link text-primary"
             >
               {donationAddress}
