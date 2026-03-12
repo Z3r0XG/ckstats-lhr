@@ -97,11 +97,14 @@ DB_PASSWORD="password"
 DB_NAME="ckstats"
 
 # Optional settings
+COIN="BTC"
 SITE_NAME="My Solo Pool Stats"
 MEMPOOL_LINK_TAG="custom_tag"
 DB_SSL="false"
 DB_SSL_REJECT_UNAUTHORIZED="true"
 SHOW_REJECTED_STAT="false"
+DONATION_ADDRESS="your_wallet_address_here"
+DEFAULT_THEME="forest"
 ```
 
 **Configuration Notes:**
@@ -127,16 +130,33 @@ SHOW_REJECTED_STAT="false"
 - Type: String
 - Default: `CKStats`
 
-**MEMPOOL_LINK_TAG**: Mempool.space signature tag. **OPTIONAL**
+**COIN**: The coin this pool mines. Controls wallet address validation and UI labels. **OPTIONAL**
+- Type: String
+- Default: `BTC`
+- Values: `BTC` | `BCH`
+- Note: `BTC` validates mainnet and testnet Bitcoin addresses. `BCH` validates both CashAddr (`bitcoincash:q...`) and legacy formats
+
+**MEMPOOL_LINK_TAG**: Pool tag for the mempool.space "Found Blocks" link. **OPTIONAL** (BTC only)
 - Type: String
 - Default: `solock`
-- Note: Links blocks to mempool.space with signature filtering
+- Note: Only shown when `COIN=BTC`. Sets the pool tag in `https://mempool.space/mining/pool/<tag>`
 
 **SHOW_REJECTED_STAT**: Show or hide the rejection rate stat box on the pool stats display. **OPTIONAL**
 - Type: String
 - Default: `false`
 - Values: `'true'` | `'false'`
 - Note: When `'false'`, the rejected shares stat and error rate are hidden from the dashboard
+
+**DONATION_ADDRESS**: Wallet address displayed in the footer donation link. **OPTIONAL**
+- Type: String
+- Default: `bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5` (BTC) / `qz85msghggld3smflk8flv0yza4c0c5drqgdgeruug` (BCH)
+- Note: The payment URI scheme is derived from `COIN` (BTC → `bitcoin:`, BCH → `bitcoincash:`)
+
+**DEFAULT_THEME**: Default DaisyUI theme for new visitors (no saved preference). **OPTIONAL**
+- Type: String
+- Default: `dim` when `COIN=BCH`, `dark` otherwise
+- Values: Any theme name from the DaisyUI theme list (e.g. `dark`, `forest`, `light`, `dracula`)
+- Note: Users who have previously selected a theme are unaffected
 
 ### 4. Initialize Database
 
@@ -163,6 +183,21 @@ pnpm start
 ```
 
 Application runs on `http://localhost:3000` by default.
+
+---
+
+## Updating
+
+```bash
+# Stop the application and cron jobs first
+git fetch && git pull
+pnpm install          # pick up any new/changed dependencies
+pnpm migration:run    # apply any new migrations
+pnpm build
+pnpm start
+```
+
+---
 
 ### 6. Configure Automation
 

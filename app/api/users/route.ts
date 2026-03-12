@@ -11,10 +11,7 @@ export async function POST(request: Request) {
     const { address } = await request.json();
 
     if (!validateBitcoinAddress(address)) {
-      return NextResponse.json(
-        { error: 'Invalid Bitcoin address' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
     }
 
     const db = await getDb();
@@ -68,7 +65,7 @@ export async function POST(request: Request) {
     console.error('Error adding user:', error);
     if (error.code === '23505' && error.detail?.includes('address')) {
       return NextResponse.json(
-        { error: 'Bitcoin address already exists' },
+        { error: 'Address already exists' },
         { status: 409 }
       );
     }

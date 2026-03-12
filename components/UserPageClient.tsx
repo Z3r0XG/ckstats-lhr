@@ -154,7 +154,7 @@ export default function UserPageClient({
               poolStats?.netdiff != null ? Number(poolStats.netdiff) : null
             );
             return percent ? (
-              <div className="stat-desc text-green-600 text-xs max-w-full overflow-hidden">
+              <div className="stat-desc text-success text-xs max-w-full overflow-hidden">
                 <span
                   className="tooltip tooltip-right"
                   data-tip="Best Share % of Network Difficulty"
@@ -176,7 +176,7 @@ export default function UserPageClient({
               poolStats?.netdiff != null ? Number(poolStats.netdiff) : null
             );
             return percent ? (
-              <div className="stat-desc text-green-600 text-xs max-w-full overflow-hidden">
+              <div className="stat-desc text-success text-xs max-w-full overflow-hidden">
                 <span
                   className="tooltip tooltip-right"
                   data-tip="Best Ever % of Network Difficulty"

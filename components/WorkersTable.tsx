@@ -320,9 +320,9 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                         // Color: <10m yellow, >=10m green
                         let colorClass = '';
                         if (diffSec < 600) {
-                          colorClass = 'text-yellow-500';
+                          colorClass = 'text-warning';
                         } else {
-                          colorClass = 'text-green-600';
+                          colorClass = 'text-success';
                         }
                         // Format as human readable duration
                         const hours = Math.floor(diffSec / 3600);

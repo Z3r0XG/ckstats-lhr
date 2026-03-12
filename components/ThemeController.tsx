@@ -37,22 +37,24 @@ const themes = [
   'sunset',
 ];
 
+const defaultTheme = process.env.NEXT_PUBLIC_DEFAULT_THEME || 'dark';
+
 export default function ThemeController() {
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(defaultTheme);
   const [storageReady, setStorageReady] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     try {
-      const savedTheme = localStorage.getItem('theme') || 'dark';
+      const savedTheme = localStorage.getItem('theme') || defaultTheme;
       setTheme(savedTheme);
       document.documentElement.setAttribute('data-theme', savedTheme);
       setStorageReady(true);
     } catch (err) {
       console.debug('localStorage unavailable for theme', err);
       setStorageReady(false);
-      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.setAttribute('data-theme', defaultTheme);
     }
   }, []);
 
