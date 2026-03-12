@@ -205,6 +205,10 @@ describe('validateBitcoinAddress — coin switching via NEXT_PUBLIC_COIN', () =>
     test('accepts legacy address (1...) under BCH mode', () => {
       expect(validateBitcoinAddress('1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')).toBe(true);
     });
+
+    test('accepts legacy P2SH address (3...) under BCH mode', () => {
+      expect(validateBitcoinAddress('3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')).toBe(true);
+    });
   });
 
   describe('COIN unset falls back to BTC', () => {
