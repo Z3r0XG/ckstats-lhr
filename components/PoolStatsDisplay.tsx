@@ -187,6 +187,7 @@ export default function PoolStatsDisplay({
                             <Link
                               href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG}`}
                               target="_blank"
+                              rel="noopener noreferrer"
                               className="link text-primary"
                             >
                               Found Blocks
