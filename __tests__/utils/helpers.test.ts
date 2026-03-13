@@ -117,6 +117,12 @@ describe('Helper Functions', () => {
         '1 day 1 hour 0 min ago'
       );
     });
+
+    it('returns \'Never\' for zero/epoch timestamp (lastshare: 0)', () => {
+      expect(formatTimeAgo(0)).toBe('Never');
+      expect(formatTimeAgo(new Date(0))).toBe('Never');
+      expect(formatTimeAgo('1970-01-01T00:00:00.000Z')).toBe('Never');
+    });
   });
 
   describe('formatConciseTimeAgo', () => {
@@ -128,6 +134,11 @@ describe('Helper Functions', () => {
     it('pluralizes when above one', () => {
       const onePointOneYearsAgo = Date.now() - 1.1 * 365 * 24 * 60 * 60 * 1000;
       expect(formatConciseTimeAgo(onePointOneYearsAgo)).toBe('1.1 years ago');
+    });
+
+    it('returns \'Never\' for zero/epoch timestamp (lastshare: 0)', () => {
+      expect(formatConciseTimeAgo(0)).toBe('Never');
+      expect(formatConciseTimeAgo(new Date(0))).toBe('Never');
     });
   });
 
