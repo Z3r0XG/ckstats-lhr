@@ -211,6 +211,7 @@ export function formatTimeAgo(
 ): string {
   const now = new Date();
   const lastUpdate = new Date(date);
+  if (lastUpdate.getTime() <= 0) return 'Never';
   const diffMs = now.getTime() - lastUpdate.getTime();
   const diffMinutes = Math.floor(diffMs / 60000);
 
@@ -235,6 +236,7 @@ export function formatConciseTimeAgo(
   date: Date | number | string
 ): string {
   const target = new Date(date);
+  if (target.getTime() <= 0) return 'Never';
   const diffMs = Date.now() - target.getTime();
   const minute = 60_000;
   const hour = 60 * minute;
