@@ -535,8 +535,8 @@ export function normalizeUserAgent(rawUa: string | undefined): string {
   let ua = firstSegment.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 
   // Rule 2: strip trailing BM chip suffix (e.g. " BM1366" or "-BM1366").
-  // Only uppercase BM matches; lowercase (e.g. "-bm1366") and unseparated ("SomeMinerBM1366") are left untouched.
-  ua = ua.replace(/[\s-]BM\d+$/, '').trim();
+  // Only ASCII space or hyphen separator; uppercase BM only; no separator or lowercase must not match.
+  ua = ua.replace(/[ -]BM\d+$/, '').trim();
 
   // Rule 3: collapse cpuminer family to the cpuminer prefix, preserving input casing.
   // Requires a non-alpha char (or end of string) after "cpuminer" to avoid matching "cpuminers-*".

@@ -56,6 +56,8 @@ describe('normalizeUserAgent', () => {
     expect(normalizeUserAgent('BM1366')).toBe('BM1366');
     // lowercase bm must NOT be stripped
     expect(normalizeUserAgent('FooMiner-bm1366')).toBe('FooMiner-bm1366');
+    // NBSP separator must NOT be stripped (only ASCII space or hyphen match)
+    expect(normalizeUserAgent('FooMiner\u00A0BM1366')).toBe('FooMiner\u00A0BM1366');
     // slash-based BM already handled by Rule 1
     expect(normalizeUserAgent('LuckyMiner/BM1366/1.2.0')).toBe('LuckyMiner');
     expect(normalizeUserAgent('NerdQAxe++/BM1370/v1.0.36')).toBe('NerdQAxe++');
