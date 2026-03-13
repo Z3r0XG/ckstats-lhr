@@ -527,13 +527,27 @@ export function computeRejectedPercent(
 export function normalizeUserAgent(rawUa: string | undefined): string {
   if (!rawUa) return '';
 
-  // Keep the segment before any `/`, trim leading/trailing spaces, remove control chars,
-  // then truncate safely by Unicode code points (preserve surrogate pairs).
+  // Rule 1: truncate at the first `/` or `(` character.
   // Covers C0 (U+0000–U+001F), DEL (U+007F), and C1 (U+0080–U+009F) — same as \p{Cc}.
-  const firstSegment = String(rawUa).split('/')[0].trim();
-  const cleaned = firstSegment.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
-  const cps = Array.from(cleaned); // operate on code points to avoid splitting surrogates
-  return cps.length <= 256 ? cleaned : cps.slice(0, 256).join('');
+  const raw = String(rawUa);
+  const stopIdx = raw.search(/[/(]/);
+  const firstSegment = (stopIdx === -1 ? raw : raw.slice(0, stopIdx)).trim();
+  let ua = firstSegment.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+
+  // Rule 2: strip trailing BM chip suffix (e.g. " BM1366" or "-BM1366").
+  // Only uppercase BM matches; lowercase (e.g. "-bm1366") and unseparated ("SomeMinerBM1366") are left untouched.
+  ua = ua.replace(/[\s-]BM\d+$/, '').trim();
+
+  // Rule 3: collapse cpuminer family to the cpuminer prefix, preserving input casing.
+  // Requires a non-alpha char (or end of string) after "cpuminer" to avoid matching "cpuminers-*".
+  if (/^cpuminer(?:[^a-zA-Z]|$)/i.test(ua)) return ua.slice(0, 8);
+
+  // Rule 4: strip trailing dash-version suffix (e.g. "-1.3", "-2.5.1").
+  ua = ua.replace(/-\d+(\.\d+)*$/, '').trim();
+
+  // Truncate to 256 Unicode code points (preserves surrogate pairs).
+  const cps = Array.from(ua);
+  return cps.length <= 256 ? ua : cps.slice(0, 256).join('');
 }
 
 export function parseWorkerName(
