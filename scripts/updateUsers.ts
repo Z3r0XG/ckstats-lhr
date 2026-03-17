@@ -208,7 +208,7 @@ export interface MessageCollectors {
 
 async function updateUser(address: string, messages?: MessageCollectors): Promise<void> {
   let userData: UserData;
-  if (/[^a-zA-Z0-9]/.test(address)) {
+  if (/[^a-zA-Z0-9:]/.test(address)) {
     throw new Error('updateUser(): address contains invalid characters');
   }
 

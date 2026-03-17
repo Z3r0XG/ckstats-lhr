@@ -40,20 +40,20 @@ export default function Header() {
         setAddress('');
         setModalMessage('');
         setIsError(false);
-        router.push(`/users/${address}`);
+        router.push(`/users/${encodeURIComponent(address)}`);
       } else {
         setAddress('');
         setModalMessage('Address added successfully!');
         setIsError(false);
         modalRef.current?.showModal();
         setTimeout(() => {
-          router.push(`/users/${address}`);
+          router.push(`/users/${encodeURIComponent(address)}`);
         }, 1500);
       }
     },
     onError: (error: Error) => {
       if (error.message === 'Address already exists') {
-        router.push(`/users/${address}`);
+        router.push(`/users/${encodeURIComponent(address)}`);
       } else {
         setModalMessage(error.message);
         setIsError(true);

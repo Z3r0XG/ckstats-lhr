@@ -9,7 +9,7 @@ export const REFRESH_INTERVAL_MS = 60_000;
 const ERROR_INTERVAL_MAX_MS = 120_000;
 
 async function fetchUserData(address: string): Promise<UserDataPayload> {
-  const res = await fetch(`/api/users/${address}`, {
+  const res = await fetch(`/api/users/${encodeURIComponent(address)}`, {
     cache: 'no-store',
   });
 

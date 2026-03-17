@@ -16,9 +16,12 @@ const UserResetButton: React.FC<UserResetButtonProps> = ({ address }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`/api/resetUser?address=${address}`, {
-        method: 'POST',
-      });
+      const response = await fetch(
+        `/api/resetUser?address=${encodeURIComponent(address)}`,
+        {
+          method: 'POST',
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to reset user');

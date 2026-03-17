@@ -17,10 +17,11 @@ export default async function UserPage({
 }: {
   params: { address: string };
 }) {
+  const address = decodeURIComponent(params.address);
   const [userORM, statsORM, historicalStatsORM] = await Promise.all([
-    getUserWithWorkersAndStats(params.address),
+    getUserWithWorkersAndStats(address),
     getLatestPoolStats(),
-    getUserHistoricalStats(params.address),
+    getUserHistoricalStats(address),
   ]);
 
   if (!userORM) {
@@ -38,5 +39,5 @@ export default async function UserPage({
     generatedAt: new Date().toISOString(),
   };
 
-  return <UserPageClient initialData={initialData} address={params.address} />;
+  return <UserPageClient initialData={initialData} address={address} />;
 }

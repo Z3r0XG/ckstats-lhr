@@ -14,10 +14,15 @@ describe('validateAndResolveUserPath', () => {
     if (!fs.existsSync(usersDir)) {
       fs.mkdirSync(usersDir, { recursive: true });
     }
-    // Create a valid user directory
+    // Create a valid BTC user directory
     const validUserDir = path.join(usersDir, 'bc1qvalid123');
     if (!fs.existsSync(validUserDir)) {
       fs.mkdirSync(validUserDir);
+    }
+    // Create a valid BCH CashAddr user directory (contains colon)
+    const bchUserDir = path.join(usersDir, 'bitcoincash:qz85msghggld3smflk8flv0yza4c0c5drqgdgeruug');
+    if (!fs.existsSync(bchUserDir)) {
+      fs.mkdirSync(bchUserDir);
     }
   });
 
@@ -33,6 +38,14 @@ describe('validateAndResolveUserPath', () => {
       const resolved = validateAndResolveUserPath('bc1qvalid123', testDir);
       expect(resolved).toContain('users');
       expect(resolved).toContain('bc1qvalid123');
+      expect(resolved.startsWith(fs.realpathSync(testDir))).toBe(true);
+    });
+
+    it('should resolve BCH CashAddr address with colon prefix', () => {
+      const addr = 'bitcoincash:qz85msghggld3smflk8flv0yza4c0c5drqgdgeruug';
+      const resolved = validateAndResolveUserPath(addr, testDir);
+      expect(resolved).toContain('users');
+      expect(resolved).toContain(addr);
       expect(resolved.startsWith(fs.realpathSync(testDir))).toBe(true);
     });
 

@@ -13,7 +13,7 @@ export async function GET(
   { params }: { params: { address: string } }
 ) {
   try {
-    const address = params.address;
+    const address = decodeURIComponent(params.address);
 
     if (!validateBitcoinAddress(address)) {
       return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
