@@ -20,8 +20,14 @@ export default async function WorkerPage({
 }: {
   params: { address: string; name?: string[] };
 }) {
-  const decodedName = params.name ? decodeURIComponent(params.name[0]) : '';
-  const decodedAddress = decodeURIComponent(params.address);
+  let decodedName: string;
+  let decodedAddress: string;
+  try {
+    decodedName = params.name ? decodeURIComponent(params.name[0]) : '';
+    decodedAddress = decodeURIComponent(params.address);
+  } catch {
+    notFound();
+  }
   const workerORM = await getWorkerWithStats(decodedAddress, decodedName);
 
   if (!workerORM) {

@@ -42,6 +42,12 @@ export async function GET(
 
     return NextResponse.json(payload);
   } catch (error) {
+    if (error instanceof URIError) {
+      return NextResponse.json(
+        { error: 'Invalid address encoding' },
+        { status: 400 }
+      );
+    }
     console.error('Error fetching user data:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

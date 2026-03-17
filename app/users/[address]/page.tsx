@@ -17,7 +17,12 @@ export default async function UserPage({
 }: {
   params: { address: string };
 }) {
-  const address = decodeURIComponent(params.address);
+  let address: string;
+  try {
+    address = decodeURIComponent(params.address);
+  } catch {
+    notFound();
+  }
   const [userORM, statsORM, historicalStatsORM] = await Promise.all([
     getUserWithWorkersAndStats(address),
     getLatestPoolStats(),
