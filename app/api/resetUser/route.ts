@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     await resetUserActive(address);
     // Force revalidation of the user page cache
-    revalidatePath(`/users/${address}`);
+    revalidatePath(`/users/${encodeURIComponent(address)}`);
     return NextResponse.json({
       message: 'User reset successfully',
       user: address,

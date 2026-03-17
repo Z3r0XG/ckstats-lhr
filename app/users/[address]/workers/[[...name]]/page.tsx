@@ -14,14 +14,25 @@ import {
   getPercentageChangeColor,
   serializeData,
 } from '../../../../../utils/helpers';
+import { validateBitcoinAddress } from '../../../../../utils/validateBitcoinAddress';
 
 export default async function WorkerPage({
   params,
 }: {
   params: { address: string; name?: string[] };
 }) {
-  const decodedName = params.name ? decodeURIComponent(params.name[0]) : '';
-  const workerORM = await getWorkerWithStats(params.address, decodedName);
+  let decodedName: string;
+  let decodedAddress: string;
+  try {
+    decodedName = params.name ? decodeURIComponent(params.name[0]) : '';
+    decodedAddress = decodeURIComponent(params.address);
+  } catch {
+    notFound();
+  }
+  if (!validateBitcoinAddress(decodedAddress)) {
+    notFound();
+  }
+  const workerORM = await getWorkerWithStats(decodedAddress, decodedName);
 
   if (!workerORM) {
     notFound();
@@ -56,7 +67,10 @@ export default async function WorkerPage({
   return (
     <div className="container mx-auto p-4">
       <div className="flex items-center gap-2">
-        <Link href={`/users/${params.address}`} className="text-sm btn">
+        <Link
+          href={`/users/${encodeURIComponent(decodedAddress)}`}
+          className="text-sm btn"
+        >
           <svg
             className="w-4 h-4"
             fill="none"

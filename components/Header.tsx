@@ -35,25 +35,29 @@ export default function Header() {
       }
       return response.json();
     },
-    onSuccess: (response) => {
+    onSuccess: (response, variables) => {
+      // variables is the address submitted to the mutation
+      const submittedAddress = variables;
       if (response?.message === 'Already in database') {
         setAddress('');
         setModalMessage('');
         setIsError(false);
-        router.push(`/users/${address}`);
+        router.push(`/users/${encodeURIComponent(submittedAddress)}`);
       } else {
         setAddress('');
         setModalMessage('Address added successfully!');
         setIsError(false);
         modalRef.current?.showModal();
         setTimeout(() => {
-          router.push(`/users/${address}`);
+          router.push(`/users/${encodeURIComponent(submittedAddress)}`);
         }, 1500);
       }
     },
-    onError: (error: Error) => {
+    onError: (error: Error, variables) => {
+      // variables is the address submitted to the mutation
+      const submittedAddress = variables;
       if (error.message === 'Address already exists') {
-        router.push(`/users/${address}`);
+        router.push(`/users/${encodeURIComponent(submittedAddress)}`);
       } else {
         setModalMessage(error.message);
         setIsError(true);

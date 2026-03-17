@@ -465,7 +465,7 @@ export async function updateSingleUser(
   address: string,
   opts?: { dryRun?: boolean }
 ): Promise<boolean> {
-  if (/[^a-zA-Z0-9]/.test(address)) {
+  if (/[^a-zA-Z0-9:]/.test(address)) {
     throw new Error('updateSingleUser(): address contains invalid characters');
   }
 

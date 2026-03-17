@@ -8,7 +8,7 @@ import * as path from 'path';
  * Requires that both the base directory and target path exist on the filesystem.
  * Will throw an error if either path does not exist or cannot be resolved.
  *
- * @param address - Bitcoin address (must be alphanumeric only)
+ * @param address - Bitcoin/BCH address (alphanumeric plus `:` for BCH CashAddr prefix)
  * @param basePath - Base directory path (API_URL) - must exist
  * @returns Resolved absolute path within the base directory
  * @throws Error if address contains invalid characters, path escapes base, or paths don't exist
@@ -17,8 +17,10 @@ export function validateAndResolveUserPath(
   address: string,
   basePath: string
 ): string {
-  // Validate address is not empty and contains only alphanumeric characters
-  if (!address || /[^a-zA-Z0-9]/.test(address)) {
+  // Validate address is not empty and contains only allowed characters.
+  // Colon is permitted for BCH CashAddr prefix (e.g. bitcoincash:q...).
+  // Path traversal is prevented by the realpathSync + startsWith check below.
+  if (!address || /[^a-zA-Z0-9:]/.test(address)) {
     throw new Error('Address contains invalid characters');
   }
 

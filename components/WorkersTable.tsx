@@ -16,7 +16,7 @@ import {
 
 interface WorkersTableProps {
   workers: SerializedWorker[];
-  address?: string;
+  address: string;
 }
 
 type SortField = keyof SerializedWorker;
@@ -290,7 +290,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                   <td>
                     <Link
                       className="link text-primary"
-                      href={`/users/${address}/workers/${encodeURIComponent(
+                      href={`/users/${encodeURIComponent(address)}/workers/${encodeURIComponent(
                         worker.name
                       )}`}
                     >
