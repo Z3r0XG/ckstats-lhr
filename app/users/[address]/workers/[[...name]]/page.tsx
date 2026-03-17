@@ -14,6 +14,7 @@ import {
   getPercentageChangeColor,
   serializeData,
 } from '../../../../../utils/helpers';
+import { validateBitcoinAddress } from '../../../../../utils/validateBitcoinAddress';
 
 export default async function WorkerPage({
   params,
@@ -26,6 +27,9 @@ export default async function WorkerPage({
     decodedName = params.name ? decodeURIComponent(params.name[0]) : '';
     decodedAddress = decodeURIComponent(params.address);
   } catch {
+    notFound();
+  }
+  if (!validateBitcoinAddress(decodedAddress)) {
     notFound();
   }
   const workerORM = await getWorkerWithStats(decodedAddress, decodedName);

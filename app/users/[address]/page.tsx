@@ -7,6 +7,7 @@ import {
   getLatestPoolStats,
 } from '../../../lib/api';
 import { serializeData } from '../../../utils/helpers';
+import { validateBitcoinAddress } from '../../../utils/validateBitcoinAddress';
 
 export const revalidate = 0;
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,9 @@ export default async function UserPage({
   try {
     address = decodeURIComponent(params.address);
   } catch {
+    notFound();
+  }
+  if (!validateBitcoinAddress(address)) {
     notFound();
   }
   const [userORM, statsORM, historicalStatsORM] = await Promise.all([
