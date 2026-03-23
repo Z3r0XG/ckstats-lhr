@@ -38,9 +38,13 @@ const nextConfig = {
     NEXT_PUBLIC_SITE_NAME: siteName,
     NEXT_PUBLIC_COIN: coin,
     NEXT_PUBLIC_MEMPOOL_LINK_TAG: mempoolLinkTag,
-    NEXT_PUBLIC_SHOW_REJECTED_STAT:
-      process.env.SHOW_REJECTED_STAT ||
-      process.env.NEXT_PUBLIC_SHOW_REJECTED_STAT ||
+    NEXT_PUBLIC_SHOW_REJECTED_STATS:
+      process.env.SHOW_REJECTED_STATS ||
+      process.env.NEXT_PUBLIC_SHOW_REJECTED_STATS ||
+      'false',
+    NEXT_PUBLIC_SHOW_SHARE_COUNTS:
+      process.env.SHOW_SHARE_COUNTS ||
+      process.env.NEXT_PUBLIC_SHOW_SHARE_COUNTS ||
       'false',
     NEXT_PUBLIC_DONATION_ADDRESS: donationAddress,
     NEXT_PUBLIC_DEFAULT_THEME: defaultTheme,

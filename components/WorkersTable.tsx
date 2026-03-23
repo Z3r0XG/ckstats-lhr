@@ -17,12 +17,17 @@ import {
 interface WorkersTableProps {
   workers: SerializedWorker[];
   address: string;
+  workerCount?: number;
 }
 
 type SortField = keyof SerializedWorker;
 type SortOrder = 'asc' | 'desc';
 
-const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
+const WorkersTable: React.FC<WorkersTableProps> = ({
+  workers,
+  address,
+  workerCount,
+}) => {
   const [sortField, setSortField] = useState<SortField>('hashrate5m');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [hideInactive, setHideInactive] = useState(false);
@@ -154,7 +159,9 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
   return (
     <div className="bg-base-200 p-4 rounded-lg mt-8">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Workers</h2>
+        <h2 className="text-xl font-bold">
+          Workers{workerCount != null ? ` (${workerCount})` : ''}
+        </h2>
         {storageReady && (
           <label className="flex items-center gap-3 cursor-pointer">
             <span className="text-sm">Hide Inactive</span>
@@ -199,6 +206,12 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                 className="cursor-pointer"
               >
                 Hashrate (1d){renderSortIcon('hashrate1d')}
+              </th>
+              <th
+                onClick={() => handleSort('shares')}
+                className="cursor-pointer"
+              >
+                Total Shares{renderSortIcon('shares')}
               </th>
               <th
                 onClick={() => handleSort('bestShare')}
@@ -303,6 +316,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
                   <td className={cls5m}>{renderHr(hr5mRaw, hr5m)}</td>
                   <td className={cls1hr}>{renderHr(hr1hrRaw, hr1hr)}</td>
                   <td className={cls1d}>{renderHr(hr1dRaw, hr1d)}</td>
+                  <td>{formatNumber(worker.shares)}</td>
                   <td>{formatNumber(worker.bestShare)}</td>
                   <td>{formatNumber(worker.bestEver)}</td>
                   <td>{formatTimeAgo(worker.lastUpdate)}</td>
