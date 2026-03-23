@@ -243,7 +243,7 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
 
       {'workerCount' in userStats[0] && workerCountChanged && (
         <div>
-          <h2 className="text-xl font-bold mb-4">Worker Count History</h2>
+          <h2 className="text-xl font-bold mb-4">Workers History</h2>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart
               data={chartData}
