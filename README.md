@@ -16,7 +16,7 @@ statistics, user metrics, and worker tracking for solo mining operations.
 - **Rejected Share Percentage**: Color-coded rejection rates with visual indicators
 - **Privacy Controls**: User-controlled visibility toggle for public leaderboards
 - **Historical Charts**: Time-series pool and user statistics with configurable retention
-- **Workers Table Enhancements**: User-agent (device) strings are shown per worker and a hide-inactive toggle keeps active miners in focus
+- **Workers Table Enhancements**: User-agent (device) strings are shown per worker; per-worker eye icon toggle to manually show/hide individual workers; auto-hide inactive toggle hides workers with no activity in 24h; hidden workers shown in a collapsible section
 - **Async Dashboard Refresh**: Client-side polling updates dashboard every 60 seconds without full-page reloads
 
 ## Acknowledgment
@@ -102,7 +102,8 @@ SITE_NAME="My Solo Pool Stats"
 MEMPOOL_LINK_TAG="custom_tag"
 DB_SSL="false"
 DB_SSL_REJECT_UNAUTHORIZED="true"
-SHOW_REJECTED_STAT="false"
+SHOW_REJECTED_STATS="false"
+SHOW_SHARE_COUNTS="false"
 DONATION_ADDRESS="your_wallet_address_here"
 DEFAULT_THEME="forest"
 ```
@@ -141,7 +142,12 @@ DEFAULT_THEME="forest"
 - Default: `solock`
 - Note: Only shown when `COIN=BTC`. Sets the pool tag in `https://mempool.space/mining/pool/<tag>`
 
-**SHOW_REJECTED_STAT**: Show or hide the rejection rate stat box on the pool stats display. **OPTIONAL**
+**SHOW_SHARE_COUNTS**: Show or hide the accepted/rejected share counts stat box on the pool stats display. **OPTIONAL**
+- Type: String
+- Default: `false`
+- Values: `'true'` | `'false'`
+
+**SHOW_REJECTED_STATS**: Show or hide the rejection rate stat box on the pool stats display. **OPTIONAL**
 - Type: String
 - Default: `false`
 - Values: `'true'` | `'false'`
