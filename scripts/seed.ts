@@ -37,6 +37,8 @@ interface PoolStatsData {
   SPS5m: string;
   SPS15m: string;
   SPS1h: string;
+  accepted_count?: number;
+  rejected_count?: number;
 }
 
 async function fetchPoolStats(): Promise<Partial<PoolStatsData>> {
@@ -310,6 +312,8 @@ async function seed() {
       SPS5m: stats.SPS5m,
       SPS15m: stats.SPS15m,
       SPS1h: stats.SPS1h,
+      accepted_count: stats.accepted_count != null ? Math.round(Number(stats.accepted_count)) : undefined,
+      rejected_count: stats.rejected_count != null ? Math.round(Number(stats.rejected_count)) : undefined,
       timestamp: new Date(),
     } as unknown as Partial<PoolStats>;
 

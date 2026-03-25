@@ -24,6 +24,8 @@ export type SerializedPoolStats = {
   SPS5m: number;
   SPS15m: number;
   SPS1h: number;
+  accepted_count?: number;
+  rejected_count?: number;
 };
 
 export type TopUserHashrate = {

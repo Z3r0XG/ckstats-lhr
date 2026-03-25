@@ -119,8 +119,8 @@ export default function UserPageClient({
       </div>
       <div className="stats stats-vertical sm:stats-horizontal shadow-lg my-2">
         <div className="stat">
-          <div className="stat-title">Worker Count</div>
-          <div className="stat-value text-3xl">{user.workers.length}</div>
+          <div className="stat-title">Workers</div>
+          <div className="stat-value text-3xl">{latestStats.workerCount}</div>
         </div>
         <div className="stat">
           <div className="stat-title">Authorised</div>
@@ -142,6 +142,38 @@ export default function UserPageClient({
           <div className="stat-value text-3xl">
             {formatNumber(latestStats.shares)}
           </div>
+          {(() => {
+            const shares = Number(latestStats.shares);
+            let effortPercent: number | null = null;
+
+            if (networkDifficulty != null && Number(networkDifficulty) > 0) {
+              effortPercent = (shares / Number(networkDifficulty)) * 100;
+            } else if (
+              legacyDiff != null &&
+              legacyAccepted != null &&
+              Number(legacyAccepted) > 0
+            ) {
+              effortPercent =
+                (shares * Number(legacyDiff)) / Number(legacyAccepted);
+            }
+
+            if (effortPercent === null) return null;
+
+            let display = '';
+            if (effortPercent === 0) {
+              display = '0%';
+            } else if (effortPercent < 0.01) {
+              display = '<0.01%';
+            } else {
+              display = effortPercent.toFixed(2) + '%';
+            }
+
+            return (
+              <div className="stat-desc text-success max-w-full overflow-hidden">
+                {display} (Effort)
+              </div>
+            );
+          })()}
         </div>
         <div className="stat">
           <div className="stat-title">Best Share</div>
@@ -282,7 +314,11 @@ export default function UserPageClient({
 
       <UserStatsCharts userStats={historicalStats} />
 
-      <WorkersTable workers={user.workers} address={address} />
+      <WorkersTable
+        workers={user.workers}
+        address={address}
+        workerCount={latestStats.workerCount}
+      />
     </div>
   );
 }
