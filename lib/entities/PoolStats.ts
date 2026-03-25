@@ -77,4 +77,10 @@ export class PoolStats {
 
   @Column('float')
   SPS1h: number;
+
+  @Column('integer', { nullable: true })
+  accepted_count?: number;
+
+  @Column('integer', { nullable: true })
+  rejected_count?: number;
 }
