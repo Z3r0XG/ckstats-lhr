@@ -574,12 +574,12 @@ export function parseWorkerName(
   if (!name) return '';
   if (address && name === address) return '';
   if (name.includes('.')) {
-    const parts = name.split('.');
-    return parts.length > 1 ? parts[1] : parts[0];
+    const idx = name.indexOf('.');
+    return name.slice(idx + 1);
   }
   if (name.includes('_')) {
-    const parts = name.split('_');
-    return parts.length > 1 ? parts[1] : parts[0];
+    const idx = name.indexOf('_');
+    return name.slice(idx + 1);
   }
   return name;
 }
