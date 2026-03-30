@@ -245,7 +245,7 @@ export async function getWorkerWithStats(
     const worker = await repository.findOne({
       where: {
         userAddress,
-        name: workerName.trim(),
+        name: workerName,
       },
       relations: {
         stats: true,

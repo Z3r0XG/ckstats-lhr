@@ -558,11 +558,11 @@ export function normalizeUserAgent(rawUa: string | undefined): string {
   // Handles patterns like "date;bosminer-plus-tuner version" or "bosminer-tuner".
   if (/bosminer/i.test(ua)) return 'bosminer';
 
-  // Rule 5: collapse cpuminer family to the cpuminer prefix, preserving input casing.
+  // Rule 4: collapse cpuminer family to the cpuminer prefix, preserving input casing.
   // Requires a non-alpha char (or end of string) after "cpuminer" to avoid matching "cpuminers-*".
   if (/^cpuminer(?:[^a-zA-Z]|$)/i.test(ua)) return ua.slice(0, 8);
 
-  // Rule 6: strip trailing dash-version suffix (e.g. "-1.3", "-2.5.1").
+  // Rule 5: strip trailing dash-version suffix (e.g. "-1.3", "-2.5.1").
   ua = ua.replace(/-\d+(\.\d+)*$/, '').trim();
 
   // Truncate to 256 Unicode code points (preserves surrogate pairs).
@@ -577,14 +577,10 @@ export function parseWorkerName(
   const name = String(rawName ?? '');
   if (!name) return '';
   if (address && name === address) return '';
-  if (name.includes('.')) {
-    const idx = name.indexOf('.');
-    return name.slice(idx + 1);
-  }
-  if (name.includes('_')) {
-    const idx = name.indexOf('_');
-    return name.slice(idx + 1);
-  }
+  const dotIdx = name.indexOf('.');
+  if (dotIdx !== -1) return name.slice(dotIdx + 1);
+  const underIdx = name.indexOf('_');
+  if (underIdx !== -1) return name.slice(underIdx + 1);
   return name;
 }
 
