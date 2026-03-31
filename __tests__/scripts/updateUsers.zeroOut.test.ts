@@ -4,6 +4,9 @@
 
 import { zeroOutUnseenWorkers } from '../../scripts/updateUsers';
 import * as apiModule from '../../lib/api';
+import { Repository } from 'typeorm';
+import { Worker } from '../../lib/entities/Worker';
+import { WorkerStats } from '../../lib/entities/WorkerStats';
 
 jest.mock('../../lib/db');
 jest.mock('../../lib/api', () => ({
@@ -44,7 +47,12 @@ function makeRepos(dbWorkers: ReturnType<typeof makeWorker>[]) {
     save: jest.fn().mockImplementation(async (s) => { savedStats.push({ ...s }); return s; }),
   };
 
-  return { workerRepo, statsRepo, savedWorkers, savedStats };
+  return {
+    workerRepo: workerRepo as unknown as Repository<Worker>,
+    statsRepo: statsRepo as unknown as Repository<WorkerStats>,
+    savedWorkers,
+    savedStats,
+  };
 }
 
 describe('zeroOutUnseenWorkers', () => {
@@ -55,7 +63,7 @@ describe('zeroOutUnseenWorkers', () => {
     const { workerRepo, statsRepo, savedWorkers, savedStats } = makeRepos(workers);
     const seen = new Set(['active']);
 
-    const count = await zeroOutUnseenWorkers(ADDRESS, seen, workerRepo, statsRepo);
+    const count = await zeroOutUnseenWorkers(ADDRESS, seen, workers as unknown as Worker[], workerRepo, statsRepo);
 
     expect(count).toBe(1);
     expect(savedWorkers).toHaveLength(1);
@@ -79,7 +87,7 @@ describe('zeroOutUnseenWorkers', () => {
     const { workerRepo, statsRepo, savedWorkers, savedStats } = makeRepos(workers);
     const seen = new Set(['active']);
 
-    const count = await zeroOutUnseenWorkers(ADDRESS, seen, workerRepo, statsRepo);
+    const count = await zeroOutUnseenWorkers(ADDRESS, seen, workers as unknown as Worker[], workerRepo, statsRepo);
 
     expect(count).toBe(0);
     expect(savedWorkers).toHaveLength(0);
@@ -91,12 +99,28 @@ describe('zeroOutUnseenWorkers', () => {
     const { workerRepo, statsRepo, savedWorkers, savedStats } = makeRepos(workers);
     const seen = new Set<string>();
 
-    const count = await zeroOutUnseenWorkers(ADDRESS, seen, workerRepo, statsRepo);
+    const count = await zeroOutUnseenWorkers(ADDRESS, seen, workers as unknown as Worker[], workerRepo, statsRepo);
 
     expect(count).toBe(2);
     expect(savedWorkers).toHaveLength(2);
     expect(savedStats).toHaveLength(2);
     expect(savedStats.every(s => s.started === '0')).toBe(true);
+  });
+
+  it('skips workers already zeroed out (no redundant writes on repeat runs)', async () => {
+    const alreadyZeroed = makeWorker('offline', 1);
+    alreadyZeroed.hashrate1m = 0;
+    alreadyZeroed.hashrate5m = 0;
+    alreadyZeroed.hashrate1hr = 0;
+    alreadyZeroed.hashrate1d = 0;
+    alreadyZeroed.hashrate7d = 0;
+    const { workerRepo, statsRepo, savedWorkers, savedStats } = makeRepos([alreadyZeroed]);
+
+    const count = await zeroOutUnseenWorkers(ADDRESS, new Set(), [alreadyZeroed] as unknown as Worker[], workerRepo, statsRepo);
+
+    expect(count).toBe(0);
+    expect(savedWorkers).toHaveLength(0);
+    expect(savedStats).toHaveLength(0);
   });
 
   it('preserves historical share fields on the WorkerStats record', async () => {
@@ -106,7 +130,7 @@ describe('zeroOutUnseenWorkers', () => {
     worker.bestEver = 67890;
     const { workerRepo, statsRepo, savedStats } = makeRepos([worker]);
 
-    await zeroOutUnseenWorkers(ADDRESS, new Set(), workerRepo, statsRepo);
+    await zeroOutUnseenWorkers(ADDRESS, new Set(), [worker] as unknown as Worker[], workerRepo, statsRepo);
 
     expect(savedStats[0].shares).toBe(99999);
     expect(savedStats[0].bestShare).toBe(12345);
@@ -119,7 +143,7 @@ describe('zeroOutUnseenWorkers', () => {
     const { workerRepo, statsRepo, savedWorkers } = makeRepos([spacedWorker, trimmedWorker]);
     const seen = new Set(['BiTaXe']);
 
-    await zeroOutUnseenWorkers(ADDRESS, seen, workerRepo, statsRepo);
+    await zeroOutUnseenWorkers(ADDRESS, seen, [spacedWorker, trimmedWorker] as unknown as Worker[], workerRepo, statsRepo);
 
     expect(savedWorkers).toHaveLength(1);
     expect(savedWorkers[0].name).toBe(' BiTaXe');
@@ -130,7 +154,7 @@ describe('zeroOutUnseenWorkers', () => {
     const { workerRepo, statsRepo } = makeRepos(workers);
     const seen = new Set<string>();
 
-    await zeroOutUnseenWorkers(ADDRESS, seen, workerRepo, statsRepo);
+    await zeroOutUnseenWorkers(ADDRESS, seen, workers as unknown as Worker[], workerRepo, statsRepo);
 
     const cacheDelete = apiModule.cacheDelete as jest.Mock;
     expect(cacheDelete).toHaveBeenCalledWith(`workerWithStats:${ADDRESS}: Roman1`);
