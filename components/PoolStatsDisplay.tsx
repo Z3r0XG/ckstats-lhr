@@ -11,6 +11,7 @@ import {
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
   computeRejectedPercent,
+  computeAcceptedPct,
   calculateProximityPercent,
 } from '../utils/helpers';
 
@@ -26,7 +27,8 @@ export default function PoolStatsDisplay({
   generatedAt,
 }: PoolStatsDisplayProps) {
   const showRejectedStat =
-    process.env.NEXT_PUBLIC_SHOW_REJECTED_STAT === 'true';
+    process.env.NEXT_PUBLIC_SHOW_REJECTED_STATS === 'true';
+  const showShareCounts = process.env.NEXT_PUBLIC_SHOW_SHARE_COUNTS === 'true';
 
   const formatWithUnits = (value: number): string => {
     const units = [
@@ -67,6 +69,10 @@ export default function PoolStatsDisplay({
       return '% of Network Diff';
     } else if (key === 'bestshare') {
       return 'Best Diff';
+    } else if (key === 'accepted') {
+      return 'Accepted Diff';
+    } else if (key === 'rejected') {
+      return 'Rejected Diff';
     }
     return key
       .replace(/([A-Z])/g, ' $1')
@@ -77,7 +83,7 @@ export default function PoolStatsDisplay({
     { title: 'Users', keys: ['users', 'workers'] },
     {
       title: 'Shares since last found block',
-      keys: ['accepted', 'rejected', 'bestshare', 'avgTime'],
+      keys: ['accepted', 'rejected', 'shareCount', 'bestshare'],
     },
     { title: 'Shares Per Second', keys: ['SPS1m', 'SPS5m', 'SPS15m', 'SPS1h'] },
   ];
@@ -142,6 +148,44 @@ export default function PoolStatsDisplay({
                   })()}
                 </div>
               </div>
+              {(() => {
+                const networkDifficulty =
+                  stats.netdiff != null
+                    ? stats.netdiff
+                    : stats.diff != null &&
+                        stats.accepted != null &&
+                        Number(stats.diff) > 0
+                      ? (Number(stats.accepted) / (Number(stats.diff) * 100)) *
+                        10000
+                      : null;
+                const avgTimeStr = (() => {
+                  if (stats.hashrate6hr == null || networkDifficulty == null)
+                    return 'N/A';
+                  const seconds = calculateAverageTimeToBlock(
+                    stats.hashrate6hr,
+                    networkDifficulty
+                  );
+                  return formatDurationCapped(seconds);
+                })();
+                return (
+                  <div className="stat">
+                    <div className="stat-title">Avg Time to Find a Block</div>
+                    <div className="stat-value text-2xl">{avgTimeStr}</div>
+                    <div className="stat-desc">
+                      {(process.env.NEXT_PUBLIC_COIN ?? 'BTC') === 'BTC' ? (
+                        <Link
+                          href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="link text-primary"
+                        >
+                          Found Blocks
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -151,49 +195,30 @@ export default function PoolStatsDisplay({
               <h2 className="card-title">{group.title}</h2>
               <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
                 {group.keys.map((key) => {
-                  if (key === 'avgTime') {
-                    // Prefer netdiff; fallback to accepted/diff approximation if netdiff missing
-                    const networkDifficulty =
-                      stats.netdiff != null
-                        ? stats.netdiff
-                        : stats.diff != null &&
-                            stats.accepted != null &&
-                            Number(stats.diff) > 0
-                          ? (Number(stats.accepted) /
-                              (Number(stats.diff) * 100)) *
-                            10000
-                          : null;
-                    const avgTimeStr = (() => {
-                      if (
-                        stats.hashrate6hr == null ||
-                        networkDifficulty == null
-                      )
-                        return 'N/A';
-
-                      const seconds = calculateAverageTimeToBlock(
-                        stats.hashrate6hr,
-                        networkDifficulty
-                      );
-                      return formatDurationCapped(seconds);
-                    })();
+                  if (key === 'shareCount') {
+                    if (!showShareCounts) return null;
+                    const ac = stats.accepted_count;
+                    const rc = stats.rejected_count;
+                    const hasData = ac != null && rc != null;
+                    const color = 'text-success';
+                    const acceptedPct = hasData
+                      ? computeAcceptedPct(ac, rc)
+                      : null;
                     return (
-                      <div key="avg-time" className="stat">
-                        <div className="stat-title">
-                          Avg Time to Find a Block
+                      <div key="share-count" className="stat">
+                        <div className="stat-title">Total Shares</div>
+                        <div className="stat-value text-2xl">
+                          {hasData
+                            ? `${formatNumber(rc!)} / ${formatNumber(ac!)}`
+                            : 'N/A'}
                         </div>
-                        <div className="stat-value text-2xl">{avgTimeStr}</div>
-                        <div className="stat-desc">
-                          {(process.env.NEXT_PUBLIC_COIN ?? 'BTC') === 'BTC' ? (
-                            <Link
-                              href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="link text-primary"
-                            >
-                              Found Blocks
-                            </Link>
-                          ) : null}
-                        </div>
+                        {hasData && acceptedPct && (
+                          <div
+                            className={`stat-desc text-left ${color} max-w-full overflow-hidden`}
+                          >
+                            {acceptedPct} (Accepted)
+                          </div>
+                        )}
                       </div>
                     );
                   }
@@ -247,8 +272,7 @@ export default function PoolStatsDisplay({
                             <div
                               className={`stat-desc text-left ${color} max-w-full overflow-hidden`}
                             >
-                              {formatted === null ? 'N/A' : formatted} (Error
-                              Rate)
+                              {formatted === null ? 'N/A' : formatted} (Invalid)
                             </div>
                           );
                         })()}

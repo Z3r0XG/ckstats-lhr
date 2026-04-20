@@ -4,6 +4,7 @@ import {
   getPercentageChangeColor,
   computeRejectedPercent,
   calculateProximityPercent,
+  computeAcceptedPct,
 } from '../../utils/helpers';
 
 const latestStats = {
@@ -134,5 +135,46 @@ describe('PoolStatsDisplay data transformations', () => {
     const expected7d = calculatePercentageChange(Number(latestStats.hashrate7d), baseline7d);
     expect(hist7dChange).toBe(expected7d);
     expect(hist7dChange).not.toBe('N/A');
+  });
+});
+
+describe('PoolStatsDisplay shareCount stat logic', () => {
+  test('accepted% with total zero => "0%"', () => {
+    expect(computeAcceptedPct(0, 0)).toBe('0%');
+  });
+
+  test('accepted% all accepted => "100%"', () => {
+    expect(computeAcceptedPct(1000, 0)).toBe('100%');
+  });
+
+  test('accepted% just below 100 but above 99.99 => ">99.99%"', () => {
+    // 9999 accepted, 1 rejected: 9999/10000 = 99.99% accepted → exactly 99.99 not > 99.99
+    // Use 99999 accepted, 1 rejected: 99999/100000 = 99.999% > 99.99
+    expect(computeAcceptedPct(99999, 1)).toBe('>99.99%');
+  });
+
+  test('accepted% exactly 99.99 => formatted as "99.99%"', () => {
+    // 9999 accepted, 1 rejected = 99.99% exactly → not > 99.99
+    expect(computeAcceptedPct(9999, 1)).toBe('99.99%');
+  });
+
+  test('accepted% normal case => formatted to 2 decimal places', () => {
+    // 980 accepted, 20 rejected = 98.00% accepted
+    expect(computeAcceptedPct(980, 20)).toBe('98.00%');
+  });
+
+  test('accepted% null inputs => null', () => {
+    expect(computeAcceptedPct(null, null)).toBeNull();
+    expect(computeAcceptedPct(undefined, undefined)).toBeNull();
+  });
+
+  test('accepted% one input null => null', () => {
+    expect(computeAcceptedPct(1000, null)).toBeNull();
+    expect(computeAcceptedPct(null, 1000)).toBeNull();
+  });
+
+  test('accepted% non-numeric string inputs => null', () => {
+    expect(computeAcceptedPct('abc', 'xyz')).toBeNull();
+    expect(computeAcceptedPct('', '')).toBe('0%'); // Number('') === 0, total === 0
   });
 });
