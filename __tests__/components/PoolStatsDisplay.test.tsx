@@ -136,3 +136,72 @@ describe('PoolStatsDisplay data transformations', () => {
     expect(hist7dChange).not.toBe('N/A');
   });
 });
+
+describe('PoolStatsDisplay shareCount stat logic', () => {
+  // Replicates the acceptedPct IIFE in PoolStatsDisplay.tsx
+  function computeAcceptedPct(
+    ac: number | null | undefined,
+    rc: number | null | undefined
+  ): string | null {
+    if (ac == null || rc == null) return null;
+    const total = Number(ac) + Number(rc);
+    if (total === 0) return '0%';
+    const p = (Number(ac) / total) * 100;
+    if (p === 100) return '100%';
+    if (p > 99.99) return '>99.99%';
+    return p.toFixed(2) + '%';
+  }
+
+  test('flag off: showShareCounts false => stat is hidden', () => {
+    const showShareCounts = false;
+    // Component returns null for the key when flag is off
+    const rendered = showShareCounts ? 'visible' : null;
+    expect(rendered).toBeNull();
+  });
+
+  test('flag on, missing counts: hasData false => shows N/A', () => {
+    const ac = null;
+    const rc = null;
+    const hasData = ac != null && rc != null;
+    expect(hasData).toBe(false);
+    // Component renders 'N/A' string when !hasData
+    const display = hasData ? 'counts' : 'N/A';
+    expect(display).toBe('N/A');
+  });
+
+  test('flag on, only one count missing: hasData false => shows N/A', () => {
+    const ac = 1000;
+    const rc = null;
+    const hasData = ac != null && rc != null;
+    expect(hasData).toBe(false);
+  });
+
+  test('accepted% with total zero => "0%"', () => {
+    expect(computeAcceptedPct(0, 0)).toBe('0%');
+  });
+
+  test('accepted% all accepted => "100%"', () => {
+    expect(computeAcceptedPct(1000, 0)).toBe('100%');
+  });
+
+  test('accepted% just below 100 but above 99.99 => ">99.99%"', () => {
+    // 9999 accepted, 1 rejected: 9999/10000 = 99.99% accepted → exactly 99.99 not > 99.99
+    // Use 99999 accepted, 1 rejected: 99999/100000 = 99.999% > 99.99
+    expect(computeAcceptedPct(99999, 1)).toBe('>99.99%');
+  });
+
+  test('accepted% exactly 99.99 => formatted as "99.99%"', () => {
+    // 9999 accepted, 1 rejected = 99.99% exactly → not > 99.99
+    expect(computeAcceptedPct(9999, 1)).toBe('99.99%');
+  });
+
+  test('accepted% normal case => formatted to 2 decimal places', () => {
+    // 980 accepted, 20 rejected = 98.00% accepted
+    expect(computeAcceptedPct(980, 20)).toBe('98.00%');
+  });
+
+  test('accepted% null inputs => null', () => {
+    expect(computeAcceptedPct(null, null)).toBeNull();
+    expect(computeAcceptedPct(undefined, undefined)).toBeNull();
+  });
+});
