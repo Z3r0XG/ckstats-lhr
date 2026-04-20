@@ -72,9 +72,6 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
   const [manuallyHiddenIds, setManuallyHiddenIds] = useState<Set<number>>(
     new Set()
   );
-  const [manuallyShownIds, setManuallyShownIds] = useState<Set<number>>(
-    new Set()
-  );
   const [autoHideInactive, setAutoHideInactive] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
 
@@ -85,12 +82,6 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
       if (h) setManuallyHiddenIds(new Set(JSON.parse(h) as number[]));
     } catch (err) {
       console.debug('Failed to load manuallyHiddenWorkers2', err);
-    }
-    try {
-      const s = localStorage.getItem('manuallyShownWorkers2');
-      if (s) setManuallyShownIds(new Set(JSON.parse(s) as number[]));
-    } catch (err) {
-      console.debug('Failed to load manuallyShownWorkers2', err);
     }
     try {
       const a = localStorage.getItem('autoHideInactiveWorkers');
@@ -118,42 +109,22 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     );
   };
 
-  const toggleWorkerVisibility = (workerId: number) => {
-    const worker = workers.find((w) => w.id === workerId);
-    const isAutoHidden =
-      autoHideInactive && worker != null && isWorkerIdle(worker);
-    const isManuallyHidden = manuallyHiddenIds.has(workerId);
-    const isManuallyShown = manuallyShownIds.has(workerId);
+  const isHidden = (w: SerializedWorker) => {
+    if (autoHideInactive) return isWorkerIdle(w);
+    return manuallyHiddenIds.has(w.id!);
+  };
 
-    if (isManuallyHidden) {
-      setManuallyHiddenIds((prev) => {
-        const n = new Set(prev);
+  const toggleWorkerVisibility = (workerId: number) => {
+    setManuallyHiddenIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(workerId)) {
         n.delete(workerId);
-        save('manuallyHiddenWorkers2', n);
-        return n;
-      });
-    } else if (isManuallyShown) {
-      setManuallyShownIds((prev) => {
-        const n = new Set(prev);
-        n.delete(workerId);
-        save('manuallyShownWorkers2', n);
-        return n;
-      });
-    } else if (isAutoHidden) {
-      setManuallyShownIds((prev) => {
-        const n = new Set(prev);
+      } else {
         n.add(workerId);
-        save('manuallyShownWorkers2', n);
-        return n;
-      });
-    } else {
-      setManuallyHiddenIds((prev) => {
-        const n = new Set(prev);
-        n.add(workerId);
-        save('manuallyHiddenWorkers2', n);
-        return n;
-      });
-    }
+      }
+      save('manuallyHiddenWorkers2', n);
+      return n;
+    });
   };
 
   const toggleAutoHideInactive = () => {
@@ -166,14 +137,6 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         /* ignore */
       }
     }
-  };
-
-  const isHidden = (w: SerializedWorker) => {
-    const id = w.id!;
-    if (manuallyShownIds.has(id)) return false;
-    if (manuallyHiddenIds.has(id)) return true;
-    if (autoHideInactive && isWorkerIdle(w)) return true;
-    return false;
   };
 
   const handleSort = (field: SortField) => {
@@ -307,36 +270,38 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     }
     return (
       <tr key={worker.id}>
-        <td
-          style={{
-            padding: '0.75rem 0 0.75rem 1rem',
-            width: '1%',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <button
-            onClick={
-              storageReady
-                ? () => toggleWorkerVisibility(worker.id!)
-                : undefined
-            }
-            disabled={!storageReady}
+        {!autoHideInactive && (
+          <td
             style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              margin: 0,
-              lineHeight: 0,
-              cursor: storageReady ? 'pointer' : 'default',
-              opacity: 0.5,
-              color: 'inherit',
+              padding: '0.75rem 0 0.75rem 1rem',
+              width: '1%',
+              whiteSpace: 'nowrap',
             }}
-            title={showEye ? 'Hide worker' : 'Show worker'}
-            aria-label={showEye ? 'Hide worker' : 'Show worker'}
           >
-            {showEye ? <EyeIcon /> : <EyeOffIcon />}
-          </button>
-        </td>
+            <button
+              onClick={
+                storageReady
+                  ? () => toggleWorkerVisibility(worker.id!)
+                  : undefined
+              }
+              disabled={!storageReady}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                margin: 0,
+                lineHeight: 0,
+                cursor: storageReady ? 'pointer' : 'default',
+                opacity: 0.5,
+                color: 'inherit',
+              }}
+              title={showEye ? 'Hide worker' : 'Show worker'}
+              aria-label={showEye ? 'Hide worker' : 'Show worker'}
+            >
+              {showEye ? <EyeIcon /> : <EyeOffIcon />}
+            </button>
+          </td>
+        )}
         <td>
           <Link
             className="link text-primary"
@@ -363,7 +328,9 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
   const tableHead = (
     <thead>
       <tr>
-        <th style={{ padding: '0.75rem 0 0.75rem 1rem', width: '1%' }}></th>
+        {!autoHideInactive && (
+          <th style={{ padding: '0.75rem 0 0.75rem 1rem', width: '1%' }}></th>
+        )}
         <th onClick={() => handleSort('name')} className="cursor-pointer">
           Name{renderSortIcon('name')}
         </th>

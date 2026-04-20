@@ -139,30 +139,6 @@ describe('PoolStatsDisplay data transformations', () => {
 });
 
 describe('PoolStatsDisplay shareCount stat logic', () => {
-  test('flag off: showShareCounts false => stat is hidden', () => {
-    const showShareCounts = false;
-    // Component returns null for the key when flag is off
-    const rendered = showShareCounts ? 'visible' : null;
-    expect(rendered).toBeNull();
-  });
-
-  test('flag on, missing counts: hasData false => shows N/A', () => {
-    const ac = null;
-    const rc = null;
-    const hasData = ac != null && rc != null;
-    expect(hasData).toBe(false);
-    // Component renders 'N/A' string when !hasData
-    const display = hasData ? 'counts' : 'N/A';
-    expect(display).toBe('N/A');
-  });
-
-  test('flag on, only one count missing: hasData false => shows N/A', () => {
-    const ac = 1000;
-    const rc = null;
-    const hasData = ac != null && rc != null;
-    expect(hasData).toBe(false);
-  });
-
   test('accepted% with total zero => "0%"', () => {
     expect(computeAcceptedPct(0, 0)).toBe('0%');
   });
@@ -190,6 +166,11 @@ describe('PoolStatsDisplay shareCount stat logic', () => {
   test('accepted% null inputs => null', () => {
     expect(computeAcceptedPct(null, null)).toBeNull();
     expect(computeAcceptedPct(undefined, undefined)).toBeNull();
+  });
+
+  test('accepted% one input null => null', () => {
+    expect(computeAcceptedPct(1000, null)).toBeNull();
+    expect(computeAcceptedPct(null, 1000)).toBeNull();
   });
 
   test('accepted% non-numeric string inputs => null', () => {
