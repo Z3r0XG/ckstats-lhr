@@ -138,7 +138,8 @@ describe('PoolStatsDisplay data transformations', () => {
   });
 });
 
-describe('PoolStatsDisplay shareCount stat logic', () => {  test('flag off: showShareCounts false => stat is hidden', () => {
+describe('PoolStatsDisplay shareCount stat logic', () => {
+  test('flag off: showShareCounts false => stat is hidden', () => {
     const showShareCounts = false;
     // Component returns null for the key when flag is off
     const rendered = showShareCounts ? 'visible' : null;
@@ -189,5 +190,10 @@ describe('PoolStatsDisplay shareCount stat logic', () => {  test('flag off: show
   test('accepted% null inputs => null', () => {
     expect(computeAcceptedPct(null, null)).toBeNull();
     expect(computeAcceptedPct(undefined, undefined)).toBeNull();
+  });
+
+  test('accepted% non-numeric string inputs => null', () => {
+    expect(computeAcceptedPct('abc', 'xyz')).toBeNull();
+    expect(computeAcceptedPct('', '')).toBe('0%'); // Number('') === 0, total === 0
   });
 });

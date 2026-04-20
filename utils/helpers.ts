@@ -532,6 +532,7 @@ export function computeAcceptedPct(
 ): string | null {
   if (ac == null || rc == null) return null;
   const total = Number(ac) + Number(rc);
+  if (!isFinite(total)) return null;
   if (total === 0) return '0%';
   const p = (Number(ac) / total) * 100;
   if (p === 100) return '100%';
