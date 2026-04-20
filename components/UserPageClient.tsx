@@ -314,11 +314,7 @@ export default function UserPageClient({
 
       <UserStatsCharts userStats={historicalStats} />
 
-      <WorkersTable
-        workers={user.workers}
-        address={address}
-        workerCount={latestStats.workerCount}
-      />
+      <WorkersTable workers={user.workers} address={address} />
     </div>
   );
 }

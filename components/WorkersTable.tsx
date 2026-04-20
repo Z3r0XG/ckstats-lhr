@@ -17,7 +17,6 @@ import {
 interface WorkersTableProps {
   workers: SerializedWorker[];
   address: string;
-  workerCount?: number;
 }
 
 type SortField = keyof SerializedWorker;
@@ -306,19 +305,28 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
             whiteSpace: 'nowrap',
           }}
         >
-          <span
-            onClick={() => toggleWorkerVisibility(worker.id!)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) =>
-              e.key === 'Enter' && toggleWorkerVisibility(worker.id!)
+          <button
+            onClick={
+              storageReady
+                ? () => toggleWorkerVisibility(worker.id!)
+                : undefined
             }
-            style={{ cursor: 'pointer', opacity: 0.5 }}
+            disabled={!storageReady}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              margin: 0,
+              lineHeight: 0,
+              cursor: storageReady ? 'pointer' : 'default',
+              opacity: 0.5,
+              color: 'inherit',
+            }}
             title={showEye ? 'Hide worker' : 'Show worker'}
             aria-label={showEye ? 'Hide worker' : 'Show worker'}
           >
             {showEye ? <EyeIcon /> : <EyeOffIcon />}
-          </span>
+          </button>
         </td>
         <td>
           <Link

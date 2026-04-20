@@ -199,7 +199,7 @@ export default function PoolStatsDisplay({
                     const ac = stats.accepted_count;
                     const rc = stats.rejected_count;
                     const hasData = ac != null && rc != null;
-                    const { color } = computeRejectedPercent(ac ?? 0, rc ?? 0);
+                    const color = 'text-success';
                     const acceptedPct = (() => {
                       if (!hasData) return null;
                       const total = Number(ac) + Number(rc);
