@@ -111,7 +111,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
 
   const isHidden = (w: SerializedWorker) => {
     if (autoHideInactive) return isWorkerIdle(w);
-    return manuallyHiddenIds.has(w.id!);
+    return manuallyHiddenIds.has(w.id);
   };
 
   const toggleWorkerVisibility = (workerId: number) => {
@@ -212,8 +212,16 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     return 0;
   });
 
-  const visibleWorkers = sortedWorkers.filter((w) => !isHidden(w));
-  const hiddenWorkers = sortedWorkers.filter((w) => isHidden(w));
+  const { visibleWorkers, hiddenWorkers } = sortedWorkers.reduce(
+    (acc, w) => {
+      (isHidden(w) ? acc.hiddenWorkers : acc.visibleWorkers).push(w);
+      return acc;
+    },
+    {
+      visibleWorkers: [] as SerializedWorker[],
+      hiddenWorkers: [] as SerializedWorker[],
+    }
+  );
 
   const renderSortIcon = (field: SortField) => {
     if (sortField !== field) return null;
@@ -281,7 +289,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
             <button
               onClick={
                 storageReady
-                  ? () => toggleWorkerVisibility(worker.id!)
+                  ? () => toggleWorkerVisibility(worker.id)
                   : undefined
               }
               disabled={!storageReady}
