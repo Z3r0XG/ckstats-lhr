@@ -526,6 +526,19 @@ export function computeRejectedPercent(
   };
 }
 
+export function computeAcceptedPct(
+  ac: number | string | null | undefined,
+  rc: number | string | null | undefined
+): string | null {
+  if (ac == null || rc == null) return null;
+  const total = Number(ac) + Number(rc);
+  if (total === 0) return '0%';
+  const p = (Number(ac) / total) * 100;
+  if (p === 100) return '100%';
+  if (p > 99.99) return '>99.99%';
+  return p.toFixed(2) + '%';
+}
+
 export function normalizeUserAgent(rawUa: string | undefined): string {
   if (!rawUa) return '';
 

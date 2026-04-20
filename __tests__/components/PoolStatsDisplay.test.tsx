@@ -4,6 +4,7 @@ import {
   getPercentageChangeColor,
   computeRejectedPercent,
   calculateProximityPercent,
+  computeAcceptedPct,
 } from '../../utils/helpers';
 
 const latestStats = {
@@ -137,22 +138,7 @@ describe('PoolStatsDisplay data transformations', () => {
   });
 });
 
-describe('PoolStatsDisplay shareCount stat logic', () => {
-  // Replicates the acceptedPct IIFE in PoolStatsDisplay.tsx
-  function computeAcceptedPct(
-    ac: number | null | undefined,
-    rc: number | null | undefined
-  ): string | null {
-    if (ac == null || rc == null) return null;
-    const total = Number(ac) + Number(rc);
-    if (total === 0) return '0%';
-    const p = (Number(ac) / total) * 100;
-    if (p === 100) return '100%';
-    if (p > 99.99) return '>99.99%';
-    return p.toFixed(2) + '%';
-  }
-
-  test('flag off: showShareCounts false => stat is hidden', () => {
+describe('PoolStatsDisplay shareCount stat logic', () => {  test('flag off: showShareCounts false => stat is hidden', () => {
     const showShareCounts = false;
     // Component returns null for the key when flag is off
     const rendered = showShareCounts ? 'visible' : null;

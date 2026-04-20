@@ -83,13 +83,22 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     try {
       const h = localStorage.getItem('manuallyHiddenWorkers2');
       if (h) setManuallyHiddenIds(new Set(JSON.parse(h) as number[]));
+    } catch (err) {
+      console.debug('Failed to load manuallyHiddenWorkers2', err);
+    }
+    try {
       const s = localStorage.getItem('manuallyShownWorkers2');
       if (s) setManuallyShownIds(new Set(JSON.parse(s) as number[]));
+    } catch (err) {
+      console.debug('Failed to load manuallyShownWorkers2', err);
+    }
+    try {
       const a = localStorage.getItem('autoHideInactiveWorkers');
       setAutoHideInactive(a === 'true');
-      setStorageReady(true);
     } catch (err) {
-      console.debug('localStorage unavailable', err);
+      console.debug('Failed to load autoHideInactiveWorkers', err);
+    } finally {
+      setStorageReady(true);
     }
   }, []);
 

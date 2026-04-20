@@ -11,6 +11,7 @@ import {
   getPercentageChangeColor,
   calculateAverageTimeToBlock,
   computeRejectedPercent,
+  computeAcceptedPct,
   calculateProximityPercent,
 } from '../utils/helpers';
 
@@ -200,15 +201,9 @@ export default function PoolStatsDisplay({
                     const rc = stats.rejected_count;
                     const hasData = ac != null && rc != null;
                     const color = 'text-success';
-                    const acceptedPct = (() => {
-                      if (!hasData) return null;
-                      const total = Number(ac) + Number(rc);
-                      if (total === 0) return '0%';
-                      const p = (Number(ac) / total) * 100;
-                      if (p === 100) return '100%';
-                      if (p > 99.99) return '>99.99%';
-                      return p.toFixed(2) + '%';
-                    })();
+                    const acceptedPct = hasData
+                      ? computeAcceptedPct(ac, rc)
+                      : null;
                     return (
                       <div key="share-count" className="stat">
                         <div className="stat-title">Total Shares</div>
