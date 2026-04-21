@@ -554,11 +554,15 @@ export function normalizeUserAgent(rawUa: string | undefined): string {
   // Only ASCII space or hyphen separator; uppercase BM only; no separator or lowercase must not match.
   ua = ua.replace(/[ -]BM\d+$/, '').trim();
 
-  // Rule 3: collapse cpuminer family to the cpuminer prefix, preserving input casing.
+  // Rule 3: collapse bosminer family to 'bosminer', extracting from anywhere in UA.
+  // Handles patterns like "date;bosminer-plus-tuner version" or "bosminer-tuner".
+  if (/bosminer/i.test(ua)) return 'bosminer';
+
+  // Rule 4: collapse cpuminer family to the cpuminer prefix, preserving input casing.
   // Requires a non-alpha char (or end of string) after "cpuminer" to avoid matching "cpuminers-*".
   if (/^cpuminer(?:[^a-zA-Z]|$)/i.test(ua)) return ua.slice(0, 8);
 
-  // Rule 4: strip trailing dash-version suffix (e.g. "-1.3", "-2.5.1").
+  // Rule 5: strip trailing dash-version suffix (e.g. "-1.3", "-2.5.1").
   ua = ua.replace(/-\d+(\.\d+)*$/, '').trim();
 
   // Truncate to 256 Unicode code points (preserves surrogate pairs).
@@ -573,14 +577,8 @@ export function parseWorkerName(
   const name = String(rawName ?? '');
   if (!name) return '';
   if (address && name === address) return '';
-  if (name.includes('.')) {
-    const parts = name.split('.');
-    return parts.length > 1 ? parts[1] : parts[0];
-  }
-  if (name.includes('_')) {
-    const parts = name.split('_');
-    return parts.length > 1 ? parts[1] : parts[0];
-  }
+  const dotIdx = name.indexOf('.');
+  if (dotIdx !== -1) return name.slice(dotIdx + 1);
   return name;
 }
 

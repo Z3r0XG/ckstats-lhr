@@ -307,15 +307,13 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
     const workerRepository = manager.getRepository(Worker);
     const workerStatsRepository = manager.getRepository(WorkerStats);
 
+    const allDbWorkers = await workerRepository.find({ where: { userAddress: address } });
+    const dbWorkerMap = new Map<string, Worker>(allDbWorkers.map(w => [w.name, w]));
+
     for (const workerData of userData.worker) {
       const workerName = parseWorkerName(workerData.workername, address);
 
-      const worker = await workerRepository.findOne({
-        where: {
-          userAddress: address,
-          name: workerName,
-        },
-      });
+      const worker = dbWorkerMap.get(workerName) ?? null;
 
       const rawUa = (workerData.useragent ?? '').trim();
       const token = normalizeUserAgent(rawUa);
