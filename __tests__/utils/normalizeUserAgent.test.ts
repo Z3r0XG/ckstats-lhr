@@ -66,8 +66,18 @@ describe('normalizeUserAgent', () => {
     expect(normalizeUserAgent('cpuminer-BM1366')).toBe('cpuminer');
   });
 
-  // Rule 3 – cpuminer family collapse
-  it('Rule 3: collapses cpuminer family, preserves input casing, does not match cpuminers-*', () => {
+  // Rule 3 – bosminer family collapse
+  it('Rule 3: collapses bosminer family to "bosminer"', () => {
+    // full UA from PR description
+    expect(normalizeUserAgent('2026-02-13-0-db69f9bc-26.01-plus;bosminer-plus-tuner 0.9.0-db69f9bc')).toBe('bosminer');
+    expect(normalizeUserAgent('bosminer-plus-tuner 0.9.0')).toBe('bosminer');
+    expect(normalizeUserAgent('bosminer-tuner')).toBe('bosminer');
+    expect(normalizeUserAgent('bosminer')).toBe('bosminer');
+    expect(normalizeUserAgent('BOSminer/1.0')).toBe('bosminer');
+  });
+
+  // Rule 4 – cpuminer family collapse
+  it('Rule 4: collapses cpuminer family, preserves input casing, does not match cpuminers-*', () => {
     expect(normalizeUserAgent('cpuminer-2.5.1')).toBe('cpuminer');
     expect(normalizeUserAgent('cpuminer-multi/1.3.7')).toBe('cpuminer');
     expect(normalizeUserAgent('cpuminer-opt/3.8.4')).toBe('cpuminer');
@@ -83,8 +93,8 @@ describe('normalizeUserAgent', () => {
     expect(normalizeUserAgent('cpuminers-variant')).toBe('cpuminers-variant');
   });
 
-  // Rule 4 – dash-version strip
-  it('Rule 4: strips trailing dash-version suffix', () => {
+  // Rule 5 – dash-version strip
+  it('Rule 5: strips trailing dash-version suffix', () => {
     expect(normalizeUserAgent('ViperMiner-1.3')).toBe('ViperMiner');
     expect(normalizeUserAgent('Miner-2')).toBe('Miner');
     expect(normalizeUserAgent('some-miner-1.0.0')).toBe('some-miner');

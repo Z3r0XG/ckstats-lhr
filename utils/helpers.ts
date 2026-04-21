@@ -579,8 +579,6 @@ export function parseWorkerName(
   if (address && name === address) return '';
   const dotIdx = name.indexOf('.');
   if (dotIdx !== -1) return name.slice(dotIdx + 1);
-  const underIdx = name.indexOf('_');
-  if (underIdx !== -1) return name.slice(underIdx + 1);
   return name;
 }
 

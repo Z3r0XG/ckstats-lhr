@@ -15,6 +15,7 @@ import {
   calculateBlockChances,
   calculateProximityPercent,
   maskAddress,
+  parseWorkerName,
 } from '../../utils/helpers';
 
 describe('Helper Functions', () => {
@@ -377,5 +378,36 @@ describe('Helper Functions', () => {
     it('handles edge case of 11 character address (first maskable length)', () => {
       const addr = 'abcdefghijk'; // exactly 11 chars
       expect(maskAddress(addr)).toBe('abcdef...hijk');
+    });
+  });
+
+  describe('parseWorkerName', () => {
+    it('returns empty string for undefined or empty input', () => {
+      expect(parseWorkerName(undefined)).toBe('');
+      expect(parseWorkerName('')).toBe('');
+    });
+
+    it('returns empty string when rawName equals address', () => {
+      expect(parseWorkerName('qpaddr123', 'qpaddr123')).toBe('');
+    });
+
+    it('strips address prefix up to and including the first dot', () => {
+      expect(parseWorkerName('qpaddr.WorkerA')).toBe('WorkerA');
+    });
+
+    it('preserves everything after the first dot, including further dots', () => {
+      expect(parseWorkerName('qpaddr.Val09.diff=0.001')).toBe('Val09.diff=0.001');
+    });
+
+    it('returns the full string when there is no dot', () => {
+      expect(parseWorkerName('bareWorkerName')).toBe('bareWorkerName');
+    });
+
+    it('preserves underscores in worker names after a dot', () => {
+      expect(parseWorkerName('qpaddr.Han_Solo')).toBe('Han_Solo');
+    });
+
+    it('does not treat underscore as an address/worker separator', () => {
+      expect(parseWorkerName('qpaddr_WorkerA')).toBe('qpaddr_WorkerA');
     });
   });

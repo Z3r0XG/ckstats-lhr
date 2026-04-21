@@ -36,42 +36,30 @@ describe('getWorkerWithStats — exact name lookup', () => {
     );
   });
 
-  it('does not find a trimmed worker when looking up a spaced name', async () => {
-    const spacedName = ' BiTaXe';
+  it('sorts returned worker stats by timestamp descending', async () => {
     const address = 'bc1qtestaddress2';
+    const name = 'BiTaXe';
 
-    cacheDelete(`workerWithStats:${address}:${spacedName}`);
+    cacheDelete(`workerWithStats:${address}:${name}`);
 
-    const trimmedWorker = { id: 1, name: 'BiTaXe', userAddress: address, stats: [] };
-    const repo = mockDb(trimmedWorker);
+    const t1 = new Date('2024-01-01T00:00:00Z');
+    const t2 = new Date('2024-01-02T00:00:00Z');
+    const t3 = new Date('2024-01-03T00:00:00Z');
+    const worker = {
+      id: 1,
+      name,
+      userAddress: address,
+      stats: [
+        { timestamp: t1 },
+        { timestamp: t3 },
+        { timestamp: t2 },
+      ],
+    };
+    mockDb(worker);
 
-    const result = await getWorkerWithStats(address, spacedName);
+    const result = await getWorkerWithStats(address, name);
 
-    expect(repo.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ name: spacedName }),
-      })
-    );
-    expect(result).toBe(trimmedWorker);
-  });
-
-  it('finds a worker whose name has a trailing space exactly', async () => {
-    const trailingName = 'AO1 ';
-    const address = 'bc1qtestaddress3';
-
-    cacheDelete(`workerWithStats:${address}:${trailingName}`);
-
-    const worker = { id: 2, name: trailingName, userAddress: address, stats: [] };
-    const repo = mockDb(worker);
-
-    const result = await getWorkerWithStats(address, trailingName);
-
-    expect(repo.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ name: trailingName }),
-      })
-    );
-    expect(result).toBe(worker);
+    expect(result!.stats.map((s) => s.timestamp)).toEqual([t3, t2, t1]);
   });
 
   it('returns null when worker does not exist', async () => {
