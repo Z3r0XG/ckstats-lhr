@@ -76,6 +76,38 @@ Install system packages (Ubuntu/Debian):
 sudo apt install postgresql postgresql-contrib nodejs nginx
 ```
 
+### 2a. Configure PostgreSQL
+
+Create the database user and database:
+```bash
+sudo -u postgres psql
+```
+
+Inside the PostgreSQL prompt:
+```sql
+CREATE USER ckstats WITH PASSWORD 'yourpassword';
+CREATE DATABASE ckstats OWNER ckstats;
+\q
+```
+
+To connect via Unix socket (no TCP, no password), add an ident map to `/etc/postgresql/<version>/main/pg_ident.conf`:
+```
+# MAPNAME       SYSTEM-USERNAME     PG-USERNAME
+app_ckstats     <os-user>           ckstats
+```
+
+Then add this line to `/etc/postgresql/<version>/main/pg_hba.conf` **before** the `local all all peer` line:
+```
+local   ckstats   ckstats   peer   map=app_ckstats
+```
+
+Then reload PostgreSQL:
+```bash
+sudo systemctl reload postgresql
+```
+
+Set `DB_HOST=/var/run/postgresql` in `.env` to use the socket.
+
 Install Node.js dependencies:
 ```bash
 pnpm install
@@ -124,8 +156,8 @@ DEFAULT_THEME="forest"
 - Default: `localhost`
 - Examples:
   - TCP: `localhost` or `192.168.1.100`
-  - Unix socket: `/var/run/postgresql/`
-- Note: Unix socket ignores DB_USER and DB_PASSWORD (uses peer authentication)
+  - Unix socket: `/var/run/postgresql`
+- Note: Unix socket uses peer authentication — the OS user running the app must match the DB user, or an ident map must be configured in `pg_hba.conf` and `pg_ident.conf`
 
 **SITE_NAME**: Custom title for statistics page. **OPTIONAL**
 - Type: String

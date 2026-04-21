@@ -11,7 +11,6 @@ export class FileNotFoundError extends Error {
 }
 
 import { getDb } from '../lib/db';
-import { Repository } from 'typeorm';
 import { cacheDelete, cacheDeletePrefix } from '../lib/api';
 import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
@@ -207,45 +206,6 @@ export interface MessageCollectors {
   errorsCount?: number;
 }
 
-export async function zeroOutUnseenWorkers(
-  address: string,
-  seenWorkerNames: Set<string>,
-  allDbWorkers: Worker[],
-  workerRepository: Repository<Worker>,
-  workerStatsRepository: Repository<WorkerStats>
-): Promise<number> {
-  const unseenWorkers = allDbWorkers.filter(
-    w => !seenWorkerNames.has(w.name) && w.hashrate1m !== 0
-  );
-
-  for (const staleWorker of unseenWorkers) {
-    staleWorker.hashrate1m = 0;
-    staleWorker.hashrate5m = 0;
-    staleWorker.hashrate1hr = 0;
-    staleWorker.hashrate1d = 0;
-    staleWorker.hashrate7d = 0;
-    await workerRepository.save(staleWorker);
-
-    const zeroStats = workerStatsRepository.create({
-      workerId: staleWorker.id,
-      hashrate1m: 0,
-      hashrate5m: 0,
-      hashrate1hr: 0,
-      hashrate1d: 0,
-      hashrate7d: 0,
-      started: '0',
-      shares: staleWorker.shares,
-      bestShare: staleWorker.bestShare,
-      bestEver: staleWorker.bestEver,
-    });
-    await workerStatsRepository.save(zeroStats);
-
-    cacheDelete(`workerWithStats:${address}:${staleWorker.name}`);
-  }
-
-  return unseenWorkers.length;
-}
-
 async function updateUser(address: string, messages?: MessageCollectors): Promise<void> {
   let userData: UserData;
   if (/[^a-zA-Z0-9:]/.test(address)) {
@@ -350,11 +310,8 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
     const allDbWorkers = await workerRepository.find({ where: { userAddress: address } });
     const dbWorkerMap = new Map<string, Worker>(allDbWorkers.map(w => [w.name, w]));
 
-    const seenWorkerNames = new Set<string>();
-
     for (const workerData of userData.worker) {
       const workerName = parseWorkerName(workerData.workername, address);
-      seenWorkerNames.add(workerName);
 
       const worker = dbWorkerMap.get(workerName) ?? null;
 
@@ -409,12 +366,6 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
       cacheDelete(`workerWithStats:${address}:${workerName}`);
       workerCount++;
     }
-
-    // Zero out workers no longer reported by ckpool.
-    // Guard: reaching this point means fetchUserDataWithRetry succeeded (throws on any
-    // comms/parse failure), so the absence of a worker in seenWorkerNames is authoritative.
-    const zeroedCount = await zeroOutUnseenWorkers(address, seenWorkerNames, allDbWorkers, workerRepository, workerStatsRepository);
-    workerCount += zeroedCount;
   });
 
   // Invalidate caches after transaction commits (for inactive users)
