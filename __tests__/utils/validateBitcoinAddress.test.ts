@@ -1,6 +1,16 @@
 import { validateBitcoinAddress } from '../../utils/validateBitcoinAddress';
 
 describe('validateBitcoinAddress', () => {
+  const originalCoin = process.env.COIN;
+
+  beforeEach(() => {
+    process.env.COIN = 'BTC';
+  });
+
+  afterEach(() => {
+    process.env.COIN = originalCoin;
+  });
+
   test('validates legacy address', () => {
     expect(validateBitcoinAddress('1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')).toBe(
       true
@@ -174,6 +184,10 @@ describe('validateBitcoinAddress — coin switching via NEXT_PUBLIC_COIN', () =>
   describe('COIN=BCH', () => {
     beforeEach(() => {
       process.env.NEXT_PUBLIC_COIN = 'BCH';
+    });
+
+    afterEach(() => {
+      delete process.env.NEXT_PUBLIC_COIN;
     });
 
     test('accepts BCH CashAddr (bitcoincash:q...)', () => {
