@@ -256,7 +256,9 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
               (dataMin: number) => dataMin * 0.98,
               (dataMax: number) => dataMax * 1.02,
             ]}
-            tickFormatter={(value: number) => value.toFixed(1)}
+            tickFormatter={(value: number) =>
+              value.toLocaleString(undefined, { maximumFractionDigits: 1 })
+            }
             width={50}
           />
           <Tooltip formatter={hashrateTooltipFormatter} />
