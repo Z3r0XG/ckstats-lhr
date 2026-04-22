@@ -253,9 +253,13 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
           <YAxis
             allowDataOverflow={true}
             domain={[
-              (dataMin: number) => Math.floor(dataMin * 0.99),
-              (dataMax: number) => Math.ceil(dataMax * 1.01),
+              (dataMin: number) => dataMin * 0.98,
+              (dataMax: number) => dataMax * 1.02,
             ]}
+            tickFormatter={(value: number) =>
+              value.toLocaleString(undefined, { maximumFractionDigits: 1 })
+            }
+            width={50}
           />
           <Tooltip formatter={hashrateTooltipFormatter} />
           <Legend

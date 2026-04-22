@@ -30,7 +30,6 @@ jest.mock('../../utils/validateLocalPath', () => ({
 describe('updateUsers retry logic', () => {
   let originalFetch: typeof global.fetch;
   let fetchMock: jest.Mock;
-  const originalEnv = process.env.API_URL;
 
   beforeEach(() => {
     originalFetch = global.fetch;
@@ -43,11 +42,7 @@ describe('updateUsers retry logic', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
-    if (originalEnv === undefined) {
-      delete process.env.API_URL;
-    } else {
-      process.env.API_URL = originalEnv;
-    }
+    delete process.env.API_URL;
   });
 
   describe('HTTP fetch retry behavior', () => {
