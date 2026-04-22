@@ -12,6 +12,8 @@ const mempoolLinkTag =
 const defaultDonationAddress =
   coin === 'BCH'
     ? 'qz85msghggld3smflk8flv0yza4c0c5drqgdgeruug'
+    : coin === 'DGB'
+    ? 'dgb1q6tf0myda7plmpksdqc8k4tf8q957z0fm0y9a5m'
     : 'bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5';
 const donationAddress =
   process.env.DONATION_ADDRESS ||
@@ -21,7 +23,7 @@ const donationAddress =
 const defaultTheme =
   process.env.DEFAULT_THEME ||
   process.env.NEXT_PUBLIC_DEFAULT_THEME ||
-  (coin === 'BCH' ? 'dim' : 'dark');
+  (coin === 'BCH' ? 'dim' : coin === 'DGB' ? 'cupcake' : 'dark');
 
 const nextConfig = {
   webpack: (config) => {
