@@ -155,7 +155,7 @@ async function clearOnlineDevices(db: any): Promise<void> {
 const TOP_BEST_DIFFS_LIMIT = 10;
 const FORCE_REFRESH = process.argv.includes('--force');
 
-async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
+export async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
   try {
     // Check if Worker table exists first
     const tables = await db.query(`
@@ -201,73 +201,57 @@ async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
       );
 
       await db.transaction(async (manager: any) => {
-        // Calculate new top N per worker (one row per worker), keep best-ever diff and a timestamp marking when that best was observed.
-        const newTop = await manager.query(`
-          WITH existing AS (
-            SELECT "workerId", difficulty, COALESCE(device, 'Other') AS device, "timestamp"
-            FROM "top_best_diffs"
-            WHERE "workerId" IS NOT NULL AND "workerId" > 0
-          ),
-          current AS (
-            SELECT 
-              w.id AS "workerId",
-              w."bestEver" AS difficulty,
-              CASE
-                WHEN e."workerId" IS NULL THEN COALESCE(w."userAgent", 'Other')    -- new to leaderboard: capture current user agent
-                WHEN w."bestEver" > COALESCE(e.difficulty, 0) 
-                  AND COALESCE(w."userAgent", 'Other') != COALESCE(e.device, 'Other')
-                  THEN COALESCE(w."userAgent", 'Other')                            -- improved with different user agent: update
-                ELSE COALESCE(e.device, 'Other')                                   -- no improvement or same user agent: keep original
-              END AS device,
-              CASE
-                WHEN e."workerId" IS NULL THEN now()                                -- new device to leaderboard
-                WHEN w."bestEver" > COALESCE(e.difficulty, 0) THEN now()            -- improved best diff
-                ELSE e."timestamp"                                                 -- keep original timestamp
-              END AS "timestamp"
-            FROM "Worker" w
-            LEFT JOIN existing e ON e."workerId" = w.id
-            WHERE w."bestEver" > 0
-          ),
-          topN AS (
-            SELECT 
-              ROW_NUMBER() OVER (ORDER BY difficulty DESC) as rank,
-              "workerId",
-              difficulty,
-              device,
-              "timestamp"
-            FROM current
-            WHERE "workerId" IS NOT NULL
-            ORDER BY difficulty DESC
-            LIMIT ${TOP_BEST_DIFFS_LIMIT}
-          )
-          SELECT rank, "workerId", difficulty, device, "timestamp" FROM topN;
-        `);
-
         const touchTime = new Date();
 
-        // Replace table contents atomically (preserving first-seen timestamp from the CTE)
-        await manager.query(`DELETE FROM "top_best_diffs";`);
+        // Step 1: Upsert from active Worker rows — insert new entries, update existing only
+        // when bestEver has improved. Rows for deleted workers are never touched here; they
+        // simply persist in the table, preserving their score indefinitely.
+        await manager.query(`
+          INSERT INTO "top_best_diffs" ("workerId", difficulty, device, "timestamp", computed_at, rank)
+          SELECT
+            w.id,
+            w."bestEver",
+            COALESCE(w."userAgent", 'Other'),
+            now(),
+            $1,
+            0
+          FROM "Worker" w
+          WHERE w."bestEver" > 0
+          ORDER BY w."bestEver" DESC
+          LIMIT ${TOP_BEST_DIFFS_LIMIT}
+          ON CONFLICT ("workerId") WHERE "workerId" IS NOT NULL DO UPDATE
+            SET
+              difficulty  = EXCLUDED.difficulty,
+              device      = CASE
+                              WHEN EXCLUDED.difficulty > "top_best_diffs".difficulty
+                                AND COALESCE(EXCLUDED.device, 'Other') IS DISTINCT FROM COALESCE("top_best_diffs".device, 'Other')
+                              THEN EXCLUDED.device
+                              ELSE "top_best_diffs".device
+                            END,
+              "timestamp" = CASE
+                              WHEN EXCLUDED.difficulty > "top_best_diffs".difficulty THEN now()
+                              ELSE "top_best_diffs"."timestamp"
+                            END,
+              computed_at = $1
+            WHERE EXCLUDED.difficulty > "top_best_diffs".difficulty;
+        `, [touchTime]);
 
-        if (newTop.length > 0) {
-          const placeholders = newTop
-            .map((_, i) => `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`)
-            .join(', ');
-          const params: Array<string | number | Date | null> = [];
-          newTop.forEach((row: any) => {
-            params.push(Number(row.rank) || 0);
-            params.push(Number(row.difficulty) || 0);
-            params.push(row.device || 'Other');
-            params.push(new Date(row.timestamp)); // first-seen or improvement time
-            params.push(touchTime); // computed_at for this refresh
-            params.push(row.workerId === null || row.workerId === undefined ? null : Number(row.workerId));
-          });
+        // Touch computed_at on every row so the hourly throttle check stays accurate
+        await manager.query(`UPDATE "top_best_diffs" SET computed_at = $1;`, [touchTime]);
 
-          await manager.query(
-            `INSERT INTO "top_best_diffs" (rank, difficulty, device, "timestamp", computed_at, "workerId")
-             VALUES ${placeholders};`,
-            params
-          );
-        }
+        // Step 2: Re-rank all entries by difficulty DESC
+        await manager.query(`
+          UPDATE "top_best_diffs" t
+          SET rank = r.new_rank
+          FROM (
+            SELECT id, ROW_NUMBER() OVER (ORDER BY difficulty DESC, "timestamp" ASC) AS new_rank
+            FROM "top_best_diffs"
+          ) r
+          WHERE t.id = r.id;
+        `);
+
+        // Step 3: Drop anything that fell outside the top N
+        await manager.query(`DELETE FROM "top_best_diffs" WHERE rank > ${TOP_BEST_DIFFS_LIMIT};`);
       });
 
       console.log('Top best diffs refreshed successfully');
@@ -356,12 +340,14 @@ async function seed() {
   }
 }
 
-(async () => {
-  try {
-    await seed();
-    console.log('Seeding completed successfully.');
-  } catch (error) {
-    console.error('Error during seeding:', error);
-    process.exit(1);
-  }
-})();
+if (require.main === module) {
+  (async () => {
+    try {
+      await seed();
+      console.log('Seeding completed successfully.');
+    } catch (error) {
+      console.error('Error during seeding:', error);
+      process.exit(1);
+    }
+  })();
+}
