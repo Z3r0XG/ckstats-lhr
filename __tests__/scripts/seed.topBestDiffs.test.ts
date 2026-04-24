@@ -123,6 +123,14 @@ describe('refreshTopBestDiffsIfNeeded — SQL contract', () => {
     expect(fullWipe).toBeUndefined();
   });
 
+  it('upsert conflict target includes the partial index predicate', async () => {
+    const sqls = await runAndGetSql();
+
+    const upsert = sqls.find((s) => /ON CONFLICT/i.test(s))!;
+    // Must match the partial unique index: ON CONFLICT ("workerId") WHERE "workerId" IS NOT NULL
+    expect(upsert).toMatch(/ON CONFLICT\s*\("workerId"\)\s+WHERE\s+"workerId"\s+IS\s+NOT\s+NULL/i);
+  });
+
   it('upsert only updates when new difficulty is higher', async () => {
     const sqls = await runAndGetSql();
 

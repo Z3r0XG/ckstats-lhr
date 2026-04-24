@@ -217,7 +217,9 @@ export async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
             0
           FROM "Worker" w
           WHERE w."bestEver" > 0
-          ON CONFLICT ("workerId") DO UPDATE
+          ORDER BY w."bestEver" DESC
+          LIMIT ${TOP_BEST_DIFFS_LIMIT}
+          ON CONFLICT ("workerId") WHERE "workerId" IS NOT NULL DO UPDATE
             SET
               difficulty  = EXCLUDED.difficulty,
               device      = CASE
