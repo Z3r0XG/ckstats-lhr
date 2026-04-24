@@ -244,7 +244,7 @@ export async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
           UPDATE "top_best_diffs" t
           SET rank = r.new_rank
           FROM (
-            SELECT id, ROW_NUMBER() OVER (ORDER BY difficulty DESC) AS new_rank
+            SELECT id, ROW_NUMBER() OVER (ORDER BY difficulty DESC, "timestamp" ASC) AS new_rank
             FROM "top_best_diffs"
           ) r
           WHERE t.id = r.id;

@@ -138,12 +138,12 @@ describe('refreshTopBestDiffsIfNeeded — SQL contract', () => {
     expect(upsert).toMatch(/WHERE EXCLUDED\.difficulty > "top_best_diffs"\.difficulty/);
   });
 
-  it('re-ranks all rows by difficulty DESC after upsert', async () => {
+  it('re-ranks all rows by difficulty DESC, timestamp ASC for stable tie-breaking', async () => {
     const sqls = await runAndGetSql();
 
     const rerank = sqls.find((s) => /ROW_NUMBER\(\) OVER/i.test(s));
     expect(rerank).toBeDefined();
-    expect(rerank).toMatch(/ORDER BY difficulty DESC/i);
+    expect(rerank).toMatch(/ORDER BY difficulty DESC,\s*"timestamp" ASC/i);
   });
 
   it('trims rows that fell outside the top N', async () => {
