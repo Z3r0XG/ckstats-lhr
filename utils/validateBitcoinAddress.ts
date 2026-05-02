@@ -15,7 +15,7 @@ const DGB_NETWORK: bitcoin.Network = {
 
 const CHTA_NETWORK: bitcoin.Network = {
   messagePrefix: '\x18Cheetahcoin Signed Message:\n',
-  bech32: 'chta',
+  bech32: 'chta', // CHTA has no segwit/bech32; prefix guard in validateBitcoinAddress rejects chta1... addresses
   bip32: { public: 0x0488b21e, private: 0x0488ade4 },
   pubKeyHash: 0x1c,
   scriptHash: 0x05,
@@ -26,7 +26,7 @@ export function validateBitcoinAddress(address: string): boolean {
   if (typeof address !== 'string') return false;
   if (address.length === 0) return false;
 
-  const coin = process.env.NEXT_PUBLIC_COIN || process.env.COIN || 'BTC';
+  const coin = (process.env.NEXT_PUBLIC_COIN || process.env.COIN || 'BTC').trim().toUpperCase();
 
   if (coin === 'DGB') {
     try {
