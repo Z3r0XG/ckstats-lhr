@@ -38,6 +38,8 @@ export function validateBitcoinAddress(address: string): boolean {
   }
 
   if (coin === 'CHTA') {
+    // CHTA has no segwit/bech32; only P2PKH (C...) and P2SH (3...) are valid
+    if (!/^[C3]/.test(address)) return false;
     try {
       bitcoin.address.toOutputScript(address, CHTA_NETWORK);
       return true;
@@ -47,7 +49,7 @@ export function validateBitcoinAddress(address: string): boolean {
   }
 
   if (coin === 'BCH') {
-    // Accept CashAddr (with or without prefix) and legacy P2PKH/P2SH (1.../3...)
+    // Accept CashAddr (with or without prefix) and legacy Base58Check addresses;
     // bech32 (bc1...) is implicitly rejected — not a valid CashAddr or legacy address
     try {
       if (bchaddr.isCashAddress(address) || bchaddr.isLegacyAddress(address)) return true;

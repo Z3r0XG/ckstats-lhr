@@ -14,6 +14,7 @@ const DGB_P2SH = 'SQwL7TJrVbwyerVAGdUPMwHBhacNjrRzo9';
 const DGB_BECH32 = 'dgb1q6tf0myda7plmpksdqc8k4tf8q957z0fm0y9a5m';
 const DGB_BECH32M = 'dgb1p33wm0auhr9kkahzd6l0kqj85af4cswn276hsxg6zpz85xe2r0y8sev3mt5';
 const CHTA_P2PKH = 'CVXL3EHkrH8xWsv4ECtwWxJqzHQG9KujNq';
+const CHTA_BECH32 = 'chta1qw508d6qejxtdg4y5r3zarvary0c5xw7kh9g043';
 
 interface CoinExpectations {
   acceptBTCP2PKH: boolean;  // 1... (BTC/BCH legacy P2PKH)
@@ -154,6 +155,10 @@ function runCommonTests({ acceptBTCP2PKH, acceptBTCP2SH, acceptBTCBech32, accept
   // CHTA address tests
   test(`${acceptCHTAP2PKH ? 'accepts' : 'rejects'} CHTA P2PKH address (C...)`, () => {
     expect(validateBitcoinAddress(CHTA_P2PKH)).toBe(acceptCHTAP2PKH);
+  });
+
+  test('rejects CHTA bech32 address (chta1...) — CHTA has no segwit', () => {
+    expect(validateBitcoinAddress(CHTA_BECH32)).toBe(false);
   });
 }
 
