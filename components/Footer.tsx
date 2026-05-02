@@ -4,6 +4,7 @@ const URI_SCHEMES: Record<string, string> = {
   BTC: 'bitcoin',
   BCH: 'bitcoincash',
   DGB: 'digibyte',
+  CHTA: 'cheetahcoin',
 };
 
 const donationAddress = process.env.NEXT_PUBLIC_DONATION_ADDRESS || '';

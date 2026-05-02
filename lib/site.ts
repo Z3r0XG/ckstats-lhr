@@ -5,6 +5,6 @@ export const SITE_NAME_PUBLIC =
   process.env.NEXT_PUBLIC_SITE_NAME || process.env.SITE_NAME || 'CKstats';
 
 export const COIN_NAME_PUBLIC =
-  process.env.NEXT_PUBLIC_COIN || process.env.COIN || 'BTC';
+  (process.env.NEXT_PUBLIC_COIN || process.env.COIN || 'BTC').trim().toUpperCase();
 
 export default SITE_NAME;

@@ -13,16 +13,20 @@ const DGB_LEGACY = 'DGEX9JsfNuCCA3ovxAmUSM1GCea1BpY4Et';
 const DGB_P2SH = 'SQwL7TJrVbwyerVAGdUPMwHBhacNjrRzo9';
 const DGB_BECH32 = 'dgb1q6tf0myda7plmpksdqc8k4tf8q957z0fm0y9a5m';
 const DGB_BECH32M = 'dgb1p33wm0auhr9kkahzd6l0kqj85af4cswn276hsxg6zpz85xe2r0y8sev3mt5';
+const CHTA_P2PKH = 'CVXL3EHkrH8xWsv4ECtwWxJqzHQG9KujNq';
+const CHTA_BECH32 = 'chta1qw508d6qejxtdg4y5r3zarvary0c5xw7kh9g043';
 
 interface CoinExpectations {
-  acceptLegacy: boolean;    // 1..., 3... (shared encoding between BTC and BCH)
+  acceptBTCP2PKH: boolean;  // 1... (BTC/BCH legacy P2PKH)
+  acceptBTCP2SH: boolean;   // 3... (BTC/BCH/CHTA P2SH)
   acceptBTCBech32: boolean; // bc1q, bc1p, tb1q, tb1p
   acceptBCHCashAddr: boolean; // bitcoincash:q..., q...
   acceptDGBLegacy: boolean; // D..., S...
   acceptDGBBech32: boolean; // dgb1q..., dgb1p...
+  acceptCHTAP2PKH: boolean; // C...
 }
 
-function runCommonTests({ acceptLegacy, acceptBTCBech32, acceptBCHCashAddr, acceptDGBLegacy, acceptDGBBech32 }: CoinExpectations) {
+function runCommonTests({ acceptBTCP2PKH, acceptBTCP2SH, acceptBTCBech32, acceptBCHCashAddr, acceptDGBLegacy, acceptDGBBech32, acceptCHTAP2PKH }: CoinExpectations) {
   // Input validation — always rejects regardless of coin
   test('rejects null', () => {
     expect(validateBitcoinAddress(null as any)).toBe(false);
@@ -68,13 +72,13 @@ function runCommonTests({ acceptLegacy, acceptBTCBech32, acceptBCHCashAddr, acce
     expect(validateBitcoinAddress('1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN3')).toBe(false);
   });
 
-  // Legacy address tests (shared between BTC and BCH)
-  test(`${acceptLegacy ? 'accepts' : 'rejects'} legacy address (1...)`, () => {
-    expect(validateBitcoinAddress(BTC_LEGACY)).toBe(acceptLegacy);
+  // Base58Check address tests (1... P2PKH: BTC/BCH; 3... P2SH: BTC/BCH/CHTA)
+  test(`${acceptBTCP2PKH ? 'accepts' : 'rejects'} legacy address (1...)`, () => {
+    expect(validateBitcoinAddress(BTC_LEGACY)).toBe(acceptBTCP2PKH);
   });
 
-  test(`${acceptLegacy ? 'accepts' : 'rejects'} P2SH address (3...)`, () => {
-    expect(validateBitcoinAddress(BTC_P2SH)).toBe(acceptLegacy);
+  test(`${acceptBTCP2SH ? 'accepts' : 'rejects'} P2SH address (3...)`, () => {
+    expect(validateBitcoinAddress(BTC_P2SH)).toBe(acceptBTCP2SH);
   });
 
   // BTC bech32 address tests
@@ -147,6 +151,19 @@ function runCommonTests({ acceptLegacy, acceptBTCBech32, acceptBCHCashAddr, acce
   test(`${acceptDGBBech32 ? 'accepts' : 'rejects'} DGB bech32m address (dgb1p...)`, () => {
     expect(validateBitcoinAddress(DGB_BECH32M)).toBe(acceptDGBBech32);
   });
+
+  // CHTA address tests
+  test(`${acceptCHTAP2PKH ? 'accepts' : 'rejects'} CHTA P2PKH address (C...)`, () => {
+    expect(validateBitcoinAddress(CHTA_P2PKH)).toBe(acceptCHTAP2PKH);
+  });
+
+  test('rejects CHTA bech32 address (chta1...) — CHTA has no segwit', () => {
+    expect(validateBitcoinAddress(CHTA_BECH32)).toBe(false);
+  });
+
+  test('rejects CHTA uppercase bech32 address (CHTA1...) — starts with C but is bech32', () => {
+    expect(validateBitcoinAddress(CHTA_BECH32.toUpperCase())).toBe(false);
+  });
 }
 
 describe('validateBitcoinAddress — COIN unset (defaults to BTC)', () => {
@@ -160,7 +177,7 @@ describe('validateBitcoinAddress — COIN unset (defaults to BTC)', () => {
     delete process.env.COIN;
   });
 
-  runCommonTests({ acceptLegacy: true, acceptBTCBech32: true, acceptBCHCashAddr: false, acceptDGBLegacy: false, acceptDGBBech32: false });
+  runCommonTests({ acceptBTCP2PKH: true, acceptBTCP2SH: true, acceptBTCBech32: true, acceptBCHCashAddr: false, acceptDGBLegacy: false, acceptDGBBech32: false, acceptCHTAP2PKH: false });
 });
 
 describe('validateBitcoinAddress — COIN=BTC', () => {
@@ -174,7 +191,7 @@ describe('validateBitcoinAddress — COIN=BTC', () => {
     delete process.env.COIN;
   });
 
-  runCommonTests({ acceptLegacy: true, acceptBTCBech32: true, acceptBCHCashAddr: false, acceptDGBLegacy: false, acceptDGBBech32: false });
+  runCommonTests({ acceptBTCP2PKH: true, acceptBTCP2SH: true, acceptBTCBech32: true, acceptBCHCashAddr: false, acceptDGBLegacy: false, acceptDGBBech32: false, acceptCHTAP2PKH: false });
 });
 
 describe('validateBitcoinAddress — COIN=BCH', () => {
@@ -188,7 +205,7 @@ describe('validateBitcoinAddress — COIN=BCH', () => {
     delete process.env.COIN;
   });
 
-  runCommonTests({ acceptLegacy: true, acceptBTCBech32: false, acceptBCHCashAddr: true, acceptDGBLegacy: false, acceptDGBBech32: false });
+  runCommonTests({ acceptBTCP2PKH: true, acceptBTCP2SH: true, acceptBTCBech32: false, acceptBCHCashAddr: true, acceptDGBLegacy: false, acceptDGBBech32: false, acceptCHTAP2PKH: false });
 });
 
 describe('validateBitcoinAddress — COIN=DGB', () => {
@@ -202,5 +219,19 @@ describe('validateBitcoinAddress — COIN=DGB', () => {
     delete process.env.COIN;
   });
 
-  runCommonTests({ acceptLegacy: false, acceptBTCBech32: false, acceptBCHCashAddr: false, acceptDGBLegacy: true, acceptDGBBech32: true });
+  runCommonTests({ acceptBTCP2PKH: false, acceptBTCP2SH: false, acceptBTCBech32: false, acceptBCHCashAddr: false, acceptDGBLegacy: true, acceptDGBBech32: true, acceptCHTAP2PKH: false });
+});
+
+describe('validateBitcoinAddress — COIN=CHTA', () => {
+  beforeEach(() => {
+    delete process.env.NEXT_PUBLIC_COIN;
+    process.env.COIN = 'CHTA';
+  });
+
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_COIN;
+    delete process.env.COIN;
+  });
+
+  runCommonTests({ acceptBTCP2PKH: false, acceptBTCP2SH: true, acceptBTCBech32: false, acceptBCHCashAddr: false, acceptDGBLegacy: false, acceptDGBBech32: false, acceptCHTAP2PKH: true });
 });
