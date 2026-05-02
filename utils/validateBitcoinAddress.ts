@@ -47,21 +47,12 @@ export function validateBitcoinAddress(address: string): boolean {
   }
 
   if (coin === 'BCH') {
-    // Accept CashAddr (with or without prefix)
+    // Accept CashAddr (with or without prefix) and legacy P2PKH/P2SH (1.../3...)
+    // bech32 (bc1...) is implicitly rejected — not a valid CashAddr or legacy address
     try {
       if (bchaddr.isCashAddress(address) || bchaddr.isLegacyAddress(address)) return true;
     } catch {
       void 0;
-    }
-    // Also accept legacy P2PKH/P2SH format (same encoding as BTC mainnet)
-    // Only attempt for 1.../3... prefixes — bech32 (bc1...) must be rejected
-    if (/^[13]/.test(address)) {
-      try {
-        bitcoin.address.toOutputScript(address, bitcoin.networks.bitcoin);
-        return true;
-      } catch {
-        void 0;
-      }
     }
     return false;
   }

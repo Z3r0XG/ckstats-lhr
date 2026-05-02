@@ -71,7 +71,7 @@ function runCommonTests({ acceptBTCP2PKH, acceptBTCP2SH, acceptBTCBech32, accept
     expect(validateBitcoinAddress('1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN3')).toBe(false);
   });
 
-  // Legacy address tests (shared between BTC and BCH)
+  // Base58Check address tests (1... P2PKH: BTC/BCH; 3... P2SH: BTC/BCH/CHTA)
   test(`${acceptBTCP2PKH ? 'accepts' : 'rejects'} legacy address (1...)`, () => {
     expect(validateBitcoinAddress(BTC_LEGACY)).toBe(acceptBTCP2PKH);
   });
