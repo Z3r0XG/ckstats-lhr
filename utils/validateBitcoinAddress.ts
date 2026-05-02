@@ -15,7 +15,7 @@ const DGB_NETWORK: bitcoin.Network = {
 
 const CHTA_NETWORK: bitcoin.Network = {
   messagePrefix: '\x18Cheetahcoin Signed Message:\n',
-  bech32: 'chta', // CHTA has no segwit/bech32; prefix guard in validateBitcoinAddress rejects chta1... addresses
+  bech32: '', // CHTA has no segwit/bech32; empty HRP ensures toOutputScript rejects any bech32 input
   bip32: { public: 0x0488b21e, private: 0x0488ade4 },
   pubKeyHash: 0x1c,
   scriptHash: 0x05,

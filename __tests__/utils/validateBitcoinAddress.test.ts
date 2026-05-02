@@ -160,6 +160,10 @@ function runCommonTests({ acceptBTCP2PKH, acceptBTCP2SH, acceptBTCBech32, accept
   test('rejects CHTA bech32 address (chta1...) — CHTA has no segwit', () => {
     expect(validateBitcoinAddress(CHTA_BECH32)).toBe(false);
   });
+
+  test('rejects CHTA uppercase bech32 address (CHTA1...) — starts with C but is bech32', () => {
+    expect(validateBitcoinAddress(CHTA_BECH32.toUpperCase())).toBe(false);
+  });
 }
 
 describe('validateBitcoinAddress — COIN unset (defaults to BTC)', () => {
