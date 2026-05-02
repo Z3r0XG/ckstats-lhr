@@ -13,6 +13,15 @@ const DGB_NETWORK: bitcoin.Network = {
   wif: 0x80,
 };
 
+const CHTA_NETWORK: bitcoin.Network = {
+  messagePrefix: '\x18Cheetahcoin Signed Message:\n',
+  bech32: 'chta',
+  bip32: { public: 0x0488b21e, private: 0x0488ade4 },
+  pubKeyHash: 0x1c,
+  scriptHash: 0x05,
+  wif: 0x80,
+};
+
 export function validateBitcoinAddress(address: string): boolean {
   if (typeof address !== 'string') return false;
   if (address.length === 0) return false;
@@ -28,10 +37,19 @@ export function validateBitcoinAddress(address: string): boolean {
     }
   }
 
+  if (coin === 'CHTA') {
+    try {
+      bitcoin.address.toOutputScript(address, CHTA_NETWORK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   if (coin === 'BCH') {
     // Accept CashAddr (with or without prefix)
     try {
-      if (bchaddr.isValidAddress(address)) return true;
+      if (bchaddr.isCashAddress(address) || bchaddr.isLegacyAddress(address)) return true;
     } catch {
       void 0;
     }
