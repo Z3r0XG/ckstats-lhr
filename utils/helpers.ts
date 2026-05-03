@@ -543,10 +543,10 @@ export function computeAcceptedPct(
 export function normalizeUserAgent(rawUa: string | undefined): string {
   if (!rawUa) return '';
 
-  // Rule 1: truncate at the first `/` or `(` character.
+  // Rule 1: truncate at the first `/`, `(`, or `|` character.
   // Covers C0 (U+0000–U+001F), DEL (U+007F), and C1 (U+0080–U+009F) — same as \p{Cc}.
   const raw = String(rawUa);
-  const stopIdx = raw.search(/[/(]/);
+  const stopIdx = raw.search(/[\/|(]/);
   const firstSegment = (stopIdx === -1 ? raw : raw.slice(0, stopIdx)).trim();
   let ua = firstSegment.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 

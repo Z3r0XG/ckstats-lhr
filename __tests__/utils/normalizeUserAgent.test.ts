@@ -112,6 +112,12 @@ describe('normalizeUserAgent', () => {
     expect(normalizeUserAgent('FooMiner-v2')).toBe('FooMiner-v2');
   });
 
+  // Rule 1 – pipe stop
+  it('Rule 1: truncates at first | (pipe-delimited UA)', () => {
+    expect(normalizeUserAgent('Antminer S19k Pro|LUXminer 2026.3.30.174759-b99dff377|BHB56902|BHB56902|BHB56902|altair_tech')).toBe('Antminer S19k Pro');
+    expect(normalizeUserAgent('SomeMiner|FirmwareName|chipX')).toBe('SomeMiner');
+  });
+
   // Additional preserved names (no rule should fire)
   it('preserves names that match no rule', () => {
     expect(normalizeUserAgent('cgminer/4.5.15')).toBe('cgminer');
