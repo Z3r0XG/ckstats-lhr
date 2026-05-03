@@ -36,10 +36,12 @@ describe('normalizeUserAgent', () => {
     expect(normalizeUserAgent('👩\u200D🔬/1')).toBe('👩\u200D🔬'); // ZWJ sequence
   });
 
-  // Rule 1 – slash/paren stop
-  it('Rule 1: truncates at first ( as well as /', () => {
+  // Rule 1 – slash/paren/pipe stop
+  it('Rule 1: truncates at first /, (, or |', () => {
     expect(normalizeUserAgent('SomeMiner(v2)')).toBe('SomeMiner');
     expect(normalizeUserAgent('Miner(build123)/extra')).toBe('Miner');
+    expect(normalizeUserAgent('Antminer S19k Pro|LUXminer 2026.3.30.174759-b99dff377|BHB56902|BHB56902|BHB56902|altair_tech')).toBe('Antminer S19k Pro');
+    expect(normalizeUserAgent('SomeMiner|FirmwareName|chipX')).toBe('SomeMiner');
   });
 
   // Rule 2 – BM chip suffix strip
