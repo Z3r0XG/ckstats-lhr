@@ -562,8 +562,16 @@ export function normalizeUserAgent(rawUa: string | undefined): string {
   // Requires a non-alpha char (or end of string) after "cpuminer" to avoid matching "cpuminers-*".
   if (/^cpuminer(?:[^a-zA-Z]|$)/i.test(ua)) return ua.slice(0, 8);
 
-  // Rule 5: strip trailing dash-version suffix (e.g. "-1.3", "-2.5.1").
-  ua = ua.replace(/-\d+(\.\d+)*$/, '').trim();
+  // Rule 4b: collapse sm-miner family to the sm-miner prefix, preserving input casing.
+  if (/^sm-miner(?:[^a-zA-Z]|$)/i.test(ua)) return ua.slice(0, 8);
+
+  // Rule 5: strip trailing dash-version suffix (e.g. "-1.3", "-2.5.1", "-1.2.6-rc5").
+  // Optionally consumes a pre-release tag (-rc5, -alpha1, etc.) after the version digits.
+  ua = ua.replace(/-\d+(\.\d+)*(-[a-zA-Z][a-zA-Z0-9]*)?$/, '').trim();
+
+  // Rule 6: strip trailing space-separated version (e.g. " 1.0", " v2.3.1", " 2026.3.30").
+  // Requires at least one dot to avoid matching unversioned numeric suffixes like " 2".
+  ua = ua.replace(/ v?\d+(\.\d+)+(-[a-zA-Z][a-zA-Z0-9]*)?$/, '').trim();
 
   // Truncate to 256 Unicode code points (preserves surrogate pairs).
   const cps = Array.from(ua);

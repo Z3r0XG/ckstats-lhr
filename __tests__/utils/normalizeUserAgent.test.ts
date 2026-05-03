@@ -10,7 +10,7 @@ describe('normalizeUserAgent', () => {
     expect(normalizeUserAgent('NerdOCTAXE-γ')).toBe('NerdOCTAXE-γ');
     expect(normalizeUserAgent('NerdOCTAXE-γ\x01\x02')).toBe('NerdOCTAXE-γ');
     expect(normalizeUserAgent('Nerd Miner/1.0')).toBe('Nerd Miner');
-    expect(normalizeUserAgent('Nerd Miner 1.0')).toBe('Nerd Miner 1.0');
+    expect(normalizeUserAgent('Nerd Miner 1.0')).toBe('Nerd Miner');
     expect(normalizeUserAgent('Miner\u0085Name')).toBe('MinerName'); // C1 control (NEL) stripped
   });
 
@@ -95,6 +95,13 @@ describe('normalizeUserAgent', () => {
     expect(normalizeUserAgent('cpuminers-variant')).toBe('cpuminers-variant');
   });
 
+  // Rule 4b – sm-miner family collapse
+  it('Rule 4b: collapses sm-miner family, preserves input casing', () => {
+    expect(normalizeUserAgent('sm-miner v8.16.67.1 2020-09-23, msp ver 0x8168')).toBe('sm-miner');
+    expect(normalizeUserAgent('sm-miner')).toBe('sm-miner');
+    expect(normalizeUserAgent('SM-Miner v1.0')).toBe('SM-Miner');
+  });
+
   // Rule 5 – dash-version strip
   it('Rule 5: strips trailing dash-version suffix', () => {
     expect(normalizeUserAgent('ViperMiner-1.3')).toBe('ViperMiner');
@@ -112,6 +119,19 @@ describe('normalizeUserAgent', () => {
     expect(normalizeUserAgent('foo-')).toBe('foo-');
     // v-prefixed version must NOT be stripped
     expect(normalizeUserAgent('FooMiner-v2')).toBe('FooMiner-v2');
+    // pre-release tag after version must be stripped
+    expect(normalizeUserAgent('xminer-1.2.6-rc5')).toBe('xminer');
+    expect(normalizeUserAgent('FooMiner-2.0-alpha1')).toBe('FooMiner');
+    expect(normalizeUserAgent('FooMiner-2.0-beta')).toBe('FooMiner');
+  });
+
+  // Rule 6 – space-separated version strip
+  it('Rule 6: strips trailing space-separated version', () => {
+    expect(normalizeUserAgent('Nerd Miner 1.0')).toBe('Nerd Miner');
+    expect(normalizeUserAgent('LUXminer 2026.3.30.174759-b99dff377')).toBe('LUXminer');
+    expect(normalizeUserAgent('SomeMiner v2.3.1')).toBe('SomeMiner');
+    // bare " 2" (no dot) must NOT be stripped
+    expect(normalizeUserAgent('SomeMiner 2')).toBe('SomeMiner 2');
   });
 
   // Additional preserved names (no rule should fire)
