@@ -34,8 +34,8 @@ describe('normalizeUserAgent', () => {
     expect(normalizeUserAgent('👩\u200D🔬/1')).toBe('👩\u200D🔬'); // ZWJ sequence
   });
 
-  // Real-world UA strings sourced from useragents-example.md.
-  // Update this table whenever new UAs are discovered in production.
+  // Real-world UA strings observed in production.
+  // Add new entries here as new UAs are discovered.
   // Each input flows through all rules naturally; no assumption is made about which rule fires.
   it.each([
     // bosminer family
