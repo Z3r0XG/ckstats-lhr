@@ -15,6 +15,9 @@ const DGB_BECH32 = 'dgb1q6tf0myda7plmpksdqc8k4tf8q957z0fm0y9a5m';
 const DGB_BECH32M = 'dgb1p33wm0auhr9kkahzd6l0kqj85af4cswn276hsxg6zpz85xe2r0y8sev3mt5';
 const CHTA_P2PKH = 'CVXL3EHkrH8xWsv4ECtwWxJqzHQG9KujNq';
 const CHTA_BECH32 = 'chta1qw508d6qejxtdg4y5r3zarvary0c5xw7kh9g043';
+const WJK_P2PKH = 'WYNZktmkqQsJz9YAYRguWHAtWsyaHhzDg9';
+const WJK_TESTNET_P2PKH = 'mipcBbFg9gMiCh81Kj8tqqdgoZub1ZJRfn';
+const WJK_TESTNET_P2SH = '2NBFNJTktNa7GZusGbDbGKRZTxdK9VVez3n';
 
 interface CoinExpectations {
   acceptBTCP2PKH: boolean;  // 1... (BTC/BCH legacy P2PKH)
@@ -234,4 +237,34 @@ describe('validateBitcoinAddress — COIN=CHTA', () => {
   });
 
   runCommonTests({ acceptBTCP2PKH: false, acceptBTCP2SH: true, acceptBTCBech32: false, acceptBCHCashAddr: false, acceptDGBLegacy: false, acceptDGBBech32: false, acceptCHTAP2PKH: true });
+});
+
+describe('validateBitcoinAddress — COIN=WJK', () => {
+  beforeEach(() => {
+    delete process.env.NEXT_PUBLIC_COIN;
+    process.env.COIN = 'WJK';
+  });
+
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_COIN;
+    delete process.env.COIN;
+  });
+
+  runCommonTests({ acceptBTCP2PKH: false, acceptBTCP2SH: true, acceptBTCBech32: false, acceptBCHCashAddr: false, acceptDGBLegacy: false, acceptDGBBech32: false, acceptCHTAP2PKH: false });
+
+  test('accepts WJK mainnet P2PKH address (W...)', () => {
+    expect(validateBitcoinAddress(WJK_P2PKH)).toBe(true);
+  });
+
+  test('accepts WJK mainnet P2SH address (3...)', () => {
+    expect(validateBitcoinAddress(BTC_P2SH)).toBe(true);
+  });
+
+  test('accepts WJK testnet P2PKH address (m...)', () => {
+    expect(validateBitcoinAddress(WJK_TESTNET_P2PKH)).toBe(true);
+  });
+
+  test('accepts WJK testnet P2SH address (2...)', () => {
+    expect(validateBitcoinAddress(WJK_TESTNET_P2SH)).toBe(true);
+  });
 });
