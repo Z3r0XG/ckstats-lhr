@@ -166,8 +166,8 @@ DEFAULT_THEME="forest"
 **COIN**: The coin this pool mines. Controls wallet address validation and UI labels. **OPTIONAL**
 - Type: String
 - Default: `BTC`
-- Values: `BTC` | `BCH` | `DGB` | `CHTA`
-- Note: `BTC` validates mainnet and testnet Bitcoin addresses. `BCH` validates both CashAddr (`bitcoincash:q...`) and legacy formats. `DGB` validates DigiByte addresses (legacy, P2SH, and bech32). `CHTA` validates Cheetahcoin addresses (`C...` P2PKH and `3...` P2SH)
+- Values: `BTC` | `BCH` | `DGB` | `CHTA` | `WJK`
+- Note: `BTC` validates mainnet and testnet Bitcoin addresses. `BCH` validates both CashAddr (`bitcoincash:q...`) and legacy formats. `DGB` validates DigiByte addresses (legacy, P2SH, and bech32). `CHTA` validates Cheetahcoin addresses (`C...` P2PKH and `3...` P2SH). `WJK` validates Wojakcoin addresses (`W...` P2PKH and `3...` P2SH on mainnet; `m/n...` P2PKH and `2...` P2SH on testnet).
 
 **MEMPOOL_LINK_TAG**: Pool tag for the mempool.space "Found Blocks" link. **OPTIONAL** (BTC only)
 - Type: String
@@ -187,8 +187,8 @@ DEFAULT_THEME="forest"
 
 **DONATION_ADDRESS**: Wallet address displayed in the footer donation link. **OPTIONAL**
 - Type: String
-- Default: `bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5` (BTC) / `qz85msghggld3smflk8flv0yza4c0c5drqgdgeruug` (BCH) / `dgb1q6tf0myda7plmpksdqc8k4tf8q957z0fm0y9a5m` (DGB) / `CVXL3EHkrH8xWsv4ECtwWxJqzHQG9KujNq` (CHTA)
-- Note: The payment URI scheme is derived from `COIN` (BTC → `bitcoin:`, BCH → `bitcoincash:`, DGB → `digibyte:`, CHTA → `cheetahcoin:`)
+- Default: `bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5` (BTC) / `qz85msghggld3smflk8flv0yza4c0c5drqgdgeruug` (BCH) / `dgb1q6tf0myda7plmpksdqc8k4tf8q957z0fm0y9a5m` (DGB) / `CVXL3EHkrH8xWsv4ECtwWxJqzHQG9KujNq` (CHTA) / `WYNZktmkqQsJz9YAYRguWHAtWsyaHhzDg9` (WJK)
+- Note: The payment URI scheme is derived from `COIN` (BTC → `bitcoin:`, BCH → `bitcoincash:`, DGB → `digibyte:`, CHTA → `cheetahcoin:`, WJK → `wojakcoin:`)
 
 **DEFAULT_THEME**: Default DaisyUI theme for new visitors (no saved preference). **OPTIONAL**
 - Type: String

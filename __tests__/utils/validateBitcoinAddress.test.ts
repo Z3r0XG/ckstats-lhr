@@ -2,7 +2,9 @@ import { validateBitcoinAddress } from '../../utils/validateBitcoinAddress';
 
 // Addresses used across all coin modes
 const BTC_LEGACY = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2';
-const BTC_P2SH = '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy';
+// Base58Check P2SH (version byte 0x05). Valid under any chain whose
+// scriptHash byte is 0x05 — BTC mainnet, BCH legacy, CHTA, WJK.
+const SHARED_P2SH = '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy';
 const BTC_BECH32 = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
 const BTC_BECH32M = 'bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0';
 const BTC_TESTNET_BECH32 = 'tb1qn9quw86c6gv3642enrxaglvrqxt032kej9ydjh';
@@ -15,6 +17,9 @@ const DGB_BECH32 = 'dgb1q6tf0myda7plmpksdqc8k4tf8q957z0fm0y9a5m';
 const DGB_BECH32M = 'dgb1p33wm0auhr9kkahzd6l0kqj85af4cswn276hsxg6zpz85xe2r0y8sev3mt5';
 const CHTA_P2PKH = 'CVXL3EHkrH8xWsv4ECtwWxJqzHQG9KujNq';
 const CHTA_BECH32 = 'chta1qw508d6qejxtdg4y5r3zarvary0c5xw7kh9g043';
+const WJK_P2PKH = 'WYNZktmkqQsJz9YAYRguWHAtWsyaHhzDg9';
+const WJK_TESTNET_P2PKH = 'mipcBbFg9gMiCh81Kj8tqqdgoZub1ZJRfn';
+const WJK_TESTNET_P2SH = '2NBFNJTktNa7GZusGbDbGKRZTxdK9VVez3n';
 
 interface CoinExpectations {
   acceptBTCP2PKH: boolean;  // 1... (BTC/BCH legacy P2PKH)
@@ -78,7 +83,7 @@ function runCommonTests({ acceptBTCP2PKH, acceptBTCP2SH, acceptBTCBech32, accept
   });
 
   test(`${acceptBTCP2SH ? 'accepts' : 'rejects'} P2SH address (3...)`, () => {
-    expect(validateBitcoinAddress(BTC_P2SH)).toBe(acceptBTCP2SH);
+    expect(validateBitcoinAddress(SHARED_P2SH)).toBe(acceptBTCP2SH);
   });
 
   // BTC bech32 address tests
@@ -234,4 +239,38 @@ describe('validateBitcoinAddress — COIN=CHTA', () => {
   });
 
   runCommonTests({ acceptBTCP2PKH: false, acceptBTCP2SH: true, acceptBTCBech32: false, acceptBCHCashAddr: false, acceptDGBLegacy: false, acceptDGBBech32: false, acceptCHTAP2PKH: true });
+
+  test('accepts CHTA mainnet P2SH address (3...)', () => {
+    expect(validateBitcoinAddress(SHARED_P2SH)).toBe(true);
+  });
+});
+
+describe('validateBitcoinAddress — COIN=WJK', () => {
+  beforeEach(() => {
+    delete process.env.NEXT_PUBLIC_COIN;
+    process.env.COIN = 'WJK';
+  });
+
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_COIN;
+    delete process.env.COIN;
+  });
+
+  runCommonTests({ acceptBTCP2PKH: false, acceptBTCP2SH: true, acceptBTCBech32: false, acceptBCHCashAddr: false, acceptDGBLegacy: false, acceptDGBBech32: false, acceptCHTAP2PKH: false });
+
+  test('accepts WJK mainnet P2PKH address (W...)', () => {
+    expect(validateBitcoinAddress(WJK_P2PKH)).toBe(true);
+  });
+
+  test('accepts WJK mainnet P2SH address (3...)', () => {
+    expect(validateBitcoinAddress(SHARED_P2SH)).toBe(true);
+  });
+
+  test('accepts WJK testnet P2PKH address (m...)', () => {
+    expect(validateBitcoinAddress(WJK_TESTNET_P2PKH)).toBe(true);
+  });
+
+  test('accepts WJK testnet P2SH address (2...)', () => {
+    expect(validateBitcoinAddress(WJK_TESTNET_P2SH)).toBe(true);
+  });
 });

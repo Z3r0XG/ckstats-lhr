@@ -16,6 +16,8 @@ const defaultDonationAddress =
     ? 'dgb1q6tf0myda7plmpksdqc8k4tf8q957z0fm0y9a5m'
     : coin === 'CHTA'
     ? 'CVXL3EHkrH8xWsv4ECtwWxJqzHQG9KujNq'
+    : coin === 'WJK'
+    ? 'WYNZktmkqQsJz9YAYRguWHAtWsyaHhzDg9'
     : 'bc1q8qkesw5kyplv7hdxyseqls5m78w5tqdfd40lf5';
 const donationAddress =
   process.env.DONATION_ADDRESS ||

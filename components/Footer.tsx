@@ -5,6 +5,7 @@ const URI_SCHEMES: Record<string, string> = {
   BCH: 'bitcoincash',
   DGB: 'digibyte',
   CHTA: 'cheetahcoin',
+  WJK: 'wojakcoin',
 };
 
 const donationAddress = process.env.NEXT_PUBLIC_DONATION_ADDRESS || '';
