@@ -67,19 +67,15 @@ export function validateBitcoinAddress(address: string): boolean {
   }
 
   if (coin === 'WJK') {
-    try {
-      bitcoin.address.toOutputScript(address, WJK_NETWORK);
-      return true;
-    } catch {
-      void 0;
+    for (const network of [WJK_NETWORK, WJK_TESTNET_NETWORK]) {
+      try {
+        bitcoin.address.toOutputScript(address, network);
+        return true;
+      } catch {
+        void 0;
+      }
     }
-
-    try {
-      bitcoin.address.toOutputScript(address, WJK_TESTNET_NETWORK);
-      return true;
-    } catch {
-      return false;
-    }
+    return false;
   }
 
   if (coin === 'BCH') {
