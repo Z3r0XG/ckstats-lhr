@@ -592,14 +592,29 @@ export function parseWorkerName(
 
 /**
  * Safely converts a potentially float value to a BigInt string, preserving precision for large numbers.
- * Handles numbers, strings, and undefined values. Takes only the integer part before any decimal.
+ * Handles numbers, strings, and undefined values. Takes only the integer part (truncated toward zero).
+ *
+ * Numbers are truncated and converted exactly via BigInt, which handles large
+ * magnitudes that String() would render in exponent form (e.g. 1e21). Strings
+ * are processed textually so integer values beyond Number.MAX_SAFE_INTEGER
+ * (e.g. "9007199254740993.5") keep full precision rather than being coerced
+ * through a lossy Number. Non-finite numbers and unparseable strings return '0'.
+ *
  * @param value - The value to convert (number, string, or undefined)
  * @returns BigInt string representation of the integer part
  */
 export function bigIntStringFromFloatLike(value: number | string | undefined): string {
-  const s = String(value ?? '0');
-  const intPart = s.split(/[.,]/)[0].replace(/[^0-9-]/g, '') || '0';
-  return BigInt(intPart).toString();
+  if (value == null) return '0';
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return '0';
+    return BigInt(Math.trunc(value)).toString();
+  }
+  const intPart = value.split(/[.,]/)[0].replace(/[^0-9-]/g, '') || '0';
+  try {
+    return BigInt(intPart).toString();
+  } catch {
+    return '0';
+  }
 }
 
 /**

@@ -282,6 +282,33 @@ describe('Helper Functions', () => {
       expect(bigIntStringFromFloatLike('9007199254740993.5')).toBe('9007199254740993');
       expect(bigIntStringFromFloatLike(undefined)).toBe('0');
     });
+
+    it('handles large numbers that String() renders in exponent form', () => {
+      expect(bigIntStringFromFloatLike(1e21)).toBe('1000000000000000000000');
+      expect(bigIntStringFromFloatLike(2.4e21)).toBe('2400000000000000000000');
+    });
+
+    it('returns 0 for non-finite numbers and sub-integer magnitudes', () => {
+      expect(bigIntStringFromFloatLike(1e-7)).toBe('0');
+      expect(bigIntStringFromFloatLike(NaN)).toBe('0');
+      expect(bigIntStringFromFloatLike(Infinity)).toBe('0');
+    });
+
+    it('preserves precision for large integer strings', () => {
+      expect(bigIntStringFromFloatLike('9999999999999999999999')).toBe(
+        '9999999999999999999999'
+      );
+    });
+
+    it('returns 0 for empty or unparseable strings instead of throwing', () => {
+      expect(bigIntStringFromFloatLike('')).toBe('0');
+      expect(bigIntStringFromFloatLike('   ')).toBe('0');
+    });
+
+    it('handles negative values', () => {
+      expect(bigIntStringFromFloatLike(-5)).toBe('-5');
+      expect(bigIntStringFromFloatLike('-12345.9')).toBe('-12345');
+    });
   });
 
   describe('safeParseFloat', () => {
