@@ -283,9 +283,24 @@ describe('Helper Functions', () => {
       expect(bigIntStringFromFloatLike(undefined)).toBe('0');
     });
 
-    it('handles large numbers that String() renders in exponent form', () => {
+    it('handles exponent-form numbers without mangling them', () => {
+      // String(1e21) === "1e+21"; the textual path would have produced "121".
+      // These literals are exactly representable as doubles, so conversion is exact.
       expect(bigIntStringFromFloatLike(1e21)).toBe('1000000000000000000000');
       expect(bigIntStringFromFloatLike(2.4e21)).toBe('2400000000000000000000');
+    });
+
+    it('number inputs above 2^53 reflect the (already-approximate) double, not a recovered integer', () => {
+      // Precision contract: a JS number > Number.MAX_SAFE_INTEGER is already an
+      // approximate IEEE-754 double before this function sees it. We return the
+      // double's exact value — NOT the shortest-decimal "1234567890000000000000".
+      // To preserve such values exactly, pass them as strings (asserted below).
+      expect(bigIntStringFromFloatLike(1.23456789e21)).toBe(
+        '1234567890000000057344'
+      );
+      expect(bigIntStringFromFloatLike('1234567890000000000000')).toBe(
+        '1234567890000000000000'
+      );
     });
 
     it('returns 0 for non-finite numbers and sub-integer magnitudes', () => {
@@ -294,7 +309,7 @@ describe('Helper Functions', () => {
       expect(bigIntStringFromFloatLike(Infinity)).toBe('0');
     });
 
-    it('preserves precision for large integer strings', () => {
+    it('preserves precision for large integer strings at any magnitude', () => {
       expect(bigIntStringFromFloatLike('9999999999999999999999')).toBe(
         '9999999999999999999999'
       );
@@ -303,6 +318,10 @@ describe('Helper Functions', () => {
     it('returns 0 for empty or unparseable strings instead of throwing', () => {
       expect(bigIntStringFromFloatLike('')).toBe('0');
       expect(bigIntStringFromFloatLike('   ')).toBe('0');
+    });
+
+    it("returns 0 for exponent-notation strings instead of fabricating a number (e.g. '1e21' -> '121')", () => {
+      expect(bigIntStringFromFloatLike('1e21')).toBe('0');
     });
 
     it('handles negative values', () => {

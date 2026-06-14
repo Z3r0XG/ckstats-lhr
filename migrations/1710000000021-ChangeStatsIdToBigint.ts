@@ -22,6 +22,13 @@ export class ChangeStatsIdToBigint1710000000021
     `);
   }
 
+  // Best-effort rollback. Narrowing bigint -> integer fails if any id (or the
+  // sequence position) exceeds the int4 range (2147483647) — which is exactly
+  // why up() widened these. This is intentionally unguarded: the migration
+  // runner only applies up() migrations (scripts/migration.ts calls
+  // runMigrations, never undoLastMigration), so down() is not reached in normal
+  // operation. If you ever wire up revert, confirm MAX(id) and the sequence
+  // last_value fit in int4 first.
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER SEQUENCE "UserStats_id_seq" AS integer;

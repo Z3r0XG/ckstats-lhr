@@ -24,6 +24,8 @@ export type SerializedPoolStats = {
   SPS5m: number;
   SPS15m: number;
   SPS1h: number;
+  // bigint columns are string-encoded on the wire to avoid JS number precision
+  // loss (>2^53). String here is intentional — do not "fix" back to number.
   accepted_count?: string;
   rejected_count?: string;
 };
