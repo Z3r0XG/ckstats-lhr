@@ -1,6 +1,7 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
+  Generated,
   Column,
   ManyToOne,
   CreateDateColumn,
@@ -12,7 +13,14 @@ import { User } from './User';
 
 @Entity('UserStats')
 export class UserStats {
-  @PrimaryGeneratedColumn()
+  @PrimaryColumn({
+    type: 'bigint',
+    transformer: {
+      to: (v?: number | null) => v,
+      from: (v?: string | null) => (v == null ? v : parseInt(v, 10)),
+    },
+  })
+  @Generated('increment')
   id: number;
 
   @ManyToOne(() => User, (user) => user.stats)
