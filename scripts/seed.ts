@@ -296,8 +296,8 @@ async function seed() {
       SPS5m: stats.SPS5m,
       SPS15m: stats.SPS15m,
       SPS1h: stats.SPS1h,
-      accepted_count: stats.accepted_count != null ? Math.round(Number(stats.accepted_count)) : undefined,
-      rejected_count: stats.rejected_count != null ? Math.round(Number(stats.rejected_count)) : undefined,
+      accepted_count: stats.accepted_count != null ? String(Math.round(Number(stats.accepted_count))) : undefined,
+      rejected_count: stats.rejected_count != null ? String(Math.round(Number(stats.rejected_count))) : undefined,
       timestamp: new Date(),
     } as unknown as Partial<PoolStats>;
 

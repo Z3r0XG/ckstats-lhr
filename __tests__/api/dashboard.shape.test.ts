@@ -33,6 +33,8 @@ describe('/api/dashboard payload shape and size', () => {
         disconnected: 0,
         idle: 0,
         runtime: 3600,
+        accepted_count: '2411243944',
+        rejected_count: '70582670',
         timestamp: new Date(),
       },
       historicalStats: Array(288)
@@ -59,6 +61,8 @@ describe('/api/dashboard payload shape and size', () => {
           disconnected: 0,
           idle: 0,
           runtime: 3600 + i * 60,
+          accepted_count: String(2411243944 + i),
+          rejected_count: String(70582670 + i),
           timestamp: new Date(),
         })),
       topUserHashrates: [
@@ -117,6 +121,11 @@ describe('/api/dashboard payload shape and size', () => {
     expect(mockPayload).toHaveProperty('onlineDevices');
     expect(mockPayload).toHaveProperty('highScores');
     expect(mockPayload).toHaveProperty('limits');
+
+    // bigint counts are serialized as strings on the wire (matches the
+    // existing User.authorised / lastShare convention)
+    expect(typeof mockPayload.latestStats.accepted_count).toBe('string');
+    expect(typeof mockPayload.latestStats.rejected_count).toBe('string');
   });
 
   test('serialized payload size is reasonable', () => {
@@ -145,6 +154,8 @@ describe('/api/dashboard payload shape and size', () => {
         disconnected: 0,
         idle: 0,
         runtime: 3600,
+        accepted_count: '2411243944',
+        rejected_count: '70582670',
         timestamp: new Date(),
       },
       historicalStats: Array(288)
@@ -171,6 +182,8 @@ describe('/api/dashboard payload shape and size', () => {
           disconnected: 0,
           idle: 0,
           runtime: 3600 + i * 60,
+          accepted_count: String(2411243944 + i),
+          rejected_count: String(70582670 + i),
           timestamp: new Date(),
         })),
       topUserHashrates: Array(10)
@@ -258,6 +271,8 @@ describe('/api/dashboard payload shape and size', () => {
         disconnected: 0,
         idle: 0,
         runtime: 3600,
+        accepted_count: '2411243944',
+        rejected_count: '70582670',
         timestamp: new Date(),
       }));
 

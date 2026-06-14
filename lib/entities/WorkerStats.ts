@@ -1,7 +1,6 @@
 import {
   Entity,
-  PrimaryColumn,
-  Generated,
+  PrimaryGeneratedColumn,
   Column,
   ManyToOne,
   CreateDateColumn,
@@ -13,8 +12,7 @@ import { Worker } from './Worker';
 
 @Entity('WorkerStats')
 export class WorkerStats {
-  @PrimaryColumn({ type: 'bigint' })
-  @Generated('increment')
+  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;
 
   @ManyToOne(() => Worker, (worker) => worker.stats)
