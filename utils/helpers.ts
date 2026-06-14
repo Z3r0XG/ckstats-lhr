@@ -591,15 +591,48 @@ export function parseWorkerName(
 }
 
 /**
- * Safely converts a potentially float value to a BigInt string, preserving precision for large numbers.
- * Handles numbers, strings, and undefined values. Takes only the integer part before any decimal.
+ * Converts a float-like value to the string form of its integer part
+ * (truncated toward zero), for storage in Postgres bigint columns.
+ * Handles numbers, strings, and undefined values.
+ *
+ * Precision contract:
+ *
+ *   - STRING inputs are exact at any magnitude. They are processed textually
+ *     (never coerced through Number), so integers beyond Number.MAX_SAFE_INTEGER
+ *     such as "9007199254740993.5" keep every digit. Values larger than 2^53
+ *     must be passed as strings.
+ *
+ *   - NUMBER inputs are exact only up to Number.MAX_SAFE_INTEGER (2^53). Above
+ *     that, a JS number is already an approximate IEEE-754 double, so the true
+ *     integer is unrecoverable from the number alone; this converts the double's
+ *     exact value via BigInt(Math.trunc(value)). Expanding the number to a
+ *     decimal string instead (e.g. via String()/toLocaleString and parsing e
+ *     notation) only yields the shortest round-trippable decimal — a different
+ *     lossy guess, not the recovered value. In practice the values passed here
+ *     stay well under 2^53, where both forms are identical.
+ *
+ * Non-finite numbers and unparseable strings return '0'.
+ *
  * @param value - The value to convert (number, string, or undefined)
  * @returns BigInt string representation of the integer part
  */
 export function bigIntStringFromFloatLike(value: number | string | undefined): string {
-  const s = String(value ?? '0');
-  const intPart = s.split(/[.,]/)[0].replace(/[^0-9-]/g, '') || '0';
-  return BigInt(intPart).toString();
+  if (value == null) return '0';
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return '0';
+    // Exact for |value| <= 2^53; faithful to the double's value above it.
+    return BigInt(Math.trunc(value)).toString();
+  }
+  // String path: textual truncation preserves arbitrarily large integers.
+  // Strict-match an optional sign, integer digits, and an optional fractional
+  // part — then keep only the integer digits. Anything else (exponent notation,
+  // embedded letters/spaces, multiple separators) returns '0' rather than
+  // silently extracting digits, which would fabricate a wrong number such as
+  // '1e21' -> '121'. Inputs here come from ckpool's JSON, so this is a sanity
+  // guard, not untrusted-input validation.
+  const match = /^([+-]?)(\d+)(?:[.,]\d*)?$/.exec(value.trim());
+  if (!match) return '0';
+  return BigInt((match[1] === '-' ? '-' : '') + match[2]).toString();
 }
 
 /**

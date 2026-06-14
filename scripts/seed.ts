@@ -4,7 +4,11 @@ import { readFileStable } from '../utils/readFileStable';
 
 import { getDb } from '../lib/db';
 import { PoolStats } from '../lib/entities/PoolStats';
-import { convertHashrateFloat, safeParseFloat } from '../utils/helpers';
+import {
+  bigIntStringFromFloatLike,
+  convertHashrateFloat,
+  safeParseFloat,
+} from '../utils/helpers';
 
 const DRY_RUN = Boolean(process.env.SEED_DRY_RUN || process.env.DRY_RUN);
 
@@ -71,6 +75,19 @@ async function fetchPoolStats(): Promise<Partial<PoolStatsData>> {
   }
 
   return parsedData as PoolStatsData;
+}
+
+/**
+ * True when a parsed pool.status has no usable data — i.e. every value is
+ * undefined. A 0-byte or blank-line-only read parses to an empty status without
+ * error; persisting it would write a bogus all-zeros PoolStats row and, via
+ * userCount === 0, wrongly clear online_devices. Checks for any defined value
+ * rather than key count, because a parsed status always carries a diffRaw key
+ * (possibly undefined) so an empty read still has one key. Malformed/non-JSON
+ * content instead throws while parsing and is handled by the caller.
+ */
+export function isEmptyPoolStatus(stats: Partial<PoolStatsData>): boolean {
+  return !Object.values(stats).some((v) => v !== undefined);
 }
 
 async function updateOnlineDevices(
@@ -268,6 +285,12 @@ async function seed() {
     console.log('Fetching pool stats...');
     const stats = await fetchPoolStats();
 
+    // Skip cycles where the read yielded no usable data.
+    if (isEmptyPoolStatus(stats)) {
+      console.warn('Pool status empty (no usable data); skipping this cycle');
+      return;
+    }
+
     const poolStats = {
       runtime: parseInt(stats.runtime ?? '0'),
       users: parseInt(stats.Users ?? '0'),
@@ -292,14 +315,16 @@ async function seed() {
       accepted: Number(stats.accepted || 0),
       rejected: Number(stats.rejected || 0),
       bestshare: safeParseFloat(stats.bestshare ?? '', 0),
-      SPS1m: stats.SPS1m,
-      SPS5m: stats.SPS5m,
-      SPS15m: stats.SPS15m,
-      SPS1h: stats.SPS1h,
-      accepted_count: stats.accepted_count != null ? Math.round(Number(stats.accepted_count)) : undefined,
-      rejected_count: stats.rejected_count != null ? Math.round(Number(stats.rejected_count)) : undefined,
+      // ckpool sends SPS as JSON numbers; coerce via safeParseFloat (accepts
+      // string or number) so they match the entity's float columns.
+      SPS1m: safeParseFloat(stats.SPS1m, 0),
+      SPS5m: safeParseFloat(stats.SPS5m, 0),
+      SPS15m: safeParseFloat(stats.SPS15m, 0),
+      SPS1h: safeParseFloat(stats.SPS1h, 0),
+      accepted_count: stats.accepted_count != null ? bigIntStringFromFloatLike(stats.accepted_count) : undefined,
+      rejected_count: stats.rejected_count != null ? bigIntStringFromFloatLike(stats.rejected_count) : undefined,
       timestamp: new Date(),
-    } as unknown as Partial<PoolStats>;
+    } satisfies Partial<PoolStats>;
 
     if (DRY_RUN) {
       console.log(
@@ -312,7 +337,7 @@ async function seed() {
     console.log('Saving pool stats to database...');
     db = await getDb();
     const poolStatsRepository = db.getRepository(PoolStats);
-    const entity = poolStatsRepository.create(poolStats as Partial<PoolStats>);
+    const entity = poolStatsRepository.create(poolStats);
     await poolStatsRepository.save(entity);
     console.log('Database seeded successfully');
 

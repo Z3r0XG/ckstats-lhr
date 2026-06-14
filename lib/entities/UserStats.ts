@@ -12,8 +12,8 @@ import { User } from './User';
 
 @Entity('UserStats')
 export class UserStats {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('increment', { type: 'bigint' })
+  id: string;
 
   @ManyToOne(() => User, (user) => user.stats)
   @JoinColumn({ name: 'userAddress', referencedColumnName: 'address' })

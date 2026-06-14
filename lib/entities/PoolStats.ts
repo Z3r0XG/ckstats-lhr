@@ -55,7 +55,7 @@ export class PoolStats {
   diff: number;
 
   @Column('float', { nullable: true })
-  netdiff?: number;
+  netdiff?: number | null;
 
   @Column('double precision')
   accepted: number;
@@ -78,9 +78,9 @@ export class PoolStats {
   @Column('float')
   SPS1h: number;
 
-  @Column('integer', { nullable: true })
-  accepted_count?: number;
+  @Column('bigint', { nullable: true })
+  accepted_count?: string | null;
 
-  @Column('integer', { nullable: true })
-  rejected_count?: number;
+  @Column('bigint', { nullable: true })
+  rejected_count?: string | null;
 }

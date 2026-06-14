@@ -4,6 +4,7 @@ import {
   convertHashrate,
   convertHashrateFloat,
   bigIntStringFromFloatLike,
+  serializeData,
   safeParseFloat,
   formatTimeAgo,
   formatDuration,
@@ -281,6 +282,76 @@ describe('Helper Functions', () => {
       expect(bigIntStringFromFloatLike(190827.81)).toBe('190827');
       expect(bigIntStringFromFloatLike('9007199254740993.5')).toBe('9007199254740993');
       expect(bigIntStringFromFloatLike(undefined)).toBe('0');
+    });
+
+    it('handles exponent-form numbers without mangling them', () => {
+      // 1e21 stringifies to "1e+21" but is exactly representable as a double,
+      // so it must convert without loss.
+      expect(bigIntStringFromFloatLike(1e21)).toBe('1000000000000000000000');
+      expect(bigIntStringFromFloatLike(2.4e21)).toBe('2400000000000000000000');
+    });
+
+    it('number inputs above 2^53 reflect the (already-approximate) double, not a recovered integer', () => {
+      // A JS number > Number.MAX_SAFE_INTEGER is already an approximate IEEE-754
+      // double, so the result is the double's exact value, not the shortest
+      // decimal "1234567890000000000000". A string preserves the exact integer.
+      expect(bigIntStringFromFloatLike(1.23456789e21)).toBe(
+        '1234567890000000057344'
+      );
+      expect(bigIntStringFromFloatLike('1234567890000000000000')).toBe(
+        '1234567890000000000000'
+      );
+    });
+
+    it('returns 0 for non-finite numbers and sub-integer magnitudes', () => {
+      expect(bigIntStringFromFloatLike(1e-7)).toBe('0');
+      expect(bigIntStringFromFloatLike(NaN)).toBe('0');
+      expect(bigIntStringFromFloatLike(Infinity)).toBe('0');
+    });
+
+    it('preserves precision for large integer strings at any magnitude', () => {
+      expect(bigIntStringFromFloatLike('9999999999999999999999')).toBe(
+        '9999999999999999999999'
+      );
+    });
+
+    it('returns 0 for empty or unparseable strings instead of throwing', () => {
+      expect(bigIntStringFromFloatLike('')).toBe('0');
+      expect(bigIntStringFromFloatLike('   ')).toBe('0');
+    });
+
+    it("returns 0 for exponent-notation strings instead of fabricating a number (e.g. '1e21' -> '121')", () => {
+      expect(bigIntStringFromFloatLike('1e21')).toBe('0');
+    });
+
+    it('handles negative values', () => {
+      expect(bigIntStringFromFloatLike(-5)).toBe('-5');
+      expect(bigIntStringFromFloatLike('-12345.9')).toBe('-12345');
+    });
+
+    it('handles zero and leading-plus inputs', () => {
+      expect(bigIntStringFromFloatLike(0)).toBe('0');
+      expect(bigIntStringFromFloatLike('0')).toBe('0');
+      expect(bigIntStringFromFloatLike('+5')).toBe('5');
+    });
+  });
+
+  describe('serializeData', () => {
+    it('encodes bigint values as strings without precision loss', () => {
+      const out = serializeData({
+        accepted_count: BigInt('2411243944'),
+        big: BigInt('9007199254740993'), // 2^53 + 1: a JS number would round this
+      });
+      expect(out.accepted_count).toBe('2411243944');
+      expect(typeof out.accepted_count).toBe('string');
+      expect(out.big).toBe('9007199254740993'); // exact — no precision loss
+    });
+
+    it('preserves null and drops undefined on the wire', () => {
+      const out = serializeData({ a: null, b: undefined, c: 'x' });
+      expect(out.a).toBeNull();
+      expect('b' in out).toBe(false); // JSON omits undefined
+      expect(out.c).toBe('x');
     });
   });
 

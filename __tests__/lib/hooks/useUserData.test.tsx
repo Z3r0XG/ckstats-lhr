@@ -35,7 +35,7 @@ const mockPayload: UserDataPayload = {
         userAgent: 'CGMiner/4.10.0',
         userAgentRaw: 'CGMiner/4.10.0',
         latestStats: {
-          id: 1,
+          id: '1',
           workerId: 1,
           hashrate1m: 1000000,
           hashrate5m: 950000,
@@ -52,7 +52,7 @@ const mockPayload: UserDataPayload = {
     ],
     stats: [
       {
-        id: 1,
+        id: '1',
         userAddress: 'bc1q1234567890abcdef1234567890abcdef123456',
         hashrate1m: 1000000,
         hashrate5m: 950000,
@@ -94,7 +94,7 @@ const mockPayload: UserDataPayload = {
   },
   historicalStats: [
     {
-      id: 1,
+      id: '1',
       userAddress: 'bc1q1234567890abcdef1234567890abcdef123456',
       hashrate1m: 1000000,
       hashrate5m: 950000,
@@ -251,7 +251,7 @@ describe('useUserData hook', () => {
           .fill(null)
           .map((_, i) => ({
             ...mockPayload.user.stats[0],
-            id: i,
+            id: String(i),
           })),
       };
 

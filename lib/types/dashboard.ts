@@ -16,7 +16,7 @@ export type SerializedPoolStats = {
   hashrate1d: number;
   hashrate7d: number;
   diff: number;
-  netdiff?: number; // Optional network difficulty field
+  netdiff?: number | null; // Optional network difficulty field
   accepted: number; // cumulative share difficulty
   rejected: number; // cumulative rejected share difficulty
   bestshare: number;
@@ -24,8 +24,9 @@ export type SerializedPoolStats = {
   SPS5m: number;
   SPS15m: number;
   SPS1h: number;
-  accepted_count?: number;
-  rejected_count?: number;
+  // bigint columns are string-encoded on the wire to avoid JS number precision loss (>2^53).
+  accepted_count?: string | null;
+  rejected_count?: string | null;
 };
 
 export type TopUserHashrate = {
