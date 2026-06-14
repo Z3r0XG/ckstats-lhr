@@ -272,6 +272,19 @@ async function seed() {
     console.log('Fetching pool stats...');
     const stats = await fetchPoolStats();
 
+    // Guard against an empty/truncated read. A read error throws and is caught
+    // below, but a 0-byte or whitespace-only file (ckpool's truncate-then-write
+    // window) parses to an empty status without error — building the row from
+    // defaults would persist a bogus all-zeros PoolStats datapoint AND, via
+    // userCount === 0, wrongly clear online_devices. Check for any defined value
+    // rather than key count: fetchPoolStats always sets diffRaw (possibly
+    // undefined), so an empty read still yields one key. Corrupt (non-JSON)
+    // content is handled separately by the throw path above.
+    if (!Object.values(stats).some((v) => v !== undefined)) {
+      console.warn('Pool status empty or unreadable; skipping this cycle');
+      return;
+    }
+
     const poolStats = {
       runtime: parseInt(stats.runtime ?? '0'),
       users: parseInt(stats.Users ?? '0'),
