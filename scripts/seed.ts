@@ -77,6 +77,20 @@ async function fetchPoolStats(): Promise<Partial<PoolStatsData>> {
   return parsedData as PoolStatsData;
 }
 
+/**
+ * True when a parsed pool.status has no usable data — i.e. every value is
+ * undefined. A 0-byte or blank-line-only read (ckpool's truncate-then-write
+ * window) parses to an empty status without error; persisting it would write a
+ * bogus all-zeros PoolStats row and, via userCount === 0, wrongly clear
+ * online_devices. Checks for any defined value rather than key count because
+ * fetchPoolStats always sets diffRaw (possibly undefined), so an empty read
+ * still yields one key. Malformed/non-JSON content instead throws in JSON.parse
+ * and is handled by the caller's surrounding try/catch.
+ */
+export function isEmptyPoolStatus(stats: Partial<PoolStatsData>): boolean {
+  return !Object.values(stats).some((v) => v !== undefined);
+}
+
 async function updateOnlineDevices(
   db: any,
   userAgents?: Array<{ ua: string; devices: number; hashrate5m: string; bestshare?: number }>
@@ -272,15 +286,8 @@ async function seed() {
     console.log('Fetching pool stats...');
     const stats = await fetchPoolStats();
 
-    // Guard against an empty/truncated read. A read error throws and is caught
-    // below, but a 0-byte or whitespace-only file (ckpool's truncate-then-write
-    // window) parses to an empty status without error — building the row from
-    // defaults would persist a bogus all-zeros PoolStats datapoint AND, via
-    // userCount === 0, wrongly clear online_devices. Check for any defined value
-    // rather than key count: fetchPoolStats always sets diffRaw (possibly
-    // undefined), so an empty read still yields one key. Corrupt (non-JSON)
-    // content is handled separately by the throw path above.
-    if (!Object.values(stats).some((v) => v !== undefined)) {
+    // Skip cycles where the read yielded no usable data (see isEmptyPoolStatus).
+    if (isEmptyPoolStatus(stats)) {
       console.warn('Pool status empty or unreadable; skipping this cycle');
       return;
     }
@@ -309,14 +316,18 @@ async function seed() {
       accepted: Number(stats.accepted || 0),
       rejected: Number(stats.rejected || 0),
       bestshare: safeParseFloat(stats.bestshare ?? '', 0),
-      SPS1m: stats.SPS1m,
-      SPS5m: stats.SPS5m,
-      SPS15m: stats.SPS15m,
-      SPS1h: stats.SPS1h,
+      // ckpool sends SPS as JSON numbers; coerce defensively (safeParseFloat
+      // accepts string or number) so these match the entity's float columns
+      // and we avoid an `as unknown` cast that would disable all type-checking
+      // on this object.
+      SPS1m: safeParseFloat(stats.SPS1m, 0),
+      SPS5m: safeParseFloat(stats.SPS5m, 0),
+      SPS15m: safeParseFloat(stats.SPS15m, 0),
+      SPS1h: safeParseFloat(stats.SPS1h, 0),
       accepted_count: stats.accepted_count != null ? bigIntStringFromFloatLike(stats.accepted_count) : undefined,
       rejected_count: stats.rejected_count != null ? bigIntStringFromFloatLike(stats.rejected_count) : undefined,
       timestamp: new Date(),
-    } as unknown as Partial<PoolStats>;
+    } satisfies Partial<PoolStats>;
 
     if (DRY_RUN) {
       console.log(
@@ -329,7 +340,7 @@ async function seed() {
     console.log('Saving pool stats to database...');
     db = await getDb();
     const poolStatsRepository = db.getRepository(PoolStats);
-    const entity = poolStatsRepository.create(poolStats as Partial<PoolStats>);
+    const entity = poolStatsRepository.create(poolStats);
     await poolStatsRepository.save(entity);
     console.log('Database seeded successfully');
 

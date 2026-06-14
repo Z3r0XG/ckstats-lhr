@@ -4,6 +4,7 @@ import {
   convertHashrate,
   convertHashrateFloat,
   bigIntStringFromFloatLike,
+  serializeData,
   safeParseFloat,
   formatTimeAgo,
   formatDuration,
@@ -327,6 +328,31 @@ describe('Helper Functions', () => {
     it('handles negative values', () => {
       expect(bigIntStringFromFloatLike(-5)).toBe('-5');
       expect(bigIntStringFromFloatLike('-12345.9')).toBe('-12345');
+    });
+
+    it('handles zero and leading-plus inputs', () => {
+      expect(bigIntStringFromFloatLike(0)).toBe('0');
+      expect(bigIntStringFromFloatLike('0')).toBe('0');
+      expect(bigIntStringFromFloatLike('+5')).toBe('5');
+    });
+  });
+
+  describe('serializeData', () => {
+    it('encodes bigint values as strings without precision loss', () => {
+      const out = serializeData({
+        accepted_count: BigInt('2411243944'),
+        big: BigInt('9007199254740993'), // 2^53 + 1: a JS number would round this
+      });
+      expect(out.accepted_count).toBe('2411243944');
+      expect(typeof out.accepted_count).toBe('string');
+      expect(out.big).toBe('9007199254740993'); // exact — no precision loss
+    });
+
+    it('preserves null and drops undefined on the wire', () => {
+      const out = serializeData({ a: null, b: undefined, c: 'x' });
+      expect(out.a).toBeNull();
+      expect('b' in out).toBe(false); // JSON omits undefined
+      expect(out.c).toBe('x');
     });
   });
 

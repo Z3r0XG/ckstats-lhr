@@ -121,11 +121,8 @@ describe('/api/dashboard payload shape and size', () => {
     expect(mockPayload).toHaveProperty('onlineDevices');
     expect(mockPayload).toHaveProperty('highScores');
     expect(mockPayload).toHaveProperty('limits');
-
-    // bigint counts are serialized as strings on the wire (matches the
-    // existing User.authorised / lastShare convention)
-    expect(typeof mockPayload.latestStats.accepted_count).toBe('string');
-    expect(typeof mockPayload.latestStats.rejected_count).toBe('string');
+    // (bigint->string wire encoding is verified directly against serializeData
+    // in utils/helpers.test.ts, not by re-asserting the string literals here.)
   });
 
   test('serialized payload size is reasonable', () => {

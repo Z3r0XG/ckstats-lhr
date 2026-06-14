@@ -3,7 +3,7 @@ import { SerializedPoolStats } from './dashboard';
 // Serialized types for the /api/users/[address] payload
 
 export type SerializedWorkerStats = {
-  id: number;
+  id: string; // bigint serialized to string
   workerId: number;
   hashrate1m: number;
   hashrate5m: number;
@@ -38,7 +38,7 @@ export type SerializedWorker = {
 };
 
 export type SerializedUserStats = {
-  id: number;
+  id: string; // bigint serialized to string
   userAddress: string;
   hashrate1m: number;
   hashrate5m: number;
