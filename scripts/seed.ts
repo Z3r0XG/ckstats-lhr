@@ -4,7 +4,11 @@ import { readFileStable } from '../utils/readFileStable';
 
 import { getDb } from '../lib/db';
 import { PoolStats } from '../lib/entities/PoolStats';
-import { convertHashrateFloat, safeParseFloat } from '../utils/helpers';
+import {
+  bigIntStringFromFloatLike,
+  convertHashrateFloat,
+  safeParseFloat,
+} from '../utils/helpers';
 
 const DRY_RUN = Boolean(process.env.SEED_DRY_RUN || process.env.DRY_RUN);
 
@@ -296,8 +300,8 @@ async function seed() {
       SPS5m: stats.SPS5m,
       SPS15m: stats.SPS15m,
       SPS1h: stats.SPS1h,
-      accepted_count: stats.accepted_count != null ? String(Math.round(Number(stats.accepted_count))) : undefined,
-      rejected_count: stats.rejected_count != null ? String(Math.round(Number(stats.rejected_count))) : undefined,
+      accepted_count: stats.accepted_count != null ? bigIntStringFromFloatLike(stats.accepted_count) : undefined,
+      rejected_count: stats.rejected_count != null ? bigIntStringFromFloatLike(stats.rejected_count) : undefined,
       timestamp: new Date(),
     } as unknown as Partial<PoolStats>;
 
