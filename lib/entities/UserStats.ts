@@ -13,15 +13,9 @@ import { User } from './User';
 
 @Entity('UserStats')
 export class UserStats {
-  @PrimaryColumn({
-    type: 'bigint',
-    transformer: {
-      to: (v?: number | null) => v,
-      from: (v?: string | null) => (v == null ? v : parseInt(v, 10)),
-    },
-  })
+  @PrimaryColumn({ type: 'bigint' })
   @Generated('increment')
-  id: number;
+  id: string;
 
   @ManyToOne(() => User, (user) => user.stats)
   @JoinColumn({ name: 'userAddress', referencedColumnName: 'address' })

@@ -78,21 +78,9 @@ export class PoolStats {
   @Column('float')
   SPS1h: number;
 
-  @Column('bigint', {
-    nullable: true,
-    transformer: {
-      to: (v?: number | null) => v,
-      from: (v?: string | null) => (v == null ? v : parseInt(v, 10)),
-    },
-  })
-  accepted_count?: number;
+  @Column('bigint', { nullable: true })
+  accepted_count?: string;
 
-  @Column('bigint', {
-    nullable: true,
-    transformer: {
-      to: (v?: number | null) => v,
-      from: (v?: string | null) => (v == null ? v : parseInt(v, 10)),
-    },
-  })
-  rejected_count?: number;
+  @Column('bigint', { nullable: true })
+  rejected_count?: string;
 }
