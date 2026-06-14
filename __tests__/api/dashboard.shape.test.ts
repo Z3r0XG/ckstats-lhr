@@ -121,8 +121,6 @@ describe('/api/dashboard payload shape and size', () => {
     expect(mockPayload).toHaveProperty('onlineDevices');
     expect(mockPayload).toHaveProperty('highScores');
     expect(mockPayload).toHaveProperty('limits');
-    // (bigint->string wire encoding is verified directly against serializeData
-    // in utils/helpers.test.ts, not by re-asserting the string literals here.)
   });
 
   test('serialized payload size is reasonable', () => {

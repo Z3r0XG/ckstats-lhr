@@ -79,13 +79,12 @@ async function fetchPoolStats(): Promise<Partial<PoolStatsData>> {
 
 /**
  * True when a parsed pool.status has no usable data — i.e. every value is
- * undefined. A 0-byte or blank-line-only read (ckpool's truncate-then-write
- * window) parses to an empty status without error; persisting it would write a
- * bogus all-zeros PoolStats row and, via userCount === 0, wrongly clear
- * online_devices. Checks for any defined value rather than key count because
- * fetchPoolStats always sets diffRaw (possibly undefined), so an empty read
- * still yields one key. Malformed/non-JSON content instead throws in JSON.parse
- * and is handled by the caller's surrounding try/catch.
+ * undefined. A 0-byte or blank-line-only read parses to an empty status without
+ * error; persisting it would write a bogus all-zeros PoolStats row and, via
+ * userCount === 0, wrongly clear online_devices. Checks for any defined value
+ * rather than key count, because a parsed status always carries a diffRaw key
+ * (possibly undefined) so an empty read still has one key. Malformed/non-JSON
+ * content instead throws while parsing and is handled by the caller.
  */
 export function isEmptyPoolStatus(stats: Partial<PoolStatsData>): boolean {
   return !Object.values(stats).some((v) => v !== undefined);
@@ -286,9 +285,9 @@ async function seed() {
     console.log('Fetching pool stats...');
     const stats = await fetchPoolStats();
 
-    // Skip cycles where the read yielded no usable data (see isEmptyPoolStatus).
+    // Skip cycles where the read yielded no usable data.
     if (isEmptyPoolStatus(stats)) {
-      console.warn('Pool status empty or unreadable; skipping this cycle');
+      console.warn('Pool status empty (no usable data); skipping this cycle');
       return;
     }
 
@@ -316,10 +315,8 @@ async function seed() {
       accepted: Number(stats.accepted || 0),
       rejected: Number(stats.rejected || 0),
       bestshare: safeParseFloat(stats.bestshare ?? '', 0),
-      // ckpool sends SPS as JSON numbers; coerce defensively (safeParseFloat
-      // accepts string or number) so these match the entity's float columns
-      // and we avoid an `as unknown` cast that would disable all type-checking
-      // on this object.
+      // ckpool sends SPS as JSON numbers; coerce via safeParseFloat (accepts
+      // string or number) so they match the entity's float columns.
       SPS1m: safeParseFloat(stats.SPS1m, 0),
       SPS5m: safeParseFloat(stats.SPS5m, 0),
       SPS15m: safeParseFloat(stats.SPS15m, 0),

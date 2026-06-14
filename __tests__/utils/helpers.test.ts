@@ -285,17 +285,16 @@ describe('Helper Functions', () => {
     });
 
     it('handles exponent-form numbers without mangling them', () => {
-      // String(1e21) === "1e+21"; the textual path would have produced "121".
-      // These literals are exactly representable as doubles, so conversion is exact.
+      // 1e21 stringifies to "1e+21" but is exactly representable as a double,
+      // so it must convert without loss.
       expect(bigIntStringFromFloatLike(1e21)).toBe('1000000000000000000000');
       expect(bigIntStringFromFloatLike(2.4e21)).toBe('2400000000000000000000');
     });
 
     it('number inputs above 2^53 reflect the (already-approximate) double, not a recovered integer', () => {
-      // Precision contract: a JS number > Number.MAX_SAFE_INTEGER is already an
-      // approximate IEEE-754 double before this function sees it. We return the
-      // double's exact value — NOT the shortest-decimal "1234567890000000000000".
-      // To preserve such values exactly, pass them as strings (asserted below).
+      // A JS number > Number.MAX_SAFE_INTEGER is already an approximate IEEE-754
+      // double, so the result is the double's exact value, not the shortest
+      // decimal "1234567890000000000000". A string preserves the exact integer.
       expect(bigIntStringFromFloatLike(1.23456789e21)).toBe(
         '1234567890000000057344'
       );

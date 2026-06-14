@@ -13,13 +13,11 @@ export class ChangePoolStatsCountsToBigint1710000000020
     `);
   }
 
-  // Best-effort rollback. Narrowing bigint -> integer fails if any value
-  // exceeds the int4 range (2147483647) — which is exactly why up() widened
-  // these columns (prod accepted_count already passed 2.4B). This is
-  // intentionally unguarded: the migration runner only applies up() migrations
-  // (scripts/migration.ts calls runMigrations, never undoLastMigration), so
-  // down() is not reached in normal operation. If you ever wire up revert,
-  // confirm MAX(accepted_count)/MAX(rejected_count) fit in int4 first.
+  // Best-effort rollback: narrowing bigint -> integer fails if any value
+  // exceeds the int4 range (2147483647). Left intentionally unguarded — the
+  // migration runner only applies up() migrations (it never calls
+  // undoLastMigration), so down() is not reached in normal operation. If revert
+  // is ever wired up, confirm the values fit in int4 first.
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE "PoolStats"

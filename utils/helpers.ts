@@ -595,23 +595,21 @@ export function parseWorkerName(
  * (truncated toward zero), for storage in Postgres bigint columns.
  * Handles numbers, strings, and undefined values.
  *
- * Precision contract — read before "fixing" the number path:
+ * Precision contract:
  *
  *   - STRING inputs are exact at any magnitude. They are processed textually
  *     (never coerced through Number), so integers beyond Number.MAX_SAFE_INTEGER
- *     such as "9007199254740993.5" keep every digit. Callers that may hold
- *     values larger than 2^53 should pass strings.
+ *     such as "9007199254740993.5" keep every digit. Values larger than 2^53
+ *     must be passed as strings.
  *
  *   - NUMBER inputs are exact only up to Number.MAX_SAFE_INTEGER (2^53). Above
- *     that, a JS number is already an approximate IEEE-754 double *before* this
- *     function is called — the true integer is unrecoverable from the number
- *     alone. We therefore convert the double's exact value via
- *     BigInt(Math.trunc(value)). Do NOT "improve" this by expanding the number
- *     to a decimal string (e.g. via String()/toLocaleString and parsing e
- *     notation): that yields the shortest round-trippable decimal, which is a
- *     *different* lossy guess, not the recovered value. It cannot restore
- *     precision the number type never held. All real callers here (share
- *     counts, lastShare) stay well under 2^53, where both forms are identical.
+ *     that, a JS number is already an approximate IEEE-754 double, so the true
+ *     integer is unrecoverable from the number alone; this converts the double's
+ *     exact value via BigInt(Math.trunc(value)). Expanding the number to a
+ *     decimal string instead (e.g. via String()/toLocaleString and parsing e
+ *     notation) only yields the shortest round-trippable decimal — a different
+ *     lossy guess, not the recovered value. In practice the values passed here
+ *     stay well under 2^53, where both forms are identical.
  *
  * Non-finite numbers and unparseable strings return '0'.
  *
@@ -623,7 +621,6 @@ export function bigIntStringFromFloatLike(value: number | string | undefined): s
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) return '0';
     // Exact for |value| <= 2^53; faithful to the double's value above it.
-    // See the precision contract above for why we do not stringify-and-parse.
     return BigInt(Math.trunc(value)).toString();
   }
   // String path: textual truncation preserves arbitrarily large integers.
