@@ -169,116 +169,6 @@ async function clearOnlineDevices(db: any): Promise<void> {
   }
 }
 
-const TOP_BEST_DIFFS_LIMIT = 10;
-const FORCE_REFRESH = process.argv.includes('--force');
-
-export async function refreshTopBestDiffsIfNeeded(db: any): Promise<void> {
-  try {
-    // Check if Worker table exists first
-    const tables = await db.query(`
-      SELECT table_name FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_name = 'Worker'
-    `);
-
-    if (!tables || tables.length === 0) {
-      console.log('Worker table does not exist yet; skipping top_best_diffs refresh');
-      return;
-    }
-
-    // Check if top_best_diffs table exists
-    const topBestDiffsTables = await db.query(`
-      SELECT table_name FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_name = 'top_best_diffs'
-    `);
-
-    if (!topBestDiffsTables || topBestDiffsTables.length === 0) {
-      console.log('top_best_diffs table does not exist yet; skipping refresh');
-      return;
-    }
-
-    // Check if table was refreshed in the last hour
-    const result = await db.query(
-      `SELECT MAX(computed_at) as last_computed FROM "top_best_diffs";`
-    );
-
-    const lastComputedAt = result?.[0]?.last_computed;
-    const now = new Date();
-    const oneHourMs = 3600000;
-
-    // Only refresh if older than 1 hour (or table is empty), or if --force flag is used
-    if (
-      FORCE_REFRESH ||
-      !lastComputedAt ||
-      now.getTime() - new Date(lastComputedAt).getTime() > oneHourMs
-    ) {
-      console.log(
-        FORCE_REFRESH
-          ? 'Refreshing top_best_diffs (--force flag)...'
-          : 'Refreshing top_best_diffs (over 1 hour old)...'
-      );
-
-      await db.transaction(async (manager: any) => {
-        const touchTime = new Date();
-
-        // Step 1: Upsert from active Worker rows — insert new entries, update existing only
-        // when bestEver has improved. Rows for deleted workers are never touched here; they
-        // simply persist in the table, preserving their score indefinitely.
-        await manager.query(`
-          INSERT INTO "top_best_diffs" ("workerId", difficulty, device, "timestamp", computed_at, rank)
-          SELECT
-            w.id,
-            w."bestEver",
-            COALESCE(w."userAgent", 'Other'),
-            now(),
-            $1,
-            0
-          FROM "Worker" w
-          WHERE w."bestEver" > 0
-          ORDER BY w."bestEver" DESC
-          LIMIT ${TOP_BEST_DIFFS_LIMIT}
-          ON CONFLICT ("workerId") WHERE "workerId" IS NOT NULL DO UPDATE
-            SET
-              difficulty  = EXCLUDED.difficulty,
-              device      = CASE
-                              WHEN EXCLUDED.difficulty > "top_best_diffs".difficulty
-                                AND COALESCE(EXCLUDED.device, 'Other') IS DISTINCT FROM COALESCE("top_best_diffs".device, 'Other')
-                              THEN EXCLUDED.device
-                              ELSE "top_best_diffs".device
-                            END,
-              "timestamp" = CASE
-                              WHEN EXCLUDED.difficulty > "top_best_diffs".difficulty THEN now()
-                              ELSE "top_best_diffs"."timestamp"
-                            END,
-              computed_at = $1
-            WHERE EXCLUDED.difficulty > "top_best_diffs".difficulty;
-        `, [touchTime]);
-
-        // Touch computed_at on every row so the hourly throttle check stays accurate
-        await manager.query(`UPDATE "top_best_diffs" SET computed_at = $1;`, [touchTime]);
-
-        // Step 2: Re-rank all entries by difficulty DESC
-        await manager.query(`
-          UPDATE "top_best_diffs" t
-          SET rank = r.new_rank
-          FROM (
-            SELECT id, ROW_NUMBER() OVER (ORDER BY difficulty DESC, "timestamp" ASC) AS new_rank
-            FROM "top_best_diffs"
-          ) r
-          WHERE t.id = r.id;
-        `);
-
-        // Step 3: Drop anything that fell outside the top N
-        await manager.query(`DELETE FROM "top_best_diffs" WHERE rank > ${TOP_BEST_DIFFS_LIMIT};`);
-      });
-
-      console.log('Top best diffs refreshed successfully');
-    }
-  } catch (error) {
-    console.error('Error refreshing top best diffs:', error);
-    throw error;
-  }
-}
-
 async function seed() {
   let db: any | null = null;
   try {
@@ -353,9 +243,6 @@ async function seed() {
         'UserAgents missing but pool status reports active users; keeping existing online_devices (stale)'
       );
     }
-
-    // Refresh top_best_diffs if older than 1 hour
-    await refreshTopBestDiffsIfNeeded(db);
   } catch (error) {
     console.error('Error seeding database:', error);
   } finally {
