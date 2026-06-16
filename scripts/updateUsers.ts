@@ -11,7 +11,7 @@ export class FileNotFoundError extends Error {
 }
 
 import { getDb } from '../lib/db';
-import { cacheDelete, cacheDeletePrefix } from '../lib/api';
+import { cacheDelete, cacheDeletePrefix, recordBestDiff } from '../lib/api';
 import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
@@ -314,6 +314,7 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
       const workerName = parseWorkerName(workerData.workername, address);
 
       const worker = dbWorkerMap.get(workerName) ?? null;
+      const previousBestEver = worker?.bestEver ?? 0;
 
       const rawUa = (workerData.useragent ?? '').trim();
       const token = normalizeUserAgent(rawUa);
@@ -346,6 +347,19 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
           ...workerValues,
         });
         workerId = newWorker.id;
+      }
+
+      // Event-driven high-score capture: book a record the instant this worker beats its
+      // previous best (see recordBestDiff). Gated on improvement so steady-state cost is
+      // proportional to record-breaks, not worker count.
+      if (workerValues.bestEver > previousBestEver) {
+        await recordBestDiff(manager, {
+          workerId,
+          userAddress: address,
+          workerName,
+          bestEver: workerValues.bestEver,
+          device: token,
+        });
       }
 
       const workerStats = workerStatsRepository.create({

@@ -62,7 +62,8 @@ describe('getTopBestDiffs', () => {
 
     const fakeQuery = jest.fn(async (sql: string, params: any[]) => {
       expect(sql).toMatch(/top_best_diffs/);
-      expect(sql).toMatch(/ORDER BY rank ASC/);
+      // immutable ledger: displayed window is top-N-by-difficulty at read time (no stored rank)
+      expect(sql).toMatch(/ORDER BY difficulty DESC,\s*timestamp ASC,\s*id ASC/i);
       expect(params.length).toBe(1);
       expect(params[0]).toBe(10);
       return fakeRows;
@@ -74,6 +75,9 @@ describe('getTopBestDiffs', () => {
 
     expect(fakeQuery).toHaveBeenCalled();
     expect(result).toHaveLength(2);
+    // rank is derived from row position, not read from the table
+    expect(result[0].rank).toBe(1);
+    expect(result[1].rank).toBe(2);
     expect(result[0].difficulty).toBe(25.926);
     expect(result[0].device).toBe('NMMiner');
     expect(result[0].timestamp).toBeInstanceOf(Date);

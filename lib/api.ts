@@ -588,6 +588,8 @@ export async function updateSingleUser(
         });
         const rawUa = (workerData.useragent ?? '').trim();
         const token = normalizeUserAgent(rawUa);
+        const newBestEver = safeParseFloat(workerData.bestever, 0);
+        let workerId: number | undefined;
 
         if (worker) {
           const newHashrate1m = convertHashrateFloat(workerData.hashrate1m);
@@ -598,7 +600,6 @@ export async function updateSingleUser(
           const newLastUpdate = new Date(workerData.lastshare * 1000);
           const newShares = safeParseFloat(workerData.shares, 0);
           const newBestShare = safeParseFloat(workerData.bestshare, 0);
-          const newBestEver = safeParseFloat(workerData.bestever, 0);
 
           const changed =
             (worker.userAgent || '') !== (token || '') ||
@@ -628,8 +629,9 @@ export async function updateSingleUser(
             await workerRepository.save(worker);
             anyChanged = true;
           }
+          workerId = worker.id;
         } else {
-          await workerRepository.insert({
+          const inserted = await workerRepository.insert({
             userAddress: address,
             name: workerName,
             hashrate1m: convertHashrateFloat(workerData.hashrate1m),
@@ -640,12 +642,26 @@ export async function updateSingleUser(
             lastUpdate: new Date(workerData.lastshare * 1000),
             shares: safeParseFloat(workerData.shares, 0),
             bestShare: safeParseFloat(workerData.bestshare, 0),
-            bestEver: safeParseFloat(workerData.bestever, 0),
+            bestEver: newBestEver,
             userAgent: token,
             userAgentRaw: rawUa || null,
             updatedAt: new Date().toISOString(),
           });
+          workerId = inserted?.identifiers?.[0]?.id as number | undefined;
           anyChanged = true;
+        }
+
+        // Book this worker's best into the immutable high-score ledger (idempotent; the guard
+        // keeps it upward-only). Done here on the on-demand add-user path as well as in the cron
+        // so a newly registered user's existing best isn't missed.
+        if (newBestEver > 0 && workerId != null) {
+          await recordBestDiff(manager, {
+            workerId,
+            userAddress: address,
+            workerName,
+            bestEver: newBestEver,
+            device: token,
+          });
         }
       }
     });
@@ -683,24 +699,76 @@ export async function toggleUserStatsPrivacy(
   return { isPublic: newIsPublic };
 }
 
+/** Minimal query interface so recordBestDiff works with a DataSource or a transaction manager. */
+interface Queryable {
+  query(sql: string, params?: unknown[]): Promise<unknown>;
+}
+
+/**
+ * Record a worker's best-ever share into top_best_diffs — the IMMUTABLE high-score ledger.
+ *
+ * Keyed on the worker's stable identity (user_address, worker_name), NOT workerId (which is a
+ * fresh id on every re-import). The trailing `EXCLUDED.difficulty > ...` guard makes this
+ * idempotent: a row only moves UP, never down, and re-submitting an equal/old best is a no-op.
+ * Nothing ever deletes from this table, so once a record is booked it can only be pushed out of
+ * the displayed window by higher records — never lost, even if the worker is later deleted in
+ * ckstats or its file disappears from ckpool.
+ *
+ * Called from BOTH ingestion paths so no record is missed: the cron (updateUsers) gates the call
+ * on an actual improvement for efficiency, while the on-demand add-user path (updateSingleUser)
+ * calls it for every scored worker — the guard makes both safe and idempotent.
+ */
+export async function recordBestDiff(
+  manager: Queryable,
+  record: {
+    workerId: number;
+    userAddress: string;
+    workerName: string;
+    bestEver: number;
+    device: string;
+  }
+): Promise<void> {
+  await manager.query(
+    `INSERT INTO "top_best_diffs" ("workerId", "user_address", "worker_name", difficulty, device, "timestamp")
+     VALUES ($1, $2, $3, $4, $5, now())
+     ON CONFLICT ("user_address", "worker_name") WHERE "user_address" IS NOT NULL DO UPDATE
+       SET difficulty  = EXCLUDED.difficulty,
+           device      = EXCLUDED.device,
+           "timestamp" = now(),
+           "workerId"  = EXCLUDED."workerId"
+       WHERE EXCLUDED.difficulty > "top_best_diffs".difficulty`,
+    [
+      record.workerId,
+      record.userAddress,
+      record.workerName,
+      record.bestEver,
+      record.device,
+    ]
+  );
+}
+
 export async function getTopBestDiffs(limit: number = 10) {
   const db = await getDb();
 
+  // top_best_diffs is an immutable, never-trimmed ledger of best-ever-per-worker, so the
+  // displayed leaderboard is the top N by difficulty computed at read time. rank is derived
+  // from row position; timestamp ASC breaks difficulty ties (older record outranks a later
+  // equal one) and id ASC is a final tiebreaker so the order is fully deterministic even when
+  // difficulty AND timestamp coincide (e.g. the migration backfill stamps rows with one now()).
   const rows: Array<{
-    rank: number;
     difficulty: number;
     device: string;
     timestamp: string;
   }> = await db.query(
-    `SELECT rank, difficulty, device, timestamp
+    `SELECT difficulty, device, timestamp
      FROM "top_best_diffs"
-     ORDER BY rank ASC
+     ORDER BY difficulty DESC, timestamp ASC, id ASC
      LIMIT $1;`,
     [limit]
   );
 
-  return rows.map((r) => ({
-    rank: r.rank,
+  return rows.map((r, i) => ({
+    rank: i + 1,
     difficulty: Number(r.difficulty || 0),
     device: r.device || 'Other',
     timestamp: new Date(r.timestamp),
