@@ -38,7 +38,10 @@ const nextConfig = {
     return config;
   },
   experimental: {
-    serverComponentsExternalPackages: ['typeorm'],
+    // instrumentationHook: run instrumentation.ts register() on server boot (stable in Next 15;
+    // opt-in in 14.2) — that's where the in-process multi-pool ingest loop is started.
+    instrumentationHook: true,
+    serverComponentsExternalPackages: ['typeorm', 'undici'],
   },
   env: {
     NEXT_PUBLIC_SITE_NAME: siteName,

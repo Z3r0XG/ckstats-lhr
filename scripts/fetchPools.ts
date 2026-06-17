@@ -10,6 +10,8 @@
  * Each pool URL is file-or-http via the existing dual-mode (a `fetch()` of a filesystem path throws
  * ERR_INVALID_URL → fall back to a local read), resolved against the PER-POOL base.
  */
+import { fetch as undiciFetch } from 'undici';
+
 import { readJsonStable, readFileStable, delay } from '../utils/readFileStable';
 import { validateAndResolveUserPath } from '../utils/validateLocalPath';
 import type { UserData } from './updateUsers';
@@ -29,7 +31,7 @@ const RETRY_DELAY_MS = 500;
  * All are optional; with none set this returns {} and fetch behaves exactly as before. A fresh
  * object (and a fresh AbortSignal) is built per call, since a timeout signal fires only once.
  */
-export function poolFetchInit(): RequestInit {
+export function poolFetchInit(dispatcher?: unknown): RequestInit {
   const headers: Record<string, string> = {};
 
   const ua = process.env.POOL_API_USER_AGENT?.trim();
@@ -58,6 +60,11 @@ export function poolFetchInit(): RequestInit {
     init.signal = AbortSignal.timeout(seconds * 1000);
   }
 
+  // Optional undici Dispatcher (Agent/Pool) — lets the in-process ingest loop reuse persistent
+  // keep-alive connections across cycles (handshake paid once). Not in the DOM RequestInit type,
+  // but Node's fetch honors it. Omitted everywhere else → unchanged behavior.
+  if (dispatcher) (init as { dispatcher?: unknown }).dispatcher = dispatcher;
+
   return init;
 }
 
@@ -78,7 +85,11 @@ function isInvalidUrl(error: any): boolean {
  * Anything that fails this is handled exactly like any other error (deferred), not stored.
  */
 function isUserDataShape(d: unknown): d is UserData {
-  return !!d && typeof d === 'object' && Array.isArray((d as { worker?: unknown }).worker);
+  return (
+    !!d &&
+    typeof d === 'object' &&
+    Array.isArray((d as { worker?: unknown }).worker)
+  );
 }
 
 /** Clean-data guard for pool.status text: CKPool emits newline-delimited JSON objects, so a valid
@@ -87,19 +98,31 @@ function looksLikeJson(text: string): boolean {
   return text.trimStart().startsWith('{');
 }
 
+// Node's GLOBAL fetch uses its built-in undici and rejects a dispatcher from the npm `undici`
+// package ("invalid onRequestStart method"). So when a dispatcher (persistent Agent) is supplied,
+// use undici's own fetch (same instance); otherwise the global fetch — which is what the tests mock.
+function chooseFetch(dispatcher?: unknown): typeof fetch {
+  return dispatcher ? (undiciFetch as unknown as typeof fetch) : fetch;
+}
+
 /** Fetch one pool's data for a user. base is the pool URL (http base or local file root). */
 export async function fetchUserFromPool(
   base: string,
-  address: string
+  address: string,
+  dispatcher?: unknown
 ): Promise<PoolFetchResult<UserData>> {
   const url = `${base}/users/${address}`;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(url, poolFetchInit());
+      const response = await chooseFetch(dispatcher)(
+        url,
+        poolFetchInit(dispatcher)
+      );
       if (response.status === 404) return { status: 'absent', base };
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       if (!isUserDataShape(data)) {
         throw new Error(`malformed user payload from ${url} (no worker array)`);
@@ -112,9 +135,16 @@ export async function fetchUserFromPool(
       if (isInvalidUrl(error)) {
         try {
           const resolved = validateAndResolveUserPath(address, base);
-          const data = await readJsonStable(resolved, { retries: 6, backoffMs: 50 });
+          const data = await readJsonStable(resolved, {
+            retries: 6,
+            backoffMs: 50,
+          });
           if (!isUserDataShape(data)) {
-            return { status: 'error', base, error: new Error(`malformed user file for ${address}`) };
+            return {
+              status: 'error',
+              base,
+              error: new Error(`malformed user file for ${address}`),
+            };
           }
           return { status: 'found', base, data };
         } catch (fileError: any) {
@@ -123,7 +153,8 @@ export async function fetchUserFromPool(
         }
       }
 
-      if (attempt === MAX_RETRIES) return { status: 'error', base, error: lastError };
+      if (attempt === MAX_RETRIES)
+        return { status: 'error', base, error: lastError };
       await delay(RETRY_DELAY_MS * attempt);
     }
   }
@@ -131,15 +162,22 @@ export async function fetchUserFromPool(
 }
 
 /** Fetch one pool's raw pool.status text (parsed by the caller, as seed does today). */
-export async function fetchPoolStatusFromPool(base: string): Promise<PoolFetchResult<string>> {
+export async function fetchPoolStatusFromPool(
+  base: string,
+  dispatcher?: unknown
+): Promise<PoolFetchResult<string>> {
   const url = `${base}/pool/pool.status`;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(url, poolFetchInit());
+      const response = await chooseFetch(dispatcher)(
+        url,
+        poolFetchInit(dispatcher)
+      );
       if (response.status === 404) return { status: 'absent', base };
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
       const text = await response.text();
       if (!looksLikeJson(text)) {
         throw new Error(`malformed pool.status from ${url} (not JSON)`);
@@ -151,7 +189,11 @@ export async function fetchPoolStatusFromPool(base: string): Promise<PoolFetchRe
         try {
           const data = await readFileStable(url, { retries: 6, backoffMs: 50 });
           if (!looksLikeJson(data)) {
-            return { status: 'error', base, error: new Error(`malformed pool.status file at ${url}`) };
+            return {
+              status: 'error',
+              base,
+              error: new Error(`malformed pool.status file at ${url}`),
+            };
           }
           return { status: 'found', base, data };
         } catch (fileError: any) {
@@ -159,7 +201,8 @@ export async function fetchPoolStatusFromPool(base: string): Promise<PoolFetchRe
           return { status: 'error', base, error: fileError };
         }
       }
-      if (attempt === MAX_RETRIES) return { status: 'error', base, error: lastError };
+      if (attempt === MAX_RETRIES)
+        return { status: 'error', base, error: lastError };
       await delay(RETRY_DELAY_MS * attempt);
     }
   }
