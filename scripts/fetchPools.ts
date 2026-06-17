@@ -70,6 +70,23 @@ function isInvalidUrl(error: any): boolean {
   return error?.cause?.code === 'ERR_INVALID_URL';
 }
 
+/**
+ * Clean-data guard: only treat a payload as real if it actually has the shape of CKPool user
+ * stats. A 2xx that parses as JSON is NOT enough — a misconfigured pool can serve an HTML page, a
+ * proxy/error blob, or a redirect target with a 200, and combining that into the DB would corrupt
+ * the data. The presence of a `worker` array is CKPool's reliable signature of a user payload.
+ * Anything that fails this is handled exactly like any other error (deferred), not stored.
+ */
+function isUserDataShape(d: unknown): d is UserData {
+  return !!d && typeof d === 'object' && Array.isArray((d as { worker?: unknown }).worker);
+}
+
+/** Clean-data guard for pool.status text: CKPool emits newline-delimited JSON objects, so a valid
+ *  body starts with `{`. Rejects HTML/redirect pages (and empty reads) before they reach the parser. */
+function looksLikeJson(text: string): boolean {
+  return text.trimStart().startsWith('{');
+}
+
 /** Fetch one pool's data for a user. base is the pool URL (http base or local file root). */
 export async function fetchUserFromPool(
   base: string,
@@ -83,7 +100,11 @@ export async function fetchUserFromPool(
       const response = await fetch(url, poolFetchInit());
       if (response.status === 404) return { status: 'absent', base };
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return { status: 'found', base, data: (await response.json()) as UserData };
+      const data = await response.json();
+      if (!isUserDataShape(data)) {
+        throw new Error(`malformed user payload from ${url} (no worker array)`);
+      }
+      return { status: 'found', base, data };
     } catch (error: any) {
       lastError = error;
 
@@ -91,7 +112,10 @@ export async function fetchUserFromPool(
       if (isInvalidUrl(error)) {
         try {
           const resolved = validateAndResolveUserPath(address, base);
-          const data = (await readJsonStable(resolved, { retries: 6, backoffMs: 50 })) as UserData;
+          const data = await readJsonStable(resolved, { retries: 6, backoffMs: 50 });
+          if (!isUserDataShape(data)) {
+            return { status: 'error', base, error: new Error(`malformed user file for ${address}`) };
+          }
           return { status: 'found', base, data };
         } catch (fileError: any) {
           if (fileError?.code === 'ENOENT') return { status: 'absent', base };
@@ -116,12 +140,19 @@ export async function fetchPoolStatusFromPool(base: string): Promise<PoolFetchRe
       const response = await fetch(url, poolFetchInit());
       if (response.status === 404) return { status: 'absent', base };
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return { status: 'found', base, data: await response.text() };
+      const text = await response.text();
+      if (!looksLikeJson(text)) {
+        throw new Error(`malformed pool.status from ${url} (not JSON)`);
+      }
+      return { status: 'found', base, data: text };
     } catch (error: any) {
       lastError = error;
       if (isInvalidUrl(error)) {
         try {
           const data = await readFileStable(url, { retries: 6, backoffMs: 50 });
+          if (!looksLikeJson(data)) {
+            return { status: 'error', base, error: new Error(`malformed pool.status file at ${url}`) };
+          }
           return { status: 'found', base, data };
         } catch (fileError: any) {
           if (fileError?.code === 'ENOENT') return { status: 'absent', base };

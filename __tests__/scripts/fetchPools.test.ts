@@ -120,6 +120,16 @@ describe('fetchUserFromPool', () => {
       expect(delay).toHaveBeenNthCalledWith(2, RETRY_DELAY_MS * 2);
     });
 
+    it('treats a 200 whose body is not user-shaped (no worker array) as error, not found', async () => {
+      // e.g. a misconfigured pool serving a 200 HTML page or an error blob that happens to parse
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ error: 'not found' }) });
+
+      const r = await fetchUserFromPool('https://a.com', 'addr');
+
+      expect(r.status).toBe('error'); // never 'found' with garbage; never written to the DB
+      expect(fetchMock).toHaveBeenCalledTimes(MAX_RETRIES);
+    });
+
     it('recovers to found on a later attempt', async () => {
       const data = mkUser({ authorised: 456 });
       fetchMock
@@ -217,6 +227,12 @@ describe('fetchPoolStatusFromPool', () => {
     fetchMock.mockResolvedValue({ ok: false, status: 404 });
     const r = await fetchPoolStatusFromPool('https://a.com');
     expect(r).toEqual({ status: 'absent', base: 'https://a.com' });
+  });
+
+  it('treats a 200 HTML/redirect page (not JSON) as error, not found', async () => {
+    fetchMock.mockResolvedValue({ ok: true, text: async () => '<html>301 Moved</html>' });
+    const r = await fetchPoolStatusFromPool('https://a.com');
+    expect(r.status).toBe('error');
   });
 });
 
