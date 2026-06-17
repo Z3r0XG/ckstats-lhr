@@ -13,6 +13,7 @@ import {
   convertHashrateFloat,
   safeParseFloat,
   parseWorkerName,
+  normalizeUserAgent,
 } from '../utils/helpers';
 
 const hr = (v: unknown): number => convertHashrateFloat(String(v ?? '0'));
@@ -46,7 +47,8 @@ export function getPoolUrls(): string[] {
 
 export interface CombinedWorker {
   name: string;
-  userAgent: string;
+  userAgent: string; // normalized token (matches Worker.userAgent / leaderboard grouping)
+  userAgentRaw: string | null; // raw UA string (matches Worker.userAgentRaw)
   hashrate1m: number;
   hashrate5m: number;
   hashrate1hr: number;
@@ -90,6 +92,7 @@ export function combineUserData(pools: UserData[], address: string): CombinedUse
     for (const w of pool.worker ?? []) {
       const name = parseWorkerName(w.workername, address);
       const lastShare = Number(w.lastshare ?? 0);
+      const rawUa = (w.useragent ?? '').trim();
       const incoming = {
         hashrate1m: hr(w.hashrate1m),
         hashrate5m: hr(w.hashrate5m),
@@ -101,7 +104,8 @@ export function combineUserData(pools: UserData[], address: string): CombinedUse
         shares: safeParseFloat(w.shares, 0),
         bestShare: safeParseFloat(w.bestshare, 0),
         bestEver: safeParseFloat(w.bestever, 0),
-        userAgent: (w.useragent ?? '').trim(),
+        userAgent: normalizeUserAgent(rawUa),
+        userAgentRaw: rawUa || null,
       };
 
       const cur = byName.get(name);
@@ -122,11 +126,12 @@ export function combineUserData(pools: UserData[], address: string): CombinedUse
       if (incoming.lastShare > cur.lastShare) {
         cur.lastShare = incoming.lastShare;
         cur.userAgent = incoming.userAgent;
+        cur.userAgentRaw = incoming.userAgentRaw;
       }
     }
   }
 
-  const workers = [...byName.values()];
+  const workers = Array.from(byName.values());
   const sum = (k: keyof CombinedWorker) =>
     workers.reduce((a, w) => a + (w[k] as number), 0);
   const max = (k: keyof CombinedWorker) =>
@@ -260,6 +265,6 @@ export function combinePoolStatus(pools: RawPoolStatus[]): CombinedPoolStatus {
     SPS5m: sumNum('SPS5m'),
     SPS15m: sumNum('SPS15m'),
     SPS1h: sumNum('SPS1h'),
-    userAgents: [...uaMap.values()],
+    userAgents: Array.from(uaMap.values()),
   };
 }

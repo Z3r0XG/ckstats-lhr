@@ -16,13 +16,9 @@ import { User } from '../lib/entities/User';
 import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
 import { WorkerStats } from '../lib/entities/WorkerStats';
-import {
-  convertHashrateFloat,
-  normalizeUserAgent,
-  parseWorkerName,
-  bigIntStringFromFloatLike,
-  safeParseFloat,
-} from '../utils/helpers';
+import { bigIntStringFromFloatLike } from '../utils/helpers';
+import { getPoolUrls, combineUserData } from './combine';
+import { fetchAllPools, fetchUserFromPool } from './fetchPools';
 
 const BATCH_SIZE = 10;
 export const MAX_RETRIES = 3;
@@ -207,17 +203,31 @@ export interface MessageCollectors {
 }
 
 async function updateUser(address: string, messages?: MessageCollectors): Promise<void> {
-  let userData: UserData;
   if (/[^a-zA-Z0-9:]/.test(address)) {
     throw new Error('updateUser(): address contains invalid characters');
   }
 
-  const apiUrl =
-    (process.env.API_URL || 'https://solo.ckpool.org') + `/users/${address}`;
-
   const db = await getDb();
 
-  userData = await fetchUserDataWithRetry(address, apiUrl);
+  // Fetch this user from every pool and combine. Classify the outcome across pools:
+  //  - any pool unavailable (error) → DEFER this cycle (no write, no inactivity change)
+  //  - found on no pool (all absent) → throw FileNotFoundError so the caller's grace/deactivation
+  //    path handles it — i.e. deactivation only when absent across ALL pools
+  //  - found on ≥1 pool → combine and proceed
+  const urls = getPoolUrls();
+  const pools = urls.length > 0 ? urls : ['https://solo.ckpool.org'];
+  const results = await fetchAllPools(pools, (base) => fetchUserFromPool(base, address));
+
+  const errored = results.filter((r) => r.status === 'error');
+  if (errored.length > 0) {
+    console.log(`Deferring ${address}: ${errored.length}/${pools.length} pool(s) unavailable`);
+    return;
+  }
+  const found = results.flatMap((r) => (r.status === 'found' ? [r.data] : []));
+  if (found.length === 0) {
+    throw new FileNotFoundError(`User not found on any pool: ${address}`);
+  }
+  const combined = combineUserData(found, address);
 
   const now = Date.now();
   
@@ -232,7 +242,7 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
     // Check for stale mining activity using extracted grace period logic
     if (user) {
       const decision = shouldMarkUserInactive(
-        userData.lastshare,
+        combined.lastShare,
         user.lastActivatedAt,
         user.createdAt,
         now
@@ -261,13 +271,13 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
     }
     
     if (user) {
-      user.authorised = userData.authorised.toString();
+      user.authorised = combined.authorised.toString();
       user.isActive = true;
       await userRepository.save(user);
     } else {
       await userRepository.insert({
         address,
-        authorised: userData.authorised.toString(),
+        authorised: combined.authorised.toString(),
         isActive: true,
         lastActivatedAt: new Date(),
         updatedAt: new Date().toISOString(),
@@ -275,28 +285,18 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
     }
 
     const userStatsRepository = manager.getRepository(UserStats);
-    const safeConvertFloat = (v: any) => {
-      try {
-        if (v === null || v === undefined || v === '') return 0;
-        return convertHashrateFloat(v.toString());
-      } catch (err) {
-        console.error('convertHashrateFloat failed for value:', v, err);
-        return 0;
-      }
-    };
-
     const userStats = userStatsRepository.create({
       userAddress: address,
-      hashrate1m: safeConvertFloat(userData.hashrate1m),
-      hashrate5m: safeConvertFloat(userData.hashrate5m),
-      hashrate1hr: safeConvertFloat(userData.hashrate1hr),
-      hashrate1d: safeConvertFloat(userData.hashrate1d),
-      hashrate7d: safeConvertFloat(userData.hashrate7d),
-      lastShare: bigIntStringFromFloatLike(userData.lastshare),
-      workerCount: userData.workers,
-      shares: safeParseFloat(userData.shares, 0),
-      bestShare: safeParseFloat(userData.bestshare, 0),
-      bestEver: safeParseFloat(userData.bestever, 0),
+      hashrate1m: combined.hashrate1m,
+      hashrate5m: combined.hashrate5m,
+      hashrate1hr: combined.hashrate1hr,
+      hashrate1d: combined.hashrate1d,
+      hashrate7d: combined.hashrate7d,
+      lastShare: bigIntStringFromFloatLike(combined.lastShare),
+      workerCount: combined.workerCount,
+      shares: combined.shares,
+      bestShare: combined.bestShare,
+      bestEver: combined.bestEver,
     });
     await userStatsRepository.save(userStats);
 
@@ -310,28 +310,24 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
     const allDbWorkers = await workerRepository.find({ where: { userAddress: address } });
     const dbWorkerMap = new Map<string, Worker>(allDbWorkers.map(w => [w.name, w]));
 
-    for (const workerData of userData.worker) {
-      const workerName = parseWorkerName(workerData.workername, address);
-
+    for (const cw of combined.workers) {
+      const workerName = cw.name;
       const worker = dbWorkerMap.get(workerName) ?? null;
       const previousBestEver = worker?.bestEver ?? 0;
 
-      const rawUa = (workerData.useragent ?? '').trim();
-      const token = normalizeUserAgent(rawUa);
-
       const workerValues = {
-        userAgent: token,
-        userAgentRaw: rawUa || null,
-        hashrate1m: safeConvertFloat(workerData.hashrate1m),
-        hashrate5m: safeConvertFloat(workerData.hashrate5m),
-        hashrate1hr: safeConvertFloat(workerData.hashrate1hr),
-        hashrate1d: safeConvertFloat(workerData.hashrate1d),
-        hashrate7d: safeConvertFloat(workerData.hashrate7d),
-        lastUpdate: new Date(workerData.lastshare * 1000),
-        started: workerData.started ? workerData.started.toString() : '0',
-        shares: safeParseFloat(workerData.shares, 0),
-        bestShare: safeParseFloat(workerData.bestshare, 0),
-        bestEver: safeParseFloat(workerData.bestever, 0),
+        userAgent: cw.userAgent,
+        userAgentRaw: cw.userAgentRaw,
+        hashrate1m: cw.hashrate1m,
+        hashrate5m: cw.hashrate5m,
+        hashrate1hr: cw.hashrate1hr,
+        hashrate1d: cw.hashrate1d,
+        hashrate7d: cw.hashrate7d,
+        lastUpdate: new Date(cw.lastShare * 1000),
+        started: cw.started ? cw.started.toString() : '0',
+        shares: cw.shares,
+        bestShare: cw.bestShare,
+        bestEver: cw.bestEver,
       };
 
       let workerId: number;
@@ -349,8 +345,8 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
         workerId = newWorker.id;
       }
 
-      // Event-driven high-score capture: book a record the instant this worker beats its
-      // previous best (see recordBestDiff). Gated on improvement so steady-state cost is
+      // Event-driven high-score capture: book a record the instant this worker beats its previous
+      // best (combined bestEver across pools = MAX). Gated on improvement, so steady-state cost is
       // proportional to record-breaks, not worker count.
       if (workerValues.bestEver > previousBestEver) {
         await recordBestDiff(manager, {
@@ -358,7 +354,7 @@ async function updateUser(address: string, messages?: MessageCollectors): Promis
           userAddress: address,
           workerName,
           bestEver: workerValues.bestEver,
-          device: token,
+          device: cw.userAgent,
         });
       }
 
