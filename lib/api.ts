@@ -1,6 +1,4 @@
 import { getDb } from './db';
-import { readJsonStable } from '../utils/readFileStable';
-import { validateAndResolveUserPath } from '../utils/validateLocalPath';
 import { PoolStats } from './entities/PoolStats';
 import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
@@ -8,12 +6,11 @@ import { Worker } from './entities/Worker';
 import { WorkerStats } from './entities/WorkerStats';
 import {
   convertHashrateFloat,
-  normalizeUserAgent,
-  parseWorkerName,
   bigIntStringFromFloatLike,
-  safeParseFloat,
   maskAddress,
 } from '../utils/helpers';
+import { getPoolUrls, combineUserData } from '../scripts/combine';
+import { fetchAllPools, fetchUserFromPool } from '../scripts/fetchPools';
 
 const HISTORICAL_DATA_POINTS = 5760;
 
@@ -461,206 +458,106 @@ export async function resetUserActive(address: string): Promise<void> {
   cacheDeletePrefix(`workerWithStats:${address}:`);
 }
 
-export async function updateSingleUser(
-  address: string,
-  opts?: { dryRun?: boolean }
-): Promise<boolean> {
+export async function updateSingleUser(address: string): Promise<boolean> {
   if (/[^a-zA-Z0-9:]/.test(address)) {
     throw new Error('updateSingleUser(): address contains invalid characters');
   }
 
-  const apiUrl =
-    (process.env.API_URL || 'https://solo.ckpool.org') + `/users/${address}`;
-
-  if (!apiUrl) {
-    throw new Error('API_URL is not defined in environment variables');
+  // On-demand (registration) ingest: fetch this user from every configured pool and combine,
+  // mirroring the cron's updateUser path so a freshly registered user gets immediate combined
+  // data (the next cron cycle overwrites it). Individual-pool errors are tolerated best-effort —
+  // we ingest whatever pools responded; if none had this user, there's simply nothing to store.
+  const urls = getPoolUrls();
+  const pools = urls.length > 0 ? urls : ['https://solo.ckpool.org'];
+  const results = await fetchAllPools(pools, (base) =>
+    fetchUserFromPool(base, address)
+  );
+  const found = results.flatMap((r) => (r.status === 'found' ? [r.data] : []));
+  if (found.length === 0) {
+    // Not (yet) on any pool — e.g. registered but not mining. Not an error.
+    return false;
   }
+  const combined = combineUserData(found, address);
 
   try {
-    let userData;
-
-    try {
-      const response = await fetch(apiUrl);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      userData = await response.json();
-    } catch (error: any) {
-      if (error.cause?.code === 'ERR_INVALID_URL') {
-        // When API_URL is a filesystem path (local logs), enforce a safe root
-        const basePath = process.env.API_URL || '';
-        const resolved = validateAndResolveUserPath(address, basePath);
-        userData = await readJsonStable(resolved, {
-          retries: 6,
-          backoffMs: 50,
-        });
-      } else throw error;
-    }
-
-    if (opts?.dryRun) {
-      if (!userData || !Array.isArray(userData.worker)) {
-        throw new Error('Invalid user data fetched during dry-run');
-      }
-
-      const db = await getDb();
-      const userRepository = db.getRepository(User);
-
-      const existingUser = await userRepository.findOne({
-        where: { address },
-        relations: { workers: true },
-      });
-
-      if (!existingUser) return true;
-
-      if (String(existingUser.authorised) !== String(userData.authorised))
-        return true;
-
-      for (const workerData of userData.worker) {
-        const workerName = parseWorkerName(workerData.workername, address);
-        const existing = existingUser.workers.find(
-          (w) => w.name === workerName
-        );
-        if (!existing) return true;
-        const rawUa = (workerData.useragent ?? '').trim();
-        const token = normalizeUserAgent(rawUa);
-        const existingRaw = existing.userAgentRaw ?? '';
-        const existingToken = existing.userAgent ?? '';
-        if ((existingRaw || '') !== (rawUa || '')) return true;
-        if ((existingToken || '') !== (token || '')) return true;
-      }
-
-      return false;
-    }
-
     const db = await getDb();
-    let anyChanged = false;
     await db.transaction(async (manager) => {
       const userRepository = manager.getRepository(User);
       const user = await userRepository.findOne({ where: { address } });
       if (user) {
-        const newAuthorised = String(userData.authorised);
-        if (
-          String(user.authorised) !== newAuthorised ||
-          user.isActive !== true
-        ) {
-          user.authorised = newAuthorised;
-          user.isActive = true;
-          await userRepository.save(user);
-          anyChanged = true;
-        }
+        user.authorised = String(combined.authorised);
+        user.isActive = true;
+        await userRepository.save(user);
       } else {
         await userRepository.insert({
           address,
-          authorised: String(userData.authorised),
+          authorised: String(combined.authorised),
           isActive: true,
           lastActivatedAt: new Date(),
           updatedAt: new Date().toISOString(),
         });
-        anyChanged = true;
       }
 
       const userStatsRepository = manager.getRepository(UserStats);
       const userStats = userStatsRepository.create({
         userAddress: address,
-        hashrate1m: convertHashrateFloat(userData.hashrate1m),
-        hashrate5m: convertHashrateFloat(userData.hashrate5m),
-        hashrate1hr: convertHashrateFloat(userData.hashrate1hr),
-        hashrate1d: convertHashrateFloat(userData.hashrate1d),
-        hashrate7d: convertHashrateFloat(userData.hashrate7d),
-        lastShare: bigIntStringFromFloatLike(userData.lastshare),
-        workerCount: userData.workers,
-        shares: safeParseFloat(userData.shares, 0),
-        bestShare: safeParseFloat(userData.bestshare, 0),
-        bestEver: safeParseFloat(userData.bestever, 0),
+        hashrate1m: combined.hashrate1m,
+        hashrate5m: combined.hashrate5m,
+        hashrate1hr: combined.hashrate1hr,
+        hashrate1d: combined.hashrate1d,
+        hashrate7d: combined.hashrate7d,
+        lastShare: bigIntStringFromFloatLike(combined.lastShare),
+        workerCount: combined.workerCount,
+        shares: combined.shares,
+        bestShare: combined.bestShare,
+        bestEver: combined.bestEver,
       });
       await userStatsRepository.save(userStats);
 
       const workerRepository = manager.getRepository(Worker);
-      for (const workerData of userData.worker) {
-        const workerName = parseWorkerName(workerData.workername, address);
+      for (const cw of combined.workers) {
         const worker = await workerRepository.findOne({
-          where: {
-            userAddress: address,
-            name: workerName,
-          },
+          where: { userAddress: address, name: cw.name },
         });
-        const rawUa = (workerData.useragent ?? '').trim();
-        const token = normalizeUserAgent(rawUa);
-        const newBestEver = safeParseFloat(workerData.bestever, 0);
+        const values = {
+          userAgent: cw.userAgent,
+          userAgentRaw: cw.userAgentRaw,
+          hashrate1m: cw.hashrate1m,
+          hashrate5m: cw.hashrate5m,
+          hashrate1hr: cw.hashrate1hr,
+          hashrate1d: cw.hashrate1d,
+          hashrate7d: cw.hashrate7d,
+          lastUpdate: new Date(cw.lastShare * 1000),
+          shares: cw.shares,
+          bestShare: cw.bestShare,
+          bestEver: cw.bestEver,
+        };
         let workerId: number | undefined;
 
         if (worker) {
-          const newHashrate1m = convertHashrateFloat(workerData.hashrate1m);
-          const newHashrate5m = convertHashrateFloat(workerData.hashrate5m);
-          const newHashrate1hr = convertHashrateFloat(workerData.hashrate1hr);
-          const newHashrate1d = convertHashrateFloat(workerData.hashrate1d);
-          const newHashrate7d = convertHashrateFloat(workerData.hashrate7d);
-          const newLastUpdate = new Date(workerData.lastshare * 1000);
-          const newShares = safeParseFloat(workerData.shares, 0);
-          const newBestShare = safeParseFloat(workerData.bestshare, 0);
-
-          const changed =
-            (worker.userAgent || '') !== (token || '') ||
-            (worker.userAgentRaw || '') !== (rawUa || '') ||
-            Number(worker.hashrate1m || 0) !== Number(newHashrate1m || 0) ||
-            Number(worker.hashrate5m || 0) !== Number(newHashrate5m || 0) ||
-            Number(worker.hashrate1hr || 0) !== Number(newHashrate1hr || 0) ||
-            Number(worker.hashrate1d || 0) !== Number(newHashrate1d || 0) ||
-            Number(worker.hashrate7d || 0) !== Number(newHashrate7d || 0) ||
-            Number(worker.shares || 0) !== Number(newShares || 0) ||
-            Number(worker.bestShare || 0) !== Number(newBestShare || 0) ||
-            Number(worker.bestEver || 0) !== Number(newBestEver || 0) ||
-            (worker.lastUpdate?.getTime() || 0) !== newLastUpdate.getTime();
-
-          if (changed) {
-            worker.userAgent = token;
-            worker.userAgentRaw = rawUa || null;
-            worker.hashrate1m = newHashrate1m;
-            worker.hashrate5m = newHashrate5m;
-            worker.hashrate1hr = newHashrate1hr;
-            worker.hashrate1d = newHashrate1d;
-            worker.hashrate7d = newHashrate7d;
-            worker.lastUpdate = newLastUpdate;
-            worker.shares = newShares;
-            worker.bestShare = newBestShare;
-            worker.bestEver = newBestEver;
-            await workerRepository.save(worker);
-            anyChanged = true;
-          }
-          workerId = worker.id;
+          Object.assign(worker, values);
+          const saved = await workerRepository.save(worker);
+          workerId = saved.id;
         } else {
           const inserted = await workerRepository.insert({
             userAddress: address,
-            name: workerName,
-            hashrate1m: convertHashrateFloat(workerData.hashrate1m),
-            hashrate5m: convertHashrateFloat(workerData.hashrate5m),
-            hashrate1hr: convertHashrateFloat(workerData.hashrate1hr),
-            hashrate1d: convertHashrateFloat(workerData.hashrate1d),
-            hashrate7d: convertHashrateFloat(workerData.hashrate7d),
-            lastUpdate: new Date(workerData.lastshare * 1000),
-            shares: safeParseFloat(workerData.shares, 0),
-            bestShare: safeParseFloat(workerData.bestshare, 0),
-            bestEver: newBestEver,
-            userAgent: token,
-            userAgentRaw: rawUa || null,
+            name: cw.name,
             updatedAt: new Date().toISOString(),
+            ...values,
           });
           workerId = inserted?.identifiers?.[0]?.id as number | undefined;
-          anyChanged = true;
         }
 
-        // Book this worker's best into the immutable high-score ledger (idempotent; the guard
+        // Book this worker's best into the immutable high-score ledger (idempotent; the SQL guard
         // keeps it upward-only). Done here on the on-demand add-user path as well as in the cron
         // so a newly registered user's existing best isn't missed.
-        if (newBestEver > 0 && workerId != null) {
+        if (cw.bestEver > 0 && workerId != null) {
           await recordBestDiff(manager, {
             workerId,
             userAddress: address,
-            workerName,
-            bestEver: newBestEver,
-            device: token,
+            workerName: cw.name,
+            bestEver: cw.bestEver,
+            device: cw.userAgent,
           });
         }
       }
@@ -671,7 +568,7 @@ export async function updateSingleUser(
     cacheDeletePrefix('topUserHashrates');
     cacheDeletePrefix('topUserLoyalty');
     cacheDeletePrefix(`workerWithStats:${address}:`);
-    return anyChanged;
+    return true;
   } catch (error) {
     console.error(`Error updating user ${address}:`, error);
     throw error;
