@@ -4,13 +4,9 @@ import { User } from './entities/User';
 import { UserStats } from './entities/UserStats';
 import { Worker } from './entities/Worker';
 import { WorkerStats } from './entities/WorkerStats';
-import {
-  convertHashrateFloat,
-  bigIntStringFromFloatLike,
-  maskAddress,
-} from '../utils/helpers';
 import { getPoolUrls, combineUserData } from '../scripts/combine';
 import { fetchAllPools, fetchUserFromPool } from '../scripts/fetchPools';
+import { bigIntStringFromFloatLike, maskAddress } from '../utils/helpers';
 
 const HISTORICAL_DATA_POINTS = 5760;
 
