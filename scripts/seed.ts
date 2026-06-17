@@ -1,14 +1,17 @@
 // eslint-disable-next-line import/no-unresolved
 import 'dotenv/config';
-import { readFileStable } from '../utils/readFileStable';
 
 import { getDb } from '../lib/db';
 import { PoolStats } from '../lib/entities/PoolStats';
+import { bigIntStringFromFloatLike } from '../utils/helpers';
 import {
-  bigIntStringFromFloatLike,
-  convertHashrateFloat,
-  safeParseFloat,
-} from '../utils/helpers';
+  getPoolUrls,
+  combinePoolStatus,
+  type CombinedPoolStatus,
+  type CombinedUserAgent,
+  type RawPoolStatus,
+} from './combine';
+import { fetchAllPools, fetchPoolStatusFromPool } from './fetchPools';
 
 const DRY_RUN = Boolean(process.env.SEED_DRY_RUN || process.env.DRY_RUN);
 
@@ -45,36 +48,44 @@ interface PoolStatsData {
   rejected_count?: number;
 }
 
-async function fetchPoolStats(): Promise<Partial<PoolStatsData>> {
-  let data: string;
-  console.log('Fetching pool stats...');
-  const apiUrl =
-    (process.env.API_URL || 'https://solo.ckpool.org') + '/pool/pool.status';
+/** Parse one pool's raw pool.status text (ckpool emits one JSON object per line). */
+function parsePoolStatus(text: string): RawPoolStatus {
+  const lines = text.split('\n').filter(Boolean);
+  const parsed: any = lines.reduce((acc, line) => ({ ...acc, ...JSON.parse(line) }), {});
+  // ckpool may report diff as a zero-like decimal ("0.0"); treat as tiny-but-nonzero for formatting.
+  const diffMatch = text.match(/"diff"\s*:\s*("[^"]*"|[^,}\n]+)/);
+  const diffRaw = diffMatch ? diffMatch[1].trim().replace(/"/g, '') : undefined;
+  if (diffRaw && /^0+(?:\.0+)$/.test(diffRaw)) parsed.diff = 0.0001;
+  return parsed as RawPoolStatus;
+}
 
-  try {
-    const response = await fetch(apiUrl);
-    data = await response.text();
-  } catch (error: any) {
-    if (error.cause?.code === 'ERR_INVALID_URL') {
-      data = await readFileStable(apiUrl, { retries: 6, backoffMs: 50 });
-    } else throw error;
+/**
+ * Fetch pool.status from every configured pool and combine into one service-wide status.
+ * Returns null to SKIP the cycle when any pool is unavailable (so we never persist understated
+ * combined stats) or when no pool returned usable data.
+ */
+async function fetchPoolStats(): Promise<CombinedPoolStatus | null> {
+  const urls = getPoolUrls();
+  const pools = urls.length > 0 ? urls : ['https://solo.ckpool.org'];
+  console.log(`Fetching pool stats from ${pools.length} pool(s)...`);
+
+  const results = await fetchAllPools(pools, fetchPoolStatusFromPool);
+  const unavailable = results.filter((r) => r.status === 'error');
+  if (unavailable.length > 0) {
+    console.warn(
+      `${unavailable.length}/${pools.length} pool(s) unavailable; skipping pool-stats cycle to avoid understatement`
+    );
+    return null;
   }
 
-  const jsonLines = data.split('\n').filter(Boolean);
-  const parsedData = jsonLines.reduce(
-    (acc, line) => ({ ...acc, ...JSON.parse(line) }),
-    {}
-  );
-
-  // Capture raw diff token string (as it appears in the API response) so we can detect formats like 0.0
-  try {
-    const diffMatch = data.match(/"diff"\s*:\s*("[^"]*"|[^,}\n]+)/);
-    parsedData.diffRaw = diffMatch ? diffMatch[1].trim() : undefined;
-  } catch (e) {
-    console.warn('Failed to capture raw diff token:', e);
+  const parsed = results
+    .flatMap((r) => (r.status === 'found' ? [parsePoolStatus(r.data)] : []))
+    .filter((p) => !isEmptyPoolStatus(p as any));
+  if (parsed.length === 0) {
+    console.warn('No usable pool.status from any pool; skipping this cycle');
+    return null;
   }
-
-  return parsedData as PoolStatsData;
+  return combinePoolStatus(parsed);
 }
 
 /**
@@ -92,7 +103,7 @@ export function isEmptyPoolStatus(stats: Partial<PoolStatsData>): boolean {
 
 async function updateOnlineDevices(
   db: any,
-  userAgents?: Array<{ ua: string; devices: number; hashrate5m: string; bestshare?: number }>
+  userAgents?: CombinedUserAgent[]
 ): Promise<void> {
   if (!userAgents || userAgents.length === 0) {
     console.log('No UserAgents data available for online_devices update');
@@ -101,11 +112,8 @@ async function updateOnlineDevices(
 
   console.log(`Updating online_devices with ${userAgents.length} device types...`);
 
-  const sorted = [...userAgents].sort((a, b) => {
-    const hashA = convertHashrateFloat((a.hashrate5m ?? '0').trim());
-    const hashB = convertHashrateFloat((b.hashrate5m ?? '0').trim());
-    return hashB - hashA;
-  });
+  // hashrate5m / bestshare are already numeric (combined across pools).
+  const sorted = [...userAgents].sort((a, b) => b.hashrate5m - a.hashrate5m);
 
   const updateTimestamp = new Date().toISOString();
   const valuesSql: string[] = [];
@@ -114,9 +122,8 @@ async function updateOnlineDevices(
 
   for (let i = 0; i < sorted.length; i++) {
     const device = sorted[i];
-    const hashrate5mStr = (device.hashrate5m ?? '0').trim();
-    const hashrate5mNum = convertHashrateFloat(hashrate5mStr);
-    const bestshareNum = Number(device.bestshare ?? 0);
+    const hashrate5mNum = device.hashrate5m;
+    const bestshareNum = device.bestshare;
 
     valuesSql.push(
       `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4})`
@@ -172,75 +179,69 @@ async function clearOnlineDevices(db: any): Promise<void> {
 async function seed() {
   let db: any | null = null;
   try {
-    console.log('Fetching pool stats...');
-    const stats = await fetchPoolStats();
+    const combined = await fetchPoolStats();
+    if (!combined) return; // skip cycle (already logged: pool unavailable or no usable data)
 
-    // Skip cycles where the read yielded no usable data.
-    if (isEmptyPoolStatus(stats)) {
-      console.warn('Pool status empty (no usable data); skipping this cycle');
+    if (DRY_RUN) {
+      console.log('DRY_RUN enabled — would save combined PoolStats:');
+      console.log(JSON.stringify(combined, null, 2));
       return;
     }
 
+    db = await getDb();
+
+    // users/workers = distinct DB count of ACTIVE rows (per the plan) — summing per-pool
+    // pool.status counts would double-count cross-pool users. Worker rows are one-per-identity
+    // (already deduped across pools); "active" = currently hashing (hashrate5m > 0), since Worker
+    // has no isActive flag and we retain idle workers. idle/disconnected come from the combined status.
+    const [{ c: userCount }] = await db.query(
+      `SELECT count(*)::int AS c FROM "User" WHERE "isActive" = true`
+    );
+    const [{ c: workerCount }] = await db.query(
+      `SELECT count(*)::int AS c FROM "Worker" WHERE hashrate5m > 0`
+    );
+
     const poolStats = {
-      runtime: parseInt(stats.runtime ?? '0'),
-      users: parseInt(stats.Users ?? '0'),
-      workers: parseInt(stats.Workers ?? '0'),
-      idle: parseInt(stats.Idle ?? '0'),
-      disconnected: stats.Disconnected ? parseInt(stats.Disconnected) : 0,
-      hashrate1m: convertHashrateFloat(stats.hashrate1m ?? ''),
-      hashrate5m: convertHashrateFloat(stats.hashrate5m ?? ''),
-      hashrate15m: convertHashrateFloat(stats.hashrate15m ?? ''),
-      hashrate1hr: convertHashrateFloat(stats.hashrate1hr ?? ''),
-      hashrate6hr: convertHashrateFloat(stats.hashrate6hr ?? ''),
-      hashrate1d: convertHashrateFloat(stats.hashrate1d ?? ''),
-      hashrate7d: convertHashrateFloat(stats.hashrate7d ?? ''),
-      // If the raw token contains a decimal (e.g. '0.0', '0.00'), treat as tiny but non-zero for formatting.
-      diff: (() => {
-        const raw = (stats as any).diffRaw ? (stats as any).diffRaw.replace(/"/g, '') : undefined;
-        const parsed = safeParseFloat(stats.diff, 0);
-        const zeroLikeDecimal = raw && /^0+(?:\.0+)$/.test(raw);
-        return zeroLikeDecimal ? 0.0001 : parsed;
-      })(),
-      netdiff: stats.netdiff ? safeParseFloat(stats.netdiff, 0) : undefined,
-      accepted: Number(stats.accepted || 0),
-      rejected: Number(stats.rejected || 0),
-      bestshare: safeParseFloat(stats.bestshare ?? '', 0),
-      // ckpool sends SPS as JSON numbers; coerce via safeParseFloat (accepts
-      // string or number) so they match the entity's float columns.
-      SPS1m: safeParseFloat(stats.SPS1m, 0),
-      SPS5m: safeParseFloat(stats.SPS5m, 0),
-      SPS15m: safeParseFloat(stats.SPS15m, 0),
-      SPS1h: safeParseFloat(stats.SPS1h, 0),
-      accepted_count: stats.accepted_count != null ? bigIntStringFromFloatLike(stats.accepted_count) : undefined,
-      rejected_count: stats.rejected_count != null ? bigIntStringFromFloatLike(stats.rejected_count) : undefined,
+      runtime: Math.round(combined.runtime),
+      users: userCount,
+      workers: workerCount,
+      idle: combined.idle,
+      disconnected: combined.disconnected,
+      hashrate1m: combined.hashrate1m,
+      hashrate5m: combined.hashrate5m,
+      hashrate15m: combined.hashrate15m,
+      hashrate1hr: combined.hashrate1hr,
+      hashrate6hr: combined.hashrate6hr,
+      hashrate1d: combined.hashrate1d,
+      hashrate7d: combined.hashrate7d,
+      diff: combined.diff,
+      netdiff: combined.netdiff ?? undefined,
+      accepted: combined.accepted,
+      rejected: combined.rejected,
+      bestshare: combined.bestshare,
+      SPS1m: combined.SPS1m,
+      SPS5m: combined.SPS5m,
+      SPS15m: combined.SPS15m,
+      SPS1h: combined.SPS1h,
+      accepted_count: combined.acceptedCount ? bigIntStringFromFloatLike(combined.acceptedCount) : undefined,
+      rejected_count: combined.rejectedCount ? bigIntStringFromFloatLike(combined.rejectedCount) : undefined,
       timestamp: new Date(),
     } satisfies Partial<PoolStats>;
 
-    if (DRY_RUN) {
-      console.log(
-        'DRY_RUN enabled — would save the following PoolStats object:'
-      );
-      console.log(JSON.stringify(poolStats, null, 2));
-      return;
-    }
-
     console.log('Saving pool stats to database...');
-    db = await getDb();
     const poolStatsRepository = db.getRepository(PoolStats);
     const entity = poolStatsRepository.create(poolStats);
     await poolStatsRepository.save(entity);
     console.log('Database seeded successfully');
 
-    const userCount = poolStats.users || 0;
-
-    if (stats.UserAgents && stats.UserAgents.length > 0) {
-      await updateOnlineDevices(db, stats.UserAgents);
+    if (combined.userAgents.length > 0) {
+      await updateOnlineDevices(db, combined.userAgents);
     } else if (userCount === 0) {
-      console.log('No active users in pool status; clearing online_devices');
+      console.log('No active users; clearing online_devices');
       await clearOnlineDevices(db);
     } else {
       console.warn(
-        'UserAgents missing but pool status reports active users; keeping existing online_devices (stale)'
+        'UserAgents missing but active users present; keeping existing online_devices (stale)'
       );
     }
   } catch (error) {

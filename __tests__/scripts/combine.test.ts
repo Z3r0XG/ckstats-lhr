@@ -93,11 +93,13 @@ describe('combineUserData', () => {
 describe('combinePoolStatus', () => {
   it('sums hashrate/accepted/SPS/counts, maxes bestshare, takes one netdiff, merges UserAgents', () => {
     const r1 = {
+      runtime: 1000, Idle: 2, Disconnected: 1,
       hashrate5m: '5T', accepted: 100, rejected: 1, accepted_count: 1000, rejected_count: 10,
       bestshare: 700, netdiff: 486e9, SPS1m: 10,
       UserAgents: [{ ua: 'bitaxe', devices: 2, hashrate5m: '1T', bestshare: 50 }],
     };
     const r2 = {
+      runtime: 2000, Idle: 3, Disconnected: 0,
       hashrate5m: '3T', accepted: 200, rejected: 2, accepted_count: 2000, rejected_count: 20,
       bestshare: 900, netdiff: 486e9, SPS1m: 20,
       UserAgents: [
@@ -106,6 +108,9 @@ describe('combinePoolStatus', () => {
       ],
     };
     const c = combinePoolStatus([r1, r2]);
+    expect(c.runtime).toBe(2000);  // MAX
+    expect(c.idle).toBe(5);        // SUM
+    expect(c.disconnected).toBe(1); // SUM
     expect(c.hashrate5m).toBeCloseTo(conv('5T') + conv('3T'));
     expect(c.accepted).toBe(300);
     expect(c.rejected).toBe(3);

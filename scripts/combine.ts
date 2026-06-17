@@ -152,6 +152,9 @@ export function combineUserData(pools: UserData[], address: string): CombinedUse
 
 /** Minimal raw pool.status shape this needs (subset of seed.ts PoolStatsData). */
 export interface RawPoolStatus {
+  runtime?: string | number;
+  Idle?: string | number;
+  Disconnected?: string | number;
   hashrate1m?: string;
   hashrate5m?: string;
   hashrate15m?: string;
@@ -181,6 +184,9 @@ export interface CombinedUserAgent {
 }
 
 export interface CombinedPoolStatus {
+  runtime: number; // MAX (per-pool uptime; representative)
+  idle: number; // SUM (approx — connection-state count; can over-count cross-pool)
+  disconnected: number; // SUM (approx)
   hashrate1m: number;
   hashrate5m: number;
   hashrate15m: number;
@@ -229,8 +235,13 @@ export function combinePoolStatus(pools: RawPoolStatus[]): CombinedPoolStatus {
   }
 
   const netPool = pools.find((p) => p.netdiff != null && p.netdiff !== '');
+  const intSum = (k: keyof RawPoolStatus) =>
+    pools.reduce((a, p) => a + (parseInt(String(p[k] ?? '0'), 10) || 0), 0);
 
   return {
+    runtime: pools.reduce((a, p) => Math.max(a, safeParseFloat(p.runtime as any, 0)), 0),
+    idle: intSum('Idle'),
+    disconnected: intSum('Disconnected'),
     hashrate1m: sumHr('hashrate1m'),
     hashrate5m: sumHr('hashrate5m'),
     hashrate15m: sumHr('hashrate15m'),
