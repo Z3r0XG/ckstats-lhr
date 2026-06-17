@@ -124,7 +124,7 @@ export default function UserPageClient({
           <div className="stat-value text-3xl">
             {user.workers.filter(isWorkerActive).length}
           </div>
-          <div className="stat-desc">of {user.workers.length} total</div>
+          <div className="stat-desc">Total: {user.workers.length}</div>
         </div>
         <div className="stat">
           <div className="stat-title">Authorised</div>
