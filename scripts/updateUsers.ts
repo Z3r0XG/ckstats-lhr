@@ -1,7 +1,5 @@
 import 'dotenv/config';
 import 'reflect-metadata';
-import { readJsonStable, delay } from '../utils/readFileStable';
-import { validateAndResolveUserPath } from '../utils/validateLocalPath';
 
 export class FileNotFoundError extends Error {
   constructor(message: string) {
@@ -21,8 +19,6 @@ import { getPoolUrls, combineUserData } from './combine';
 import { fetchAllPools, fetchUserFromPool } from './fetchPools';
 
 const BATCH_SIZE = 10;
-export const MAX_RETRIES = 3;
-export const RETRY_DELAY_MS = 500;
 
 export const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -76,55 +72,6 @@ export interface UserData {
   bestshare: string;
   bestever: string;
   worker: WorkerData[];
-}
-
-export async function fetchUserDataWithRetry(address: string, apiUrl: string): Promise<UserData> {
-  let lastError: any;
-  
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const response = await fetch(apiUrl);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return (await response.json()) as UserData;
-    } catch (error: any) {
-      lastError = error;
-      
-      if (error.cause?.code === 'ERR_INVALID_URL') {
-        // When API_URL is a filesystem path (local logs), enforce a safe root
-        const basePath = process.env.API_URL || '';
-        
-        try {
-          const resolved = validateAndResolveUserPath(address, basePath);
-          return await readJsonStable(resolved, {
-            retries: 6,
-            backoffMs: 50,
-          }) as UserData;
-        } catch (fileError: any) {
-          // readJsonStable handles temporary missing files; if it still fails, file is gone
-          if (fileError.code === 'ENOENT') {
-            throw new FileNotFoundError(`User file not found: ${address}`);
-          }
-          
-          throw fileError; // Other file errors propagate immediately
-        }
-      }
-
-      if (attempt === MAX_RETRIES) {
-        console.error(`Failed to fetch data for ${address} after ${MAX_RETRIES} attempts`);
-        throw lastError;
-      }
-
-      console.log(`Attempt ${attempt} failed for ${address}. Retrying...`);
-      await delay(RETRY_DELAY_MS * attempt);
-    }
-  }
-
-  // This should never be reached since attempt===MAX_RETRIES always throws
-  throw new Error(`Unexpected: fetchUserDataWithRetry loop ended without throwing for ${address}`);
 }
 
 /**

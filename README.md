@@ -118,8 +118,13 @@ pnpm install
 Create `.env` file with required settings:
 
 ```bash
-# CKPool API (required)
+# CKPool data source (required) — a single pool:
 API_URL="https://solo.ckpool.org"
+
+# ...or aggregate several pools of the SAME coin into one combined view (optional).
+# When set, POOL_URLS takes precedence over API_URL. JSON array or comma-separated list;
+# each entry is an HTTPS URL or a local log path (mixable):
+# POOL_URLS='["https://na.example.org","https://eu.example.org","/var/log/ckpool-apac"]'
 
 # PostgreSQL connection (required)
 DB_HOST="localhost"
@@ -142,13 +147,20 @@ DEFAULT_THEME="forest"
 
 **Configuration Notes:**
 
-**API_URL**: CKPool data source. **REQUIRED**
+**API_URL**: CKPool data source. **REQUIRED** (unless `POOL_URLS` is set)
 - Type: String
 - Values: HTTPS URL or local filesystem path
 - Examples:
   - Remote API: `https://solo.ckpool.org`
   - Local logs: `/var/log/ckpool`
 - Note: For local files, provide the path to CKPool's log directory
+
+**POOL_URLS**: Aggregate multiple CKPool pools of the **same coin** into one combined view. **OPTIONAL**
+- Type: JSON array (`["https://a","https://b"]`) or comma-separated list (`https://a,https://b`)
+- Values: each entry is an HTTPS URL or a local log path (the two may be mixed)
+- Precedence: when set and non-empty, `POOL_URLS` is used instead of `API_URL`; otherwise the app falls back to the single `API_URL`
+- Behavior: stats are combined per the aggregation rules — counts are deduplicated by identity (a wallet on two pools is one user; a worker name on two pools is one worker), additive metrics (hashrate, shares, accepted/rejected) are summed, and best-ever/last-share are taken as the max. High scores and user records are preserved across pools.
+- Note: only aggregate pools of the **same coin** (combining different coins is meaningless); a pool being briefly unreachable defers that cycle rather than understating the combined totals
 
 **DB_HOST**: PostgreSQL server address. **REQUIRED**
 - Type: String
