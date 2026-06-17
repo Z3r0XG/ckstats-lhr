@@ -1,7 +1,8 @@
 /**
- * Multi-region combine — PURE functions that merge N regional ckpool endpoints into one
- * "combined service" view. No I/O, no DB, no env beyond getEndpoints(): unit-testable in
- * isolation (this is where all the sum/max/min/dedup rules live).
+ * Multi-pool aggregation — PURE functions that merge N upstream ckpool pools into one combined
+ * view. No I/O, no DB, no env beyond getPoolUrls(): unit-testable in isolation (this is where all
+ * the sum/max/min/dedup rules live). "pool" = one upstream ckpool we aggregate; the combined output
+ * feeds the existing PoolStats/Worker/UserStats as today.
  *
  * See .local/multi-region-combine-plan.md. Outputs normalized NUMERIC shapes (hashrates in H/s)
  * because ckpool reports unit-strings ("73.4T") that can't round-trip cleanly; the ingest
@@ -16,19 +17,27 @@ import {
 
 const hr = (v: unknown): number => convertHashrateFloat(String(v ?? '0'));
 
-// ─── endpoint config ──────────────────────────────────────────────────────────
+// ─── pool config ──────────────────────────────────────────────────────────────
 
 /**
- * Ordered list of region endpoints. `API_URLS` (comma-separated, file path OR http base) takes
- * precedence; falls back to the single `API_URL` for back-compat. Each entry is resolved by the
- * existing dual-mode fetch (http, else local file).
+ * Ordered list of upstream pool URLs (each an http base OR a local file root, resolved by the
+ * existing dual-mode fetch). `POOL_URLS` accepts a JSON array (`["https://a","https://b"]`) or a
+ * comma-separated list; falls back to the single `API_URL` for back-compat single-pool deploys.
  */
-export function getEndpoints(): string[] {
-  const list = (process.env.API_URLS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (list.length > 0) return list;
+export function getPoolUrls(): string[] {
+  const raw = (process.env.POOL_URLS ?? '').trim();
+  if (raw) {
+    if (raw.startsWith('[')) {
+      try {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return arr.map((s) => String(s).trim()).filter(Boolean);
+      } catch {
+        /* not valid JSON — fall through to comma parsing */
+      }
+    }
+    const list = raw.split(',').map((s) => s.trim()).filter(Boolean);
+    if (list.length > 0) return list;
+  }
   const single = (process.env.API_URL ?? '').trim();
   return single ? [single] : [];
 }
@@ -43,22 +52,22 @@ export interface CombinedWorker {
   hashrate1hr: number;
   hashrate1d: number;
   hashrate7d: number;
-  lastShare: number; // MAX across regions
-  started: number; // MAX (most recent session start; 0 if connected nowhere)
+  lastShare: number; // MAX across pools
+  started: number; // MAX (most recent session start; 0 if connected to no pool)
   shares: number; // SUM
   bestShare: number; // MAX
   bestEver: number; // MAX
 }
 
 export interface CombinedUser {
-  authorised: number; // MIN across regions (earliest join); 0 if none
+  authorised: number; // MIN across pools (earliest join); 0 if none
   hashrate1m: number;
   hashrate5m: number;
   hashrate1hr: number;
   hashrate1d: number;
   hashrate7d: number;
   lastShare: number; // MAX
-  workerCount: number; // distinct-union count (NOT sum of per-region userData.workers)
+  workerCount: number; // distinct-union count (NOT sum of per-pool userData.workers)
   shares: number; // SUM
   bestShare: number; // MAX
   bestEver: number; // MAX
@@ -66,19 +75,19 @@ export interface CombinedUser {
 }
 
 /**
- * Combine a user's data from each region it was found on. Dedups workers by identity
+ * Combine a user's data from each pool it was found on. Dedups workers by identity
  * (parseWorkerName), summing hashrate/shares and taking the max of best-ever/last-share, then
  * derives the user-level totals from the combined workers (so workerCount is the distinct count).
  */
-export function combineUserData(regions: UserData[], address: string): CombinedUser {
+export function combineUserData(pools: UserData[], address: string): CombinedUser {
   const byName = new Map<string, CombinedWorker>();
   let authorised = 0;
 
-  for (const region of regions) {
-    if (region.authorised && region.authorised > 0) {
-      authorised = authorised ? Math.min(authorised, region.authorised) : region.authorised;
+  for (const pool of pools) {
+    if (pool.authorised && pool.authorised > 0) {
+      authorised = authorised ? Math.min(authorised, pool.authorised) : pool.authorised;
     }
-    for (const w of region.worker ?? []) {
+    for (const w of pool.worker ?? []) {
       const name = parseWorkerName(w.workername, address);
       const lastShare = Number(w.lastshare ?? 0);
       const incoming = {
@@ -109,7 +118,7 @@ export function combineUserData(regions: UserData[], address: string): CombinedU
       cur.bestShare = Math.max(cur.bestShare, incoming.bestShare);
       cur.bestEver = Math.max(cur.bestEver, incoming.bestEver);
       cur.started = Math.max(cur.started, incoming.started);
-      // last-share + the device/UA both come from the most-recently-active region
+      // last-share + the device/UA both come from the most-recently-active pool
       if (incoming.lastShare > cur.lastShare) {
         cur.lastShare = incoming.lastShare;
         cur.userAgent = incoming.userAgent;
@@ -184,7 +193,7 @@ export interface CombinedPoolStatus {
   acceptedCount: number; // SUM
   rejectedCount: number; // SUM
   bestshare: number; // MAX
-  netdiff: number | null; // identical across regions → take first non-null
+  netdiff: number | null; // identical across pools (same coin) → take first non-null
   diff: number; // representative → MAX (per-connection vardiff; not truly combinable)
   SPS1m: number;
   SPS5m: number;
@@ -192,19 +201,19 @@ export interface CombinedPoolStatus {
   SPS1h: number;
   userAgents: CombinedUserAgent[];
   // NOTE: users/workers/idle/disconnected are deliberately NOT here — seed fills them from
-  // distinct DB counts (summing per-region pool.status counts double-counts cross-region users).
+  // distinct DB counts (summing per-pool pool.status counts double-counts cross-pool users).
 }
 
-/** Combine pool.status from each region into one service-wide status. */
-export function combinePoolStatus(regions: RawPoolStatus[]): CombinedPoolStatus {
+/** Combine pool.status from each pool into one service-wide status. */
+export function combinePoolStatus(pools: RawPoolStatus[]): CombinedPoolStatus {
   const sumHr = (k: keyof RawPoolStatus) =>
-    regions.reduce((a, r) => a + hr(r[k]), 0);
+    pools.reduce((a, p) => a + hr(p[k]), 0);
   const sumNum = (k: keyof RawPoolStatus) =>
-    regions.reduce((a, r) => a + safeParseFloat(r[k] as any, 0), 0);
+    pools.reduce((a, p) => a + safeParseFloat(p[k] as any, 0), 0);
 
   const uaMap = new Map<string, CombinedUserAgent>();
-  for (const r of regions) {
-    for (const u of r.UserAgents ?? []) {
+  for (const p of pools) {
+    for (const u of p.UserAgents ?? []) {
       const cur = uaMap.get(u.ua);
       const devices = Number(u.devices ?? 0);
       const h5 = hr(u.hashrate5m);
@@ -219,7 +228,7 @@ export function combinePoolStatus(regions: RawPoolStatus[]): CombinedPoolStatus 
     }
   }
 
-  const netRegion = regions.find((r) => r.netdiff != null && r.netdiff !== '');
+  const netPool = pools.find((p) => p.netdiff != null && p.netdiff !== '');
 
   return {
     hashrate1m: sumHr('hashrate1m'),
@@ -231,11 +240,11 @@ export function combinePoolStatus(regions: RawPoolStatus[]): CombinedPoolStatus 
     hashrate7d: sumHr('hashrate7d'),
     accepted: sumNum('accepted'),
     rejected: sumNum('rejected'),
-    acceptedCount: regions.reduce((a, r) => a + Number(r.accepted_count ?? 0), 0),
-    rejectedCount: regions.reduce((a, r) => a + Number(r.rejected_count ?? 0), 0),
-    bestshare: regions.reduce((a, r) => Math.max(a, safeParseFloat(r.bestshare as any, 0)), 0),
-    netdiff: netRegion ? safeParseFloat(netRegion.netdiff as any, 0) : null,
-    diff: regions.reduce((a, r) => Math.max(a, safeParseFloat(r.diff as any, 0)), 0),
+    acceptedCount: pools.reduce((a, p) => a + Number(p.accepted_count ?? 0), 0),
+    rejectedCount: pools.reduce((a, p) => a + Number(p.rejected_count ?? 0), 0),
+    bestshare: pools.reduce((a, p) => Math.max(a, safeParseFloat(p.bestshare as any, 0)), 0),
+    netdiff: netPool ? safeParseFloat(netPool.netdiff as any, 0) : null,
+    diff: pools.reduce((a, p) => Math.max(a, safeParseFloat(p.diff as any, 0)), 0),
     SPS1m: sumNum('SPS1m'),
     SPS5m: sumNum('SPS5m'),
     SPS15m: sumNum('SPS15m'),

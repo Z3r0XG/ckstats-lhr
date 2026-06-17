@@ -6,7 +6,7 @@
  * SUM/MAX/MIN/dedup behavior, not a hardcoded unit scale.
  */
 import {
-  getEndpoints,
+  getPoolUrls,
   combineUserData,
   combinePoolStatus,
 } from '../../scripts/combine';
@@ -33,23 +33,27 @@ function worker(o: Partial<any>): any {
   };
 }
 
-describe('getEndpoints', () => {
+describe('getPoolUrls', () => {
   const saved = { ...process.env };
   afterEach(() => { process.env = { ...saved }; });
 
-  it('parses API_URLS comma list (trim + drop empties)', () => {
-    process.env.API_URLS = ' https://a.com, https://b.com ,, https://c.com ';
-    expect(getEndpoints()).toEqual(['https://a.com', 'https://b.com', 'https://c.com']);
+  it('parses POOL_URLS as a JSON array', () => {
+    process.env.POOL_URLS = '["https://a.com", "https://b.com"]';
+    expect(getPoolUrls()).toEqual(['https://a.com', 'https://b.com']);
   });
-  it('falls back to single API_URL when API_URLS unset', () => {
-    delete process.env.API_URLS;
+  it('parses POOL_URLS as a comma list (trim + drop empties)', () => {
+    process.env.POOL_URLS = ' https://a.com, https://b.com ,, https://c.com ';
+    expect(getPoolUrls()).toEqual(['https://a.com', 'https://b.com', 'https://c.com']);
+  });
+  it('falls back to single API_URL when POOL_URLS unset', () => {
+    delete process.env.POOL_URLS;
     process.env.API_URL = '/var/log/ckpool';
-    expect(getEndpoints()).toEqual(['/var/log/ckpool']);
+    expect(getPoolUrls()).toEqual(['/var/log/ckpool']);
   });
   it('returns [] when neither is set', () => {
-    delete process.env.API_URLS;
+    delete process.env.POOL_URLS;
     delete process.env.API_URL;
-    expect(getEndpoints()).toEqual([]);
+    expect(getPoolUrls()).toEqual([]);
   });
 });
 
