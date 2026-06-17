@@ -162,6 +162,13 @@ DEFAULT_THEME="forest"
 - Behavior: stats are combined per the aggregation rules — counts are deduplicated by identity (a wallet on two pools is one user; a worker name on two pools is one worker), additive metrics (hashrate, shares, accepted/rejected) are summed, and best-ever/last-share are taken as the max. High scores and user records are preserved across pools.
 - Note: only aggregate pools of the **same coin** (combining different coins is meaningless); a pool being briefly unreachable defers that cycle rather than understating the combined totals
 
+**POOL_API_USER_AGENT / POOL_API_TOKEN / POOL_API_EXTRA_HEADERS / POOL_API_REQUEST_TIMEOUT_SECONDS**: Tune the outbound HTTP requests made to each CKPool API. **OPTIONAL**
+- `POOL_API_USER_AGENT`: `User-Agent` header to send (e.g. `ckstats/1.0`). Useful when a pool rate-limits by identity — aggregating several pools multiplies request volume, so a whitelisted agent avoids throttling.
+- `POOL_API_TOKEN`: sent as `Authorization: Bearer <token>`.
+- `POOL_API_EXTRA_HEADERS`: a JSON object of additional headers, e.g. `{"X-Pool-Key":"abc"}` (merged last). Malformed JSON is ignored with a warning.
+- `POOL_API_REQUEST_TIMEOUT_SECONDS`: abort any single request that exceeds this many seconds (omit or `0` for no timeout).
+- Note: these apply to local-file reads as nothing (they only affect HTTP); with none set, requests are made exactly as before.
+
 **DB_HOST**: PostgreSQL server address. **REQUIRED**
 - Type: String
 - Values: Hostname, IP address, or Unix socket path

@@ -18,6 +18,49 @@ import type { UserData } from './updateUsers';
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
 
+/**
+ * Build the per-request options applied to every pool HTTP call, from optional env config. This is
+ * what lets a deployment send a whitelisted identity (so the pool's rate limiter lets multi-pool's
+ * N× request volume through) and bound slow requests:
+ *   POOL_API_USER_AGENT             — User-Agent header (e.g. "ckstats/1.0")
+ *   POOL_API_TOKEN                  — sent as "Authorization: Bearer <token>"
+ *   POOL_API_EXTRA_HEADERS          — JSON object of additional headers (merged last, can override)
+ *   POOL_API_REQUEST_TIMEOUT_SECONDS — abort a request that takes longer than this many seconds
+ * All are optional; with none set this returns {} and fetch behaves exactly as before. A fresh
+ * object (and a fresh AbortSignal) is built per call, since a timeout signal fires only once.
+ */
+export function poolFetchInit(): RequestInit {
+  const headers: Record<string, string> = {};
+
+  const ua = process.env.POOL_API_USER_AGENT?.trim();
+  if (ua) headers['User-Agent'] = ua;
+
+  const token = process.env.POOL_API_TOKEN?.trim();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const extra = process.env.POOL_API_EXTRA_HEADERS?.trim();
+  if (extra) {
+    try {
+      const parsed = JSON.parse(extra);
+      if (parsed && typeof parsed === 'object') {
+        for (const [k, v] of Object.entries(parsed)) headers[k] = String(v);
+      }
+    } catch {
+      console.warn('POOL_API_EXTRA_HEADERS is not valid JSON; ignoring it');
+    }
+  }
+
+  const init: RequestInit = {};
+  if (Object.keys(headers).length > 0) init.headers = headers;
+
+  const seconds = Number(process.env.POOL_API_REQUEST_TIMEOUT_SECONDS);
+  if (Number.isFinite(seconds) && seconds > 0) {
+    init.signal = AbortSignal.timeout(seconds * 1000);
+  }
+
+  return init;
+}
+
 export type PoolFetchResult<T> =
   | { status: 'found'; base: string; data: T }
   | { status: 'absent'; base: string }
@@ -37,7 +80,7 @@ export async function fetchUserFromPool(
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, poolFetchInit());
       if (response.status === 404) return { status: 'absent', base };
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       return { status: 'found', base, data: (await response.json()) as UserData };
@@ -70,7 +113,7 @@ export async function fetchPoolStatusFromPool(base: string): Promise<PoolFetchRe
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, poolFetchInit());
       if (response.status === 404) return { status: 'absent', base };
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       return { status: 'found', base, data: await response.text() };

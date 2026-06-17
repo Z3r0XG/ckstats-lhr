@@ -16,6 +16,7 @@ import {
   fetchUserFromPool,
   fetchPoolStatusFromPool,
   fetchAllPools,
+  poolFetchInit,
 } from '../../scripts/fetchPools';
 import * as readFileStableModule from '../../utils/readFileStable';
 
@@ -82,7 +83,7 @@ describe('fetchUserFromPool', () => {
       const r = await fetchUserFromPool('https://a.com', 'addr');
 
       expect(r).toEqual({ status: 'found', base: 'https://a.com', data });
-      expect(fetchMock).toHaveBeenCalledWith('https://a.com/users/addr');
+      expect(fetchMock.mock.calls[0][0]).toBe('https://a.com/users/addr');
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(delay).not.toHaveBeenCalled();
     });
@@ -196,7 +197,7 @@ describe('fetchPoolStatusFromPool', () => {
     const r = await fetchPoolStatusFromPool('https://a.com');
 
     expect(r).toEqual({ status: 'found', base: 'https://a.com', data: '{"Users":5}' });
-    expect(fetchMock).toHaveBeenCalledWith('https://a.com/pool/pool.status');
+    expect(fetchMock.mock.calls[0][0]).toBe('https://a.com/pool/pool.status');
   });
 
   it('falls back to a local read on ERR_INVALID_URL', async () => {
@@ -216,6 +217,62 @@ describe('fetchPoolStatusFromPool', () => {
     fetchMock.mockResolvedValue({ ok: false, status: 404 });
     const r = await fetchPoolStatusFromPool('https://a.com');
     expect(r).toEqual({ status: 'absent', base: 'https://a.com' });
+  });
+});
+
+describe('poolFetchInit (env-driven request options)', () => {
+  const saved = { ...process.env };
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  it('returns {} when no POOL_API_* env is set (unchanged fetch behavior)', () => {
+    delete process.env.POOL_API_USER_AGENT;
+    delete process.env.POOL_API_TOKEN;
+    delete process.env.POOL_API_EXTRA_HEADERS;
+    delete process.env.POOL_API_REQUEST_TIMEOUT_SECONDS;
+    expect(poolFetchInit()).toEqual({});
+  });
+
+  it('sets the User-Agent header', () => {
+    process.env.POOL_API_USER_AGENT = 'ckstats/1.0';
+    expect((poolFetchInit().headers as Record<string, string>)['User-Agent']).toBe('ckstats/1.0');
+  });
+
+  it('sends the token as a Bearer Authorization header', () => {
+    process.env.POOL_API_TOKEN = 'secret123';
+    expect((poolFetchInit().headers as Record<string, string>)['Authorization']).toBe('Bearer secret123');
+  });
+
+  it('merges arbitrary JSON extra headers', () => {
+    process.env.POOL_API_USER_AGENT = 'ckstats/1.0';
+    process.env.POOL_API_EXTRA_HEADERS = '{"X-Pool-Key":"abc","X-Trace":"1"}';
+    const h = poolFetchInit().headers as Record<string, string>;
+    expect(h['User-Agent']).toBe('ckstats/1.0');
+    expect(h['X-Pool-Key']).toBe('abc');
+    expect(h['X-Trace']).toBe('1');
+  });
+
+  it('ignores malformed POOL_API_EXTRA_HEADERS without throwing', () => {
+    process.env.POOL_API_USER_AGENT = 'ckstats/1.0';
+    process.env.POOL_API_EXTRA_HEADERS = 'not json';
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const h = poolFetchInit().headers as Record<string, string>;
+    expect(h['User-Agent']).toBe('ckstats/1.0');
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('attaches an AbortSignal when a positive timeout is set', () => {
+    process.env.POOL_API_REQUEST_TIMEOUT_SECONDS = '5';
+    expect(poolFetchInit().signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('omits the signal for a zero / non-numeric timeout', () => {
+    process.env.POOL_API_REQUEST_TIMEOUT_SECONDS = '0';
+    expect(poolFetchInit().signal).toBeUndefined();
+    process.env.POOL_API_REQUEST_TIMEOUT_SECONDS = 'abc';
+    expect(poolFetchInit().signal).toBeUndefined();
   });
 });
 
