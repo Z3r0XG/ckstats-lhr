@@ -18,6 +18,7 @@ import {
   calculateBlockChances,
   calculateProximityPercent,
 } from '../utils/helpers';
+import { isWorkerActive } from '../utils/workerActivity';
 
 export default function UserPageClient({
   initialData,
@@ -120,7 +121,10 @@ export default function UserPageClient({
       <div className="stats stats-vertical sm:stats-horizontal shadow-lg my-2">
         <div className="stat">
           <div className="stat-title">Workers</div>
-          <div className="stat-value text-3xl">{latestStats.workerCount}</div>
+          <div className="stat-value text-3xl">
+            {user.workers.filter(isWorkerActive).length}
+          </div>
+          <div className="stat-desc">of {user.workers.length} total</div>
         </div>
         <div className="stat">
           <div className="stat-title">Authorised</div>

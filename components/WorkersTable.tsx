@@ -13,6 +13,7 @@ import {
   getWorkerUserAgentDisplay,
   compareWorkerUserAgentStrings,
 } from '../utils/helpers';
+import { isWorkerIdle } from '../utils/workerActivity';
 
 interface WorkersTableProps {
   workers: SerializedWorker[];
@@ -100,13 +101,6 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     } catch {
       /* ignore */
     }
-  };
-
-  const isWorkerIdle = (worker: SerializedWorker): boolean => {
-    if (!worker.lastUpdate) return true;
-    return (
-      Date.now() - new Date(worker.lastUpdate).getTime() > 24 * 60 * 60 * 1000
-    );
   };
 
   const isHidden = (w: SerializedWorker) => {
