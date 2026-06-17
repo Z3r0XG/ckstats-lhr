@@ -190,21 +190,15 @@ async function seed() {
 
     db = await getDb();
 
-    // users/workers = distinct DB count of ACTIVE rows (per the plan) — summing per-pool
-    // pool.status counts would double-count cross-pool users. Worker rows are one-per-identity
-    // (already deduped across pools); "active" = currently hashing (hashrate5m > 0), since Worker
-    // has no isActive flag and we retain idle workers. idle/disconnected come from the combined status.
-    const [{ c: userCount }] = await db.query(
-      `SELECT count(*)::int AS c FROM "User" WHERE "isActive" = true`
-    );
-    const [{ c: workerCount }] = await db.query(
-      `SELECT count(*)::int AS c FROM "Worker" WHERE hashrate5m > 0`
-    );
-
+    // users/workers/idle/disconnected are pool-level metrics that ckpool reports in pool.status
+    // independently of ckstats user registration, so they are SUMmed straight from the combined
+    // status (like hashrate). Deriving them from the ckstats DB would undercount to only the
+    // registered users' workers. pool.status is anonymous (no per-worker identity), so a wallet
+    // active on 2+ pools is counted on each — a small over-count, since few miners run multi-pool.
     const poolStats = {
       runtime: Math.round(combined.runtime),
-      users: userCount,
-      workers: workerCount,
+      users: combined.users,
+      workers: combined.workers,
       idle: combined.idle,
       disconnected: combined.disconnected,
       hashrate1m: combined.hashrate1m,
@@ -236,7 +230,7 @@ async function seed() {
 
     if (combined.userAgents.length > 0) {
       await updateOnlineDevices(db, combined.userAgents);
-    } else if (userCount === 0) {
+    } else if (combined.users === 0) {
       console.log('No active users; clearing online_devices');
       await clearOnlineDevices(db);
     } else {

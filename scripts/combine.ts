@@ -158,6 +158,8 @@ export function combineUserData(pools: UserData[], address: string): CombinedUse
 /** Minimal raw pool.status shape this needs (subset of seed.ts PoolStatsData). */
 export interface RawPoolStatus {
   runtime?: string | number;
+  Users?: string | number;
+  Workers?: string | number;
   Idle?: string | number;
   Disconnected?: string | number;
   hashrate1m?: string;
@@ -190,6 +192,8 @@ export interface CombinedUserAgent {
 
 export interface CombinedPoolStatus {
   runtime: number; // MAX (per-pool uptime; representative)
+  users: number; // SUM of per-pool pool.status Users (pool-level metric, not gated by ckstats registration)
+  workers: number; // SUM of per-pool pool.status Workers (ditto)
   idle: number; // SUM (approx — connection-state count; can over-count cross-pool)
   disconnected: number; // SUM (approx)
   hashrate1m: number;
@@ -211,8 +215,11 @@ export interface CombinedPoolStatus {
   SPS15m: number;
   SPS1h: number;
   userAgents: CombinedUserAgent[];
-  // NOTE: users/workers/idle/disconnected are deliberately NOT here — seed fills them from
-  // distinct DB counts (summing per-pool pool.status counts double-counts cross-pool users).
+  // NOTE: users/workers are SUMmed straight from pool.status (above) — they are pool-level metrics
+  // that ckpool reports independently of ckstats user registration, so deriving them from the
+  // ckstats DB (registration-gated) would drastically undercount. A wallet/worker active on 2+
+  // pools is counted on each; that cross-pool overlap is the same transient over-count as the
+  // failover hashrate SUM, and pool.status carries no identity to dedup on anyway.
 }
 
 /** Combine pool.status from each pool into one service-wide status. */
@@ -245,6 +252,8 @@ export function combinePoolStatus(pools: RawPoolStatus[]): CombinedPoolStatus {
 
   return {
     runtime: pools.reduce((a, p) => Math.max(a, safeParseFloat(p.runtime as any, 0)), 0),
+    users: intSum('Users'),
+    workers: intSum('Workers'),
     idle: intSum('Idle'),
     disconnected: intSum('Disconnected'),
     hashrate1m: sumHr('hashrate1m'),
