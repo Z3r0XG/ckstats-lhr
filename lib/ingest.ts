@@ -15,6 +15,7 @@ import {
   type PoolState,
 } from './poolHealth';
 import { persistCombinedPoolStats } from './poolStatsWrite';
+import { cleanOldStats } from '../scripts/cleanOldStats';
 import {
   getPoolUrls,
   combinePoolStatus,
@@ -491,11 +492,22 @@ export function startIngestLoop(): void {
   if (loopStarted) return;
   loopStarted = true;
   const intervalSec = Number(process.env.POOL_INGEST_INTERVAL_SECONDS) || 60;
-  console.log(`[ingest] starting in-process loop every ${intervalSec}s`);
+  // Default 7200s (2h) matches the README's recommended `cleanup` cron cadence.
+  const cleanupSec = Number(process.env.POOL_CLEANUP_INTERVAL_SECONDS) || 7200;
+  let lastCleanup = Date.now();
+  console.log(
+    `[ingest] starting in-process loop every ${intervalSec}s (cleanup every ${cleanupSec}s)`
+  );
   const tick = async () => {
     try {
       const r = await runCycle();
       console.log(`[ingest] cycle ok: ${r.pools} pools, ${r.users} users`);
+      // Prune the time-series tables on a slow cadence — folds the old `cleanup` cron into the loop
+      // so the single process does everything (snapshots are bounded and not pruned here).
+      if (Date.now() - lastCleanup >= cleanupSec * 1000) {
+        lastCleanup = Date.now();
+        await cleanOldStats();
+      }
     } catch (err) {
       console.error('[ingest] cycle error:', err);
     } finally {

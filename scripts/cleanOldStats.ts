@@ -1,5 +1,6 @@
-// eslint-disable-next-line import/no-unresolved
-import 'dotenv/config';
+// NB: no `import 'dotenv/config'` — the CLI npm script preloads it via `-r dotenv/config`, and when
+// this is imported by the in-process ingest loop Next provides env. Importing dotenv here would drag
+// node builtins into the instrumentation bundle.
 import { LessThan } from 'typeorm';
 
 import { getDb } from '../lib/db';
@@ -8,50 +9,52 @@ import { UserStats } from '../lib/entities/UserStats';
 import { Worker } from '../lib/entities/Worker';
 import { WorkerStats } from '../lib/entities/WorkerStats';
 
-async function cleanOldStats() {
+/**
+ * Prune the time-series tables to their retention windows (PoolStats 1wk, UserStats 3d, WorkerStats
+ * 1d) and drop Worker rows not updated in 7 days. The per-pool *_snapshot tables are bounded
+ * (upsert-latest) and intentionally NOT pruned here. Does NOT close the DB connection — callers own
+ * its lifecycle (the in-process loop shares one connection; the CLI entry below destroys it).
+ */
+export async function cleanOldStats(): Promise<void> {
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
   const threeDaysAgo = new Date();
   threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-
   const oneDayAgo = new Date();
   oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
-  try {
-    const db = await getDb();
+  const db = await getDb();
 
-    const poolStatsResult = await db.getRepository(PoolStats).delete({
-      timestamp: LessThan(oneWeekAgo),
-    });
-    console.log(`Deleted ${poolStatsResult.affected || 0} old pool stats`);
+  const poolStatsResult = await db
+    .getRepository(PoolStats)
+    .delete({ timestamp: LessThan(oneWeekAgo) });
+  console.log(`Deleted ${poolStatsResult.affected || 0} old pool stats`);
 
-    const userStatsResult = await db.getRepository(UserStats).delete({
-      timestamp: LessThan(threeDaysAgo),
-    });
-    console.log(`Deleted ${userStatsResult.affected || 0} old user stats`);
+  const userStatsResult = await db
+    .getRepository(UserStats)
+    .delete({ timestamp: LessThan(threeDaysAgo) });
+  console.log(`Deleted ${userStatsResult.affected || 0} old user stats`);
 
-    const workerStatsResult = await db.getRepository(WorkerStats).delete({
-      timestamp: LessThan(oneDayAgo),
-    });
-    console.log(`Deleted ${workerStatsResult.affected || 0} old worker stats`);
+  const workerStatsResult = await db
+    .getRepository(WorkerStats)
+    .delete({ timestamp: LessThan(oneDayAgo) });
+  console.log(`Deleted ${workerStatsResult.affected || 0} old worker stats`);
 
-    // Delete Worker rows that haven't been updated in 7 days — these are orphaned records
-    // for workers whose pool files no longer exist and will never be fetched again.
-    // Active workers (including idle ones still reported by the API) are saved every cron run,
-    // so their updatedAt stays current.
-    const staleWorkerResult = await db.getRepository(Worker).delete({
-      updatedAt: LessThan(oneWeekAgo),
-    });
-    console.log(`Deleted ${staleWorkerResult.affected || 0} stale workers`);
+  // Drop Worker rows untouched in 7 days — orphaned records whose pool files are gone. Active/idle
+  // workers still reported by the API are saved every cycle, so their updatedAt stays current.
+  const staleWorkerResult = await db
+    .getRepository(Worker)
+    .delete({ updatedAt: LessThan(oneWeekAgo) });
+  console.log(`Deleted ${staleWorkerResult.affected || 0} stale workers`);
 
-    console.log('Old stats cleanup completed successfully');
-  } catch (error) {
-    console.error('Error cleaning old stats:', error);
-  } finally {
-    const db = await getDb();
-    await db.destroy();
-  }
+  console.log('Old stats cleanup completed successfully');
 }
 
-cleanOldStats().catch(console.error);
+if (require.main === module) {
+  cleanOldStats()
+    .catch((error) => console.error('Error cleaning old stats:', error))
+    .finally(async () => {
+      const db = await getDb();
+      await db.destroy();
+    });
+}
