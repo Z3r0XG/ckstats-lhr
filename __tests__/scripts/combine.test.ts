@@ -7,6 +7,7 @@
  */
 import {
   getPoolUrls,
+  getPoolSources,
   combineUserData,
   combinePoolStatus,
 } from '../../scripts/combine';
@@ -54,6 +55,47 @@ describe('getPoolUrls', () => {
     delete process.env.POOL_URLS;
     delete process.env.API_URL;
     expect(getPoolUrls()).toEqual([]);
+  });
+});
+
+describe('getPoolSources (urls + labels, universal)', () => {
+  const saved = { ...process.env };
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  it('uses explicit labels from the {url,label} object form', () => {
+    process.env.POOL_URLS =
+      '[{"url":"https://na.example.org","label":"NA"},{"url":"https://eu.example.org","label":"EU"}]';
+    expect(getPoolSources()).toEqual([
+      { url: 'https://na.example.org', label: 'NA' },
+      { url: 'https://eu.example.org', label: 'EU' },
+    ]);
+  });
+
+  it('falls back to the hostname for a plain URL string (no host-naming assumptions)', () => {
+    process.env.POOL_URLS = '["https://api-btc-na.heliospool.com"]';
+    expect(getPoolSources()).toEqual([
+      { url: 'https://api-btc-na.heliospool.com', label: 'api-btc-na.heliospool.com' },
+    ]);
+  });
+
+  it('falls back to the last path segment for a local file root', () => {
+    process.env.POOL_URLS = '/var/log/ckpool-na';
+    delete process.env.API_URL;
+    expect(getPoolSources()).toEqual([
+      { url: '/var/log/ckpool-na', label: 'ckpool-na' },
+    ]);
+  });
+
+  it('mixes string and object entries; getPoolUrls returns just the urls', () => {
+    process.env.POOL_URLS =
+      '["https://a.com",{"url":"https://b.com","label":"Beta"}]';
+    expect(getPoolSources()).toEqual([
+      { url: 'https://a.com', label: 'a.com' },
+      { url: 'https://b.com', label: 'Beta' },
+    ]);
+    expect(getPoolUrls()).toEqual(['https://a.com', 'https://b.com']);
   });
 });
 

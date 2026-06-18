@@ -41,16 +41,3 @@ export function getAllPoolHealth(): PoolHealth[] {
 export function getPoolHealth(pool: string): PoolHealth | undefined {
   return store().get(pool);
 }
-
-/** Friendly short label from a pool base URL: api-btc-na.heliospool.com → "na"; falls back sensibly. */
-export function poolLabel(base: string): string {
-  try {
-    const host = new URL(base).hostname; // throws for local file paths
-    const m = host.match(/-([a-z0-9]+)\.[^.]+\.[^.]+$/i);
-    return m ? m[1] : host;
-  } catch {
-    // local file path — use the last path segment
-    const parts = base.replace(/\/+$/, '').split('/');
-    return parts[parts.length - 1] || base;
-  }
-}

@@ -8,16 +8,11 @@ import 'reflect-metadata';
 import { Agent } from 'undici';
 
 import { getDb } from './db';
-import {
-  setPoolHealth,
-  getPoolHealth,
-  poolLabel,
-  type PoolState,
-} from './poolHealth';
+import { setPoolHealth, getPoolHealth, type PoolState } from './poolHealth';
 import { persistCombinedPoolStats } from './poolStatsWrite';
 import { cleanOldStats } from '../scripts/cleanOldStats';
 import {
-  getPoolUrls,
+  getPoolSources,
   combinePoolStatus,
   combineUserData,
   type RawPoolStatus,
@@ -144,6 +139,7 @@ const WORKER_COLS = [
 export async function capturePool(
   db: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
   pool: string,
+  label: string,
   addresses: string[]
 ): Promise<{ pool: string; state: PoolState; users: number; workers: number }> {
   const dispatcher = getAgent();
@@ -305,7 +301,7 @@ export async function capturePool(
   const state: PoolState = refreshed ? 'ok' : 'error';
   setPoolHealth({
     pool,
-    label: poolLabel(pool),
+    label,
     lastUpdate: refreshed ? now.getTime() : (prev?.lastUpdate ?? null),
     uptimeSeconds: gotStatus ? uptime : (prev?.uptimeSeconds ?? 0),
     state,
@@ -321,7 +317,7 @@ export async function captureAllPools(): Promise<
   Array<{ pool: string; state: PoolState; users: number; workers: number }>
 > {
   const db = await getDb();
-  const pools = getPoolUrls();
+  const sources = getPoolSources();
   const rows = (await db.query(
     'SELECT address FROM "User" WHERE "isActive" = true'
   )) as Array<{
@@ -334,8 +330,8 @@ export async function captureAllPools(): Promise<
     users: number;
     workers: number;
   }> = [];
-  for (const pool of pools) {
-    out.push(await capturePool(db, pool, addresses));
+  for (const src of sources) {
+    out.push(await capturePool(db, src.url, src.label, addresses));
   }
   return out;
 }

@@ -20,27 +20,75 @@ const hr = (v: unknown): number => convertHashrateFloat(String(v ?? '0'));
 
 // ─── pool config ──────────────────────────────────────────────────────────────
 
+export interface PoolSource {
+  url: string; // http base OR local file root (resolved by the dual-mode fetch)
+  label: string; // display name for the Status/Pools UI
+}
+
 /**
- * Ordered list of upstream pool URLs (each an http base OR a local file root, resolved by the
- * existing dual-mode fetch). `POOL_URLS` accepts a JSON array (`["https://a","https://b"]`) or a
- * comma-separated list; falls back to the single `API_URL` for back-compat single-pool deploys.
+ * Generic, deployment-agnostic fallback label when an operator hasn't set one: the hostname for an
+ * http URL, or the last path segment for a local file root. Operators set explicit labels via the
+ * object form of POOL_URLS (below) for clean names.
  */
-export function getPoolUrls(): string[] {
+function defaultPoolLabel(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    const parts = url.replace(/\/+$/, '').split('/');
+    return parts[parts.length - 1] || url;
+  }
+}
+
+/**
+ * Ordered list of upstream pools with display labels. `POOL_URLS` accepts:
+ *   - a JSON array of URL strings:      `["https://a","https://b"]`
+ *   - a JSON array of {url,label}:      `[{"url":"https://a","label":"NA"},{"url":"https://b","label":"EU"}]`
+ *   - a comma-separated URL list:       `https://a,https://b`
+ * Strings (and comma form) get a generic fallback label; the object form sets explicit labels.
+ * Falls back to the single `API_URL` for back-compat single-pool deploys. Universal — no assumptions
+ * about any particular host/naming scheme.
+ */
+export function getPoolSources(): PoolSource[] {
   const raw = (process.env.POOL_URLS ?? '').trim();
   if (raw) {
     if (raw.startsWith('[')) {
       try {
         const arr = JSON.parse(raw);
-        if (Array.isArray(arr)) return arr.map((s) => String(s).trim()).filter(Boolean);
+        if (Array.isArray(arr)) {
+          const out: PoolSource[] = [];
+          for (const el of arr) {
+            if (typeof el === 'string') {
+              const u = el.trim();
+              if (u) out.push({ url: u, label: defaultPoolLabel(u) });
+            } else if (el && typeof el === 'object' && el.url) {
+              const u = String(el.url).trim();
+              if (u)
+                out.push({
+                  url: u,
+                  label: el.label ? String(el.label) : defaultPoolLabel(u),
+                });
+            }
+          }
+          if (out.length > 0) return out;
+        }
       } catch {
         /* not valid JSON — fall through to comma parsing */
       }
     }
-    const list = raw.split(',').map((s) => s.trim()).filter(Boolean);
-    if (list.length > 0) return list;
+    const list = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (list.length > 0)
+      return list.map((u) => ({ url: u, label: defaultPoolLabel(u) }));
   }
   const single = (process.env.API_URL ?? '').trim();
-  return single ? [single] : [];
+  return single ? [{ url: single, label: defaultPoolLabel(single) }] : [];
+}
+
+/** Just the pool URLs (the fetch loops use this; labels via getPoolSources). Back-compat. */
+export function getPoolUrls(): string[] {
+  return getPoolSources().map((s) => s.url);
 }
 
 // ─── per-user combine ─────────────────────────────────────────────────────────
@@ -81,13 +129,18 @@ export interface CombinedUser {
  * (parseWorkerName), summing hashrate/shares and taking the max of best-ever/last-share, then
  * derives the user-level totals from the combined workers (so workerCount is the distinct count).
  */
-export function combineUserData(pools: UserData[], address: string): CombinedUser {
+export function combineUserData(
+  pools: UserData[],
+  address: string
+): CombinedUser {
   const byName = new Map<string, CombinedWorker>();
   let authorised = 0;
 
   for (const pool of pools) {
     if (pool.authorised && pool.authorised > 0) {
-      authorised = authorised ? Math.min(authorised, pool.authorised) : pool.authorised;
+      authorised = authorised
+        ? Math.min(authorised, pool.authorised)
+        : pool.authorised;
     }
     for (const w of pool.worker ?? []) {
       const name = parseWorkerName(w.workername, address);
@@ -180,7 +233,12 @@ export interface RawPoolStatus {
   SPS5m?: string | number;
   SPS15m?: string | number;
   SPS1h?: string | number;
-  UserAgents?: Array<{ ua: string; devices: number; hashrate5m: string; bestshare?: number }>;
+  UserAgents?: Array<{
+    ua: string;
+    devices: number;
+    hashrate5m: string;
+    bestshare?: number;
+  }>;
 }
 
 export interface CombinedUserAgent {
@@ -251,7 +309,10 @@ export function combinePoolStatus(pools: RawPoolStatus[]): CombinedPoolStatus {
     pools.reduce((a, p) => a + (parseInt(String(p[k] ?? '0'), 10) || 0), 0);
 
   return {
-    runtime: pools.reduce((a, p) => Math.max(a, safeParseFloat(p.runtime as any, 0)), 0),
+    runtime: pools.reduce(
+      (a, p) => Math.max(a, safeParseFloat(p.runtime as any, 0)),
+      0
+    ),
     users: intSum('Users'),
     workers: intSum('Workers'),
     idle: intSum('Idle'),
@@ -267,9 +328,15 @@ export function combinePoolStatus(pools: RawPoolStatus[]): CombinedPoolStatus {
     rejected: sumNum('rejected'),
     acceptedCount: pools.reduce((a, p) => a + Number(p.accepted_count ?? 0), 0),
     rejectedCount: pools.reduce((a, p) => a + Number(p.rejected_count ?? 0), 0),
-    bestshare: pools.reduce((a, p) => Math.max(a, safeParseFloat(p.bestshare as any, 0)), 0),
+    bestshare: pools.reduce(
+      (a, p) => Math.max(a, safeParseFloat(p.bestshare as any, 0)),
+      0
+    ),
     netdiff: netPool ? safeParseFloat(netPool.netdiff as any, 0) : null,
-    diff: pools.reduce((a, p) => Math.max(a, safeParseFloat(p.diff as any, 0)), 0),
+    diff: pools.reduce(
+      (a, p) => Math.max(a, safeParseFloat(p.diff as any, 0)),
+      0
+    ),
     SPS1m: sumNum('SPS1m'),
     SPS5m: sumNum('SPS5m'),
     SPS15m: sumNum('SPS15m'),
