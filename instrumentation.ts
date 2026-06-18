@@ -8,10 +8,14 @@
  * ingest module (typeorm/undici) out of any non-node bundle.
  */
 export async function register(): Promise<void> {
-  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
-  const enabled =
-    process.env.POOL_INGEST === '1' || process.env.POOL_INGEST === 'true';
-  if (!enabled) return;
-  const { startIngestLoop } = await import('./lib/ingest');
-  startIngestLoop();
+  // Positive NEXT_RUNTIME==='nodejs' guard around the dynamic import — Next uses this to keep the
+  // node-only ingest module (typeorm/undici/fs) out of the edge instrumentation bundle.
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    const enabled =
+      process.env.POOL_INGEST === '1' || process.env.POOL_INGEST === 'true';
+    if (enabled) {
+      const { startIngestLoop } = await import('./lib/ingest');
+      startIngestLoop();
+    }
+  }
 }

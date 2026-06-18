@@ -1,4 +1,5 @@
 import DashboardClient from '../components/DashboardClient';
+import PoolsPanel from '../components/PoolsPanel';
 import {
   getHistoricalPoolStats,
   getLatestPoolStats,
@@ -62,6 +63,7 @@ export default async function Home() {
 
     return (
       <main className="container mx-auto p-4">
+        <PoolsPanel />
         <DashboardClient initialData={initialPayload} />
       </main>
     );

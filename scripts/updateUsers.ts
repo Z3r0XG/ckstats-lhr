@@ -1,4 +1,6 @@
-import 'dotenv/config';
+// NB: no `import 'dotenv/config'` here — the CLI npm scripts preload it via `-r dotenv/config`, and
+// when this module is imported by the in-process ingest loop Next provides env. Importing dotenv
+// here would drag node builtins (path/os/crypto) into the instrumentation bundle.
 import 'reflect-metadata';
 
 export class FileNotFoundError extends Error {
