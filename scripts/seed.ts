@@ -2,13 +2,11 @@
 import 'dotenv/config';
 
 import { getDb } from '../lib/db';
-import { PoolStats } from '../lib/entities/PoolStats';
-import { bigIntStringFromFloatLike } from '../utils/helpers';
+import { persistCombinedPoolStats } from '../lib/poolStatsWrite';
 import {
   getPoolUrls,
   combinePoolStatus,
   type CombinedPoolStatus,
-  type CombinedUserAgent,
   type RawPoolStatus,
 } from './combine';
 import { fetchAllPools, fetchPoolStatusFromPool } from './fetchPools';
@@ -51,7 +49,10 @@ interface PoolStatsData {
 /** Parse one pool's raw pool.status text (ckpool emits one JSON object per line). */
 function parsePoolStatus(text: string): RawPoolStatus {
   const lines = text.split('\n').filter(Boolean);
-  const parsed: any = lines.reduce((acc, line) => ({ ...acc, ...JSON.parse(line) }), {});
+  const parsed: any = lines.reduce(
+    (acc, line) => ({ ...acc, ...JSON.parse(line) }),
+    {}
+  );
   // ckpool may report diff as a zero-like decimal ("0.0"); treat as tiny-but-nonzero for formatting.
   const diffMatch = text.match(/"diff"\s*:\s*("[^"]*"|[^,}\n]+)/);
   const diffRaw = diffMatch ? diffMatch[1].trim().replace(/"/g, '') : undefined;
@@ -101,81 +102,6 @@ export function isEmptyPoolStatus(stats: Partial<PoolStatsData>): boolean {
   return !Object.values(stats).some((v) => v !== undefined);
 }
 
-async function updateOnlineDevices(
-  db: any,
-  userAgents?: CombinedUserAgent[]
-): Promise<void> {
-  if (!userAgents || userAgents.length === 0) {
-    console.log('No UserAgents data available for online_devices update');
-    return;
-  }
-
-  console.log(`Updating online_devices with ${userAgents.length} device types...`);
-
-  // hashrate5m / bestshare are already numeric (combined across pools).
-  const sorted = [...userAgents].sort((a, b) => b.hashrate5m - a.hashrate5m);
-
-  const updateTimestamp = new Date().toISOString();
-  const valuesSql: string[] = [];
-  const params: Array<string | number> = [];
-  let paramIndex = 1;
-
-  for (let i = 0; i < sorted.length; i++) {
-    const device = sorted[i];
-    const hashrate5mNum = device.hashrate5m;
-    const bestshareNum = device.bestshare;
-
-    valuesSql.push(
-      `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4})`
-    );
-
-    params.push(
-      device.ua,
-      device.devices,
-      hashrate5mNum,
-      updateTimestamp,
-      bestshareNum
-    );
-
-    paramIndex += 5;
-  }
-
-  try {
-    await db.transaction(async (manager: any) => {
-      await manager.query(
-        `INSERT INTO "online_devices" (client, active_workers, total_hashrate, computed_at, bestshare)
-         VALUES ${valuesSql.join(', ')}
-         ON CONFLICT (client) DO UPDATE SET
-           active_workers = EXCLUDED.active_workers,
-           total_hashrate = EXCLUDED.total_hashrate,
-           computed_at = EXCLUDED.computed_at,
-           bestshare = EXCLUDED.bestshare;`,
-        params
-      );
-
-      await manager.query(
-        `DELETE FROM "online_devices" WHERE computed_at < $1;`,
-        [updateTimestamp]
-      );
-    });
-
-    console.log(`Online devices updated: ${userAgents.length} device types`);
-  } catch (error) {
-    console.error('Error updating online devices:', error);
-    throw error;
-  }
-}
-
-async function clearOnlineDevices(db: any): Promise<void> {
-  try {
-    await db.query(`DELETE FROM "online_devices";`);
-    console.log('Cleared online_devices table (no active users reported)');
-  } catch (error) {
-    console.error('Error clearing online devices:', error);
-    throw error;
-  }
-}
-
 async function seed() {
   let db: any | null = null;
   try {
@@ -190,54 +116,12 @@ async function seed() {
 
     db = await getDb();
 
-    // users/workers/idle/disconnected are pool-level metrics that ckpool reports in pool.status
-    // independently of ckstats user registration, so they are SUMmed straight from the combined
-    // status (like hashrate). Deriving them from the ckstats DB would undercount to only the
-    // registered users' workers. pool.status is anonymous (no per-worker identity), so a wallet
-    // active on 2+ pools is counted on each — a small over-count, since few miners run multi-pool.
-    const poolStats = {
-      runtime: Math.round(combined.runtime),
-      users: combined.users,
-      workers: combined.workers,
-      idle: combined.idle,
-      disconnected: combined.disconnected,
-      hashrate1m: combined.hashrate1m,
-      hashrate5m: combined.hashrate5m,
-      hashrate15m: combined.hashrate15m,
-      hashrate1hr: combined.hashrate1hr,
-      hashrate6hr: combined.hashrate6hr,
-      hashrate1d: combined.hashrate1d,
-      hashrate7d: combined.hashrate7d,
-      diff: combined.diff,
-      netdiff: combined.netdiff ?? undefined,
-      accepted: combined.accepted,
-      rejected: combined.rejected,
-      bestshare: combined.bestshare,
-      SPS1m: combined.SPS1m,
-      SPS5m: combined.SPS5m,
-      SPS15m: combined.SPS15m,
-      SPS1h: combined.SPS1h,
-      accepted_count: combined.acceptedCount ? bigIntStringFromFloatLike(combined.acceptedCount) : undefined,
-      rejected_count: combined.rejectedCount ? bigIntStringFromFloatLike(combined.rejectedCount) : undefined,
-      timestamp: new Date(),
-    } satisfies Partial<PoolStats>;
-
+    // Pool-level metrics (users/workers/hashrate/etc.) are SUMmed straight from the combined
+    // pool.status (anonymous; a wallet on 2+ pools counts on each). The shared writer persists the
+    // PoolStats row + refreshes online_devices — same path the in-process ingest combine uses.
     console.log('Saving pool stats to database...');
-    const poolStatsRepository = db.getRepository(PoolStats);
-    const entity = poolStatsRepository.create(poolStats);
-    await poolStatsRepository.save(entity);
+    await persistCombinedPoolStats(db, combined);
     console.log('Database seeded successfully');
-
-    if (combined.userAgents.length > 0) {
-      await updateOnlineDevices(db, combined.userAgents);
-    } else if (combined.users === 0) {
-      console.log('No active users; clearing online_devices');
-      await clearOnlineDevices(db);
-    } else {
-      console.warn(
-        'UserAgents missing but active users present; keeping existing online_devices (stale)'
-      );
-    }
   } catch (error) {
     console.error('Error seeding database:', error);
   } finally {

@@ -14,11 +14,22 @@ import {
   poolLabel,
   type PoolState,
 } from './poolHealth';
-import { getPoolUrls } from '../scripts/combine';
+import { persistCombinedPoolStats } from './poolStatsWrite';
+import {
+  getPoolUrls,
+  combinePoolStatus,
+  combineUserData,
+  type RawPoolStatus,
+} from '../scripts/combine';
 import {
   fetchUserFromPool,
   fetchPoolStatusFromPool,
 } from '../scripts/fetchPools';
+import {
+  updateUser,
+  type UserData,
+  type MessageCollectors,
+} from '../scripts/updateUsers';
 import {
   convertHashrateFloat,
   safeParseFloat,
@@ -326,4 +337,170 @@ export async function captureAllPools(): Promise<
     out.push(await capturePool(db, pool, addresses));
   }
   return out;
+}
+
+// ─── COMBINE half: read latest snapshots → write the existing combined tables ──────────────────
+
+/** Reconstruct a RawPoolStatus from a pool_status_snapshot row (values already numeric; the
+ *  combine helpers tolerate numbers, and user_agents is the raw UA list stored as JSON). */
+function rawStatusFromRow(r: Record<string, unknown>): RawPoolStatus {
+  let uas: unknown = r.user_agents;
+  if (typeof uas === 'string') {
+    try {
+      uas = JSON.parse(uas);
+    } catch {
+      uas = [];
+    }
+  }
+  return {
+    runtime: r.runtime as number,
+    Users: r.users as number,
+    Workers: r.workers as number,
+    Idle: r.idle as number,
+    Disconnected: r.disconnected as number,
+    hashrate1m: r.hashrate1m as never,
+    hashrate5m: r.hashrate5m as never,
+    hashrate15m: r.hashrate15m as never,
+    hashrate1hr: r.hashrate1hr as never,
+    hashrate6hr: r.hashrate6hr as never,
+    hashrate1d: r.hashrate1d as never,
+    hashrate7d: r.hashrate7d as never,
+    accepted: r.accepted as number,
+    rejected: r.rejected as number,
+    accepted_count: r.accepted_count as number,
+    rejected_count: r.rejected_count as number,
+    bestshare: r.bestshare as number,
+    netdiff: r.netdiff as number,
+    diff: r.diff as number,
+    SPS1m: r.sps1m as number,
+    SPS5m: r.sps5m as number,
+    SPS15m: r.sps15m as number,
+    SPS1h: r.sps1h as number,
+    UserAgents: Array.isArray(uas) ? (uas as RawPoolStatus['UserAgents']) : [],
+  };
+}
+
+/** Reconstruct a per-pool UserData from a user snapshot row + its worker snapshot rows. Numeric
+ *  fields round-trip through combineUserData's parsers unchanged; worker_name is already resolved. */
+function userDataFromRows(
+  u: Record<string, unknown>,
+  workers: Record<string, unknown>[]
+): UserData {
+  return {
+    authorised: u.authorised,
+    lastshare: u.last_share,
+    workers: u.worker_count,
+    hashrate1m: u.hashrate1m,
+    hashrate5m: u.hashrate5m,
+    hashrate1hr: u.hashrate1hr,
+    hashrate1d: u.hashrate1d,
+    hashrate7d: u.hashrate7d,
+    shares: u.shares,
+    bestshare: u.best_share,
+    bestever: u.best_ever,
+    worker: workers.map((w) => ({
+      workername: w.worker_name,
+      useragent: w.device_raw ?? '',
+      hashrate1m: w.hashrate1m,
+      hashrate5m: w.hashrate5m,
+      hashrate1hr: w.hashrate1hr,
+      hashrate1d: w.hashrate1d,
+      hashrate7d: w.hashrate7d,
+      lastshare: w.last_share,
+      started: w.started,
+      shares: w.shares,
+      bestshare: w.best_share,
+      bestever: w.best_ever,
+    })),
+  } as unknown as UserData;
+}
+
+/**
+ * Combine the latest stored snapshots and write the existing combined tables. The math ALWAYS uses
+ * each pool's latest snapshot (stale or fresh, never zeroed). Reuses combinePoolStatus +
+ * persistCombinedPoolStats for the pool view, and combineUserData + the existing updateUser write
+ * path (grace/inactivity, WorkerStats, high-score booking) per user — so staleness behaves exactly
+ * like the current single-pool model.
+ */
+export async function combineCycle(): Promise<{
+  pools: number;
+  users: number;
+}> {
+  const db = await getDb();
+
+  const statusRows = (await db.query(
+    'SELECT * FROM pool_status_snapshot'
+  )) as Record<string, unknown>[];
+  if (statusRows.length > 0) {
+    const combined = combinePoolStatus(statusRows.map(rawStatusFromRow));
+    await persistCombinedPoolStats(db as never, combined);
+  }
+
+  const userRows = (await db.query(
+    'SELECT * FROM pool_user_snapshot'
+  )) as Record<string, unknown>[];
+  const workerRows = (await db.query(
+    'SELECT * FROM pool_worker_snapshot'
+  )) as Record<string, unknown>[];
+
+  const workersByKey = new Map<string, Record<string, unknown>[]>();
+  for (const w of workerRows) {
+    const key = `${w.pool} ${w.address}`;
+    const list = workersByKey.get(key);
+    if (list) list.push(w);
+    else workersByKey.set(key, [w]);
+  }
+
+  const byAddress = new Map<string, UserData[]>();
+  for (const u of userRows) {
+    const ws = workersByKey.get(`${u.pool} ${u.address}`) ?? [];
+    const ud = userDataFromRows(u, ws);
+    const list = byAddress.get(u.address as string);
+    if (list) list.push(ud);
+    else byAddress.set(u.address as string, [ud]);
+  }
+
+  const messages: MessageCollectors = {
+    gracePeriod: [],
+    success: [],
+    deactivations: [],
+    errors: [],
+  };
+  for (const [address, perPool] of Array.from(byAddress.entries())) {
+    const combined = combineUserData(perPool, address);
+    await updateUser(address, messages, combined);
+  }
+  return { pools: statusRows.length, users: byAddress.size };
+}
+
+// ─── LOOP driver (started in-process from instrumentation.ts on server boot) ───────────────────
+
+/** One full cycle: capture every pool over persistent connections, then combine into the DB. */
+export async function runCycle(): Promise<{ pools: number; users: number }> {
+  await captureAllPools();
+  return combineCycle();
+}
+
+let loopStarted = false;
+
+/**
+ * Start the in-process ingest loop. Idempotent. Uses setTimeout-after-completion (not setInterval)
+ * so cycles never overlap. Errors are swallowed per-cycle — ingestion must never crash the server.
+ */
+export function startIngestLoop(): void {
+  if (loopStarted) return;
+  loopStarted = true;
+  const intervalSec = Number(process.env.POOL_INGEST_INTERVAL_SECONDS) || 60;
+  console.log(`[ingest] starting in-process loop every ${intervalSec}s`);
+  const tick = async () => {
+    try {
+      const r = await runCycle();
+      console.log(`[ingest] cycle ok: ${r.pools} pools, ${r.users} users`);
+    } catch (err) {
+      console.error('[ingest] cycle error:', err);
+    } finally {
+      setTimeout(tick, intervalSec * 1000);
+    }
+  };
+  void tick();
 }
