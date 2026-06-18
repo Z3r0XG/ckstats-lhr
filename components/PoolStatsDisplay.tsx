@@ -1,11 +1,11 @@
 import Link from 'next/link';
 
 import { PoolStats } from '../lib/entities/PoolStats';
+import type { ServiceSnapshot } from '../lib/poolHealth';
 import {
   formatNumber,
   formatHashrate,
   formatTimeAgo,
-  formatDuration,
   formatDurationCapped,
   getHistoricalPercentageChange,
   getPercentageChangeColor,
@@ -19,12 +19,22 @@ interface PoolStatsDisplayProps {
   stats: PoolStats;
   historicalStats: PoolStats[];
   generatedAt?: Date;
+  service?: ServiceSnapshot;
 }
+
+// ckstats-meta service health → label + daisyUI badge color.
+const HEALTH_BADGE: Record<string, { label: string; cls: string }> = {
+  healthy: { label: 'Healthy', cls: 'badge-success' },
+  degraded: { label: 'Degraded', cls: 'badge-warning' },
+  down: { label: 'Down', cls: 'badge-error' },
+  unknown: { label: 'N/A', cls: 'badge-ghost' },
+};
 
 export default function PoolStatsDisplay({
   stats,
   historicalStats,
   generatedAt,
+  service,
 }: PoolStatsDisplayProps) {
   const showRejectedStat =
     process.env.NEXT_PUBLIC_SHOW_REJECTED_STATS === 'true';
@@ -79,8 +89,8 @@ export default function PoolStatsDisplay({
       .replace(/^./, (str) => str.toUpperCase());
   };
 
+  // 'Users' is now the dedicated "Connections" card in the 3-section top, so it's not a statGroup.
   const statGroups = [
-    { title: 'Users', keys: ['users', 'workers'] },
     {
       title: 'Shares since last found block',
       keys: ['accepted', 'rejected', 'shareCount', 'bestshare'],
@@ -117,34 +127,60 @@ export default function PoolStatsDisplay({
 
   return (
     <div className="grid grid-cols-1 gap-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        {/* Stats — ckstats meta (our view: ingest health + data freshness) */}
         <div className="card card-compact">
           <div className="card-body">
-            <h2 className="card-title">General Info</h2>
-            <div className="stats stats-vertical xl:stats-horizontal shadow-lg my-2">
+            <h2 className="card-title">Stats</h2>
+            <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
               <div className="stat">
-                <div className="stat-title">Uptime</div>
+                <div className="stat-title">Health</div>
                 <div className="stat-value text-2xl">
-                  {formatDuration(stats.runtime)}
+                  {(() => {
+                    const h =
+                      HEALTH_BADGE[service?.state ?? 'unknown'] ??
+                      HEALTH_BADGE.unknown;
+                    return <span className={`badge ${h.cls}`}>{h.label}</span>;
+                  })()}
                 </div>
+                {service && service.poolsTotal > 0 && (
+                  <div className="stat-desc">
+                    {service.poolsUp}/{service.poolsTotal} pools up
+                  </div>
+                )}
               </div>
               <div className="stat">
                 <div className="stat-title">Last Update</div>
                 <div className="stat-value text-2xl">
-                  {formatTimeAgo(generatedAt ?? stats.timestamp)}
+                  {formatTimeAgo(
+                    service?.lastDataChange != null
+                      ? new Date(service.lastDataChange)
+                      : (generatedAt ?? stats.timestamp)
+                  )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Pool Status — ckpool meta; the title links to the per-pool Status page */}
+        <div className="card card-compact">
+          <div className="card-body">
+            <h2 className="card-title">
+              <Link href="/status" className="link text-primary">
+                Pool Status
+              </Link>
+            </h2>
+            <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
               <div className="stat">
-                <div className="stat-title">Network Diff</div>
+                <div className="stat-title">Net Diff</div>
                 <div className="stat-value text-2xl">
                   {(() => {
                     const netdiff =
                       stats.netdiff != null ? Number(stats.netdiff) : null;
-                    const netdiffStr =
-                      netdiff != null && netdiff > 0
-                        ? formatWithUnits(netdiff)
-                        : 'N/A';
-                    return netdiffStr;
+                    return netdiff != null && netdiff > 0
+                      ? formatWithUnits(netdiff)
+                      : 'N/A';
                   })()}
                 </div>
               </div>
@@ -189,6 +225,36 @@ export default function PoolStatsDisplay({
             </div>
           </div>
         </div>
+
+        {/* Connections — ckpool meta */}
+        <div className="card card-compact">
+          <div className="card-body">
+            <h2 className="card-title">Connections</h2>
+            <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
+              <div className="stat">
+                <div className="stat-title">Users</div>
+                <div className="stat-value text-2xl">
+                  {formatNumber(stats.users)}
+                </div>
+                <div className="stat-desc">
+                  Idle: {formatNumber(stats.idle)}
+                </div>
+              </div>
+              <div className="stat">
+                <div className="stat-title">Workers</div>
+                <div className="stat-value text-2xl">
+                  {formatNumber(stats.workers)}
+                </div>
+                <div className="stat-desc">
+                  Disconnected: {formatNumber(stats.disconnected)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         {statGroups.map((group) => (
           <div key={group.title} className="card card-compact">
             <div className="card-body">

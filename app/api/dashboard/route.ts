@@ -9,6 +9,7 @@ import {
   getTopUserHashrates,
   getTopUserLoyalty,
 } from '../../../lib/api';
+import { getServiceSnapshot } from '../../../lib/poolHealth';
 import { serializeData } from '../../../utils/helpers';
 
 export const dynamic = 'force-dynamic';
@@ -61,6 +62,7 @@ export async function GET(request: Request) {
       topUserLoyalty: serializeData(topLoyalty),
       onlineDevices: serializeData(onlineDevices),
       highScores: serializeData(highScores),
+      service: getServiceSnapshot(),
       limits: {
         topUsers: DASHBOARD_TOP_LIMIT,
         onlineDevices: DASHBOARD_ONLINE_LIMIT,

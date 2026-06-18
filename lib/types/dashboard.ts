@@ -1,4 +1,5 @@
 // Serialized types for the /api/dashboard payload
+import type { ServiceSnapshot } from '../poolHealth';
 
 export type SerializedPoolStats = {
   id: number;
@@ -90,4 +91,7 @@ export type DashboardPayload = {
   onlineDevices: OnlineDevice[];
   highScores: HighScore[];
   limits: DashboardLimits;
+  // ckstats-meta: multi-pool service health + per-pool detail (absent for single-pool, or when the
+  // in-process ingest loop isn't running in this instance).
+  service?: ServiceSnapshot;
 };

@@ -150,6 +150,7 @@ export async function capturePool(
   let statusWorkers = 0;
   let hashrate5m = 0;
   let uptime = 0;
+  let acceptedTotal = 0;
   const statusRes = await fetchPoolStatusFromPool(pool, dispatcher);
   if (statusRes.status === 'found') {
     const s = parsePoolStatus(statusRes.data);
@@ -157,6 +158,7 @@ export async function capturePool(
     statusWorkers = intOf(s.Workers);
     hashrate5m = hr(s.hashrate5m);
     uptime = intOf(s.runtime);
+    acceptedTotal = safeParseFloat(s.accepted as never, 0);
     await batchUpsert(
       db,
       'pool_status_snapshot',
@@ -299,11 +301,22 @@ export async function capturePool(
   const refreshed = gotStatus || userRows.length > 0;
   const prev = getPoolHealth(pool);
   const state: PoolState = refreshed ? 'ok' : 'error';
+  const t = now.getTime();
+  // Liveness (Health): runtime advanced this cycle (changed vs prev → alive; first cycle counts).
+  const runtimeAdvanced = gotStatus && (!prev || uptime !== prev.uptimeSeconds);
+  // Data freshness (Last Update): cumulative accepted shares changed this cycle.
+  const dataChanged =
+    gotStatus && (!prev || acceptedTotal !== prev.acceptedTotal);
   setPoolHealth({
     pool,
     label,
-    lastUpdate: refreshed ? now.getTime() : (prev?.lastUpdate ?? null),
+    lastUpdate: refreshed ? t : (prev?.lastUpdate ?? null),
     uptimeSeconds: gotStatus ? uptime : (prev?.uptimeSeconds ?? 0),
+    acceptedTotal: gotStatus ? acceptedTotal : (prev?.acceptedTotal ?? 0),
+    lastRuntimeAdvance: runtimeAdvanced
+      ? t
+      : (prev?.lastRuntimeAdvance ?? null),
+    lastDataChange: dataChanged ? t : (prev?.lastDataChange ?? null),
     state,
     users: gotStatus ? statusUsers : (prev?.users ?? 0),
     workers: gotStatus ? statusWorkers : (prev?.workers ?? 0),

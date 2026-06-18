@@ -1,5 +1,4 @@
 import DashboardClient from '../components/DashboardClient';
-import PoolsPanel from '../components/PoolsPanel';
 import {
   getHistoricalPoolStats,
   getLatestPoolStats,
@@ -9,6 +8,7 @@ import {
   getTopUserHashrates,
   getTopUserLoyalty,
 } from '../lib/api';
+import { getServiceSnapshot } from '../lib/poolHealth';
 import { serializeData } from '../utils/helpers';
 
 export const revalidate = 60;
@@ -54,6 +54,7 @@ export default async function Home() {
       topUserLoyalty: serializeData(topLoyalty),
       onlineDevices: serializeData(onlineDevices),
       highScores: serializeData(highScores),
+      service: getServiceSnapshot(),
       limits: {
         topUsers: 10,
         onlineDevices: 10000,
@@ -63,7 +64,6 @@ export default async function Home() {
 
     return (
       <main className="container mx-auto p-4">
-        <PoolsPanel />
         <DashboardClient initialData={initialPayload} />
       </main>
     );

@@ -60,6 +60,7 @@ export default function DashboardClient({
         stats={stats}
         historicalStats={historicalStats}
         generatedAt={data.generatedAt ? new Date(data.generatedAt) : undefined}
+        service={data.service}
       />
       {historicalStats && historicalStats.length > 0 ? (
         <PoolStatsChart data={historicalStats} />
