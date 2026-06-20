@@ -140,7 +140,7 @@ export default async function WorkerPage({
           </div>
         </div>
         <div className="stat">
-          <div className="stat-title">Best Share</div>
+          <div className="stat-title">Best Diff</div>
           <div className="stat-value text-3xl">
             {formatNumber(worker.bestShare)}
           </div>

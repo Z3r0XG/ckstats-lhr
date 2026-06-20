@@ -6,7 +6,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * (PoolStats/UserStats/Worker/top_best_diffs/online_devices) the UI already reads. These tables are
  * write-side only — never read by the UI — and bounded: capture UPSERTs the latest row per
  * (pool, address[, worker_name]), so they don't grow as a time-series. `fetched_at` drives the
- * staleness TTL and the UI freshness panel. See .local/multi-pool-decoupled-ingestion-design.md.
+ * staleness TTL and the UI freshness panel.
  *
  * Hashrates are stored as parsed numeric H/s (the unit-string "73.4T" parsing, parseWorkerName
  * identity, and normalizeUserAgent device resolution all happen in the capture step, once per fetch).
@@ -92,6 +92,7 @@ export class AddPoolSnapshotTables1710000000023 implements MigrationInterface {
         "sps15m"          double precision NOT NULL DEFAULT 0,
         "sps1h"           double precision NOT NULL DEFAULT 0,
         "runtime"         bigint NOT NULL DEFAULT 0,
+        "lastupdate"      bigint NOT NULL DEFAULT 0,
         "user_agents"     jsonb,
         "fetched_at"      timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY ("pool")

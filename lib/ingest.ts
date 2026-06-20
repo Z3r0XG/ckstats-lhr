@@ -2,13 +2,18 @@
  * Multi-pool decoupled ingestion — CAPTURE half. Pulls each pool over a PERSISTENT keep-alive
  * connection (so the origin's slow TLS handshake is paid once, reused across cycles) and writes
  * normalized per-pool snapshot rows to SQL (the durable source of truth). The COMBINE half reads
- * those snapshots. See .local/multi-pool-decoupled-ingestion-design.md (FINAL MODEL).
+ * those snapshots and writes the combined dashboard tables.
  */
 import 'reflect-metadata';
 import { Agent } from 'undici';
 
 import { getDb } from './db';
-import { setPoolHealth, getPoolHealth, type PoolState } from './poolHealth';
+import {
+  setPoolHealth,
+  getPoolHealth,
+  prunePoolHealth,
+  type PoolState,
+} from './poolHealth';
 import { persistCombinedPoolStats } from './poolStatsWrite';
 import { cleanOldStats } from '../scripts/cleanOldStats';
 import {
@@ -36,19 +41,63 @@ import {
 const hr = (v: unknown): number => convertHashrateFloat(String(v ?? '0'));
 const intOf = (v: unknown): number => Math.trunc(safeParseFloat(v as never, 0));
 
-// ONE persistent keep-alive Agent for every pool origin (undici pools per-origin internally).
-// Small connections-per-origin so we never stampede the origin's connection ceiling; long keepAlive
-// so sockets survive across cycles. Built once, lives for the process.
+// Persistent keep-alive Agent per pool origin (undici pools per-origin internally), so the slow TLS
+// handshake is paid once and reused across cycles. All connection settings are env-tunable (friendly
+// seconds → ms); a non-negative number overrides, anything else uses the default.
+function envSeconds(name: string, dflt: number): number {
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) && v >= 0 ? v : dflt;
+}
+
+function buildAgent(): Agent {
+  // Idle keep-alive timeout. Kept SHORTER than typical origin/proxy idle timeouts (nginx ~75s,
+  // many LBs/NATs 30–60s) so WE refresh first and never reuse a socket the server already closed —
+  // and shorter than the poll interval, so connections stay warm within a cycle's burst but are
+  // re-established between cycles rather than lingering long enough to be silently reaped.
+  const keepAliveMs = envSeconds('API_KEEPALIVE_TIMEOUT_SECONDS', 30) * 1000;
+  // Response wait cap (opt-in) — only applied when API_REQUEST_TIMEOUT_SECONDS is set; otherwise
+  // undici's own defaults apply (matches the request-level AbortSignal, also opt-in).
+  const reqSec = Number(process.env.API_REQUEST_TIMEOUT_SECONDS);
+  const reqTimeoutMs =
+    Number.isFinite(reqSec) && reqSec > 0 ? reqSec * 1000 : 0;
+  const tcpKaSec = envSeconds('API_TCP_KEEPALIVE_SECONDS', 30);
+  return new Agent({
+    connections: Number(process.env.API_MAX_CONNS) || 4,
+    keepAliveTimeout: keepAliveMs,
+    keepAliveMaxTimeout: keepAliveMs,
+    pipelining: 1,
+    ...(reqTimeoutMs > 0
+      ? { headersTimeout: reqTimeoutMs, bodyTimeout: reqTimeoutMs }
+      : {}),
+    connect: {
+      timeout: envSeconds('API_CONNECT_TIMEOUT_SECONDS', 5) * 1000,
+      // OS-level TCP keepalive probes (separate from HTTP keep-alive) so a dead peer is noticed
+      // without waiting on a request timeout. 0 disables.
+      ...(tcpKaSec > 0
+        ? { keepAlive: true, keepAliveInitialDelay: tcpKaSec * 1000 }
+        : {}),
+    },
+  });
+}
+
 let agent: Agent | undefined;
 function getAgent(): Agent {
   if (!agent) {
-    const conns = Number(process.env.POOL_MAX_CONNS) || 4;
-    agent = new Agent({
-      connections: conns,
-      keepAliveTimeout: 10 * 60_000,
-      keepAliveMaxTimeout: 10 * 60_000,
-      pipelining: 1,
-    });
+    agent = buildAgent();
+    // undici has no native max-connection-age, so a long-lived socket silently reaped by a NAT /
+    // firewall can wedge a pool indefinitely (half-open: writes black-holed, no error). Bound the
+    // age by periodically swapping in a fresh Agent and closing the old one OFF the fetch path
+    // (fire-and-forget) — fetches keep using warm connections, and a wedged socket self-heals within
+    // API_CONN_MAX_AGE_SECONDS instead of never. 0 disables rotation.
+    const ageMs = envSeconds('API_CONN_MAX_AGE_SECONDS', 300) * 1000;
+    if (ageMs > 0) {
+      const timer = setInterval(() => {
+        const old = agent;
+        agent = buildAgent();
+        void old?.close().catch(() => void old?.destroy().catch(() => {}));
+      }, ageMs);
+      timer.unref?.();
+    }
   }
   return agent;
 }
@@ -132,33 +181,51 @@ const WORKER_COLS = [
 ];
 
 /**
- * Capture one pool: fetch its pool.status + every active user over the persistent connection, write
- * snapshot rows, and update the pool's health readout. Returns a small summary. Never throws — a
- * failed pool just leaves its existing (stale) snapshots in place and is marked accordingly.
+ * Capture one pool over the persistent connection and update its health readout. `mode` selects
+ * which endpoints are hit — they're different resources (pool.status vs users/<addr>), so the two
+ * halves never re-fetch each other's data:
+ *   'status' = pool.status only (pool-stats half — what the `seed` cron drives)
+ *   'users'  = active users only (what the `update-users` cron drives)
+ *   'both'   = the full cycle (internal loop / `pnpm ingest`)
+ * Never throws — an unreachable pool keeps its last-known snapshot and is marked accordingly.
  */
 export async function capturePool(
   db: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
   pool: string,
   label: string,
-  addresses: string[]
+  addresses: string[],
+  mode: 'status' | 'users' | 'both' = 'both'
 ): Promise<{ pool: string; state: PoolState; users: number; workers: number }> {
   const dispatcher = getAgent();
   const now = new Date();
 
-  // ---- pool.status ----
+  // ---- pool.status (skipped in users-only mode) ----
   let statusUsers = 0;
   let statusWorkers = 0;
   let hashrate5m = 0;
   let uptime = 0;
+  let poolLastUpdate = 0; // ckpool's own `lastupdate` (epoch SECONDS); 0 = not reported
   let acceptedTotal = 0;
-  const statusRes = await fetchPoolStatusFromPool(pool, dispatcher);
-  if (statusRes.status === 'found') {
+  let bestShare = 0;
+  let sps5m = 0;
+  let rejectedTotal = 0;
+  let acceptedCount = 0;
+  let rejectedCount = 0;
+  const statusRes =
+    mode === 'users' ? null : await fetchPoolStatusFromPool(pool, dispatcher);
+  if (statusRes && statusRes.status === 'found') {
     const s = parsePoolStatus(statusRes.data);
     statusUsers = intOf(s.Users);
     statusWorkers = intOf(s.Workers);
     hashrate5m = hr(s.hashrate5m);
     uptime = intOf(s.runtime);
+    poolLastUpdate = intOf(s.lastupdate);
     acceptedTotal = safeParseFloat(s.accepted as never, 0);
+    bestShare = safeParseFloat(s.bestshare as never, 0);
+    sps5m = safeParseFloat(s.SPS5m as never, 0);
+    rejectedTotal = safeParseFloat(s.rejected as never, 0);
+    acceptedCount = intOf(s.accepted_count);
+    rejectedCount = intOf(s.rejected_count);
     await batchUpsert(
       db,
       'pool_status_snapshot',
@@ -187,6 +254,7 @@ export async function capturePool(
         'sps15m',
         'sps1h',
         'runtime',
+        'lastupdate',
         'user_agents',
         'fetched_at',
       ],
@@ -220,19 +288,21 @@ export async function capturePool(
           sps15m: safeParseFloat(s.SPS15m as never, 0),
           sps1h: safeParseFloat(s.SPS1h as never, 0),
           runtime: uptime,
+          lastupdate: poolLastUpdate,
           user_agents: JSON.stringify(s.UserAgents ?? []),
           fetched_at: now,
         },
       ]
     );
   }
-  const gotStatus = statusRes.status === 'found';
+  const gotStatus = statusRes?.status === 'found';
 
-  // ---- per-user (fired together; the Agent caps concurrent sockets and reuses them) ----
+  // ---- per-user (skipped in status-only mode; users are a different endpoint than pool.status) ----
   const userRows: Row[] = [];
   const workerRows: Row[] = [];
+  const targets = mode === 'status' ? [] : addresses;
   const results = await Promise.all(
-    addresses.map((address) => fetchUserFromPool(pool, address, dispatcher))
+    targets.map((address) => fetchUserFromPool(pool, address, dispatcher))
   );
   results.forEach((r, i) => {
     if (r.status !== 'found') return;
@@ -317,26 +387,63 @@ export async function capturePool(
       ? t
       : (prev?.lastRuntimeAdvance ?? null),
     lastDataChange: dataChanged ? t : (prev?.lastDataChange ?? null),
+    // ckpool's self-reported freshness (seconds → ms). Keep last-known if this cycle missed status.
+    poolLastUpdate:
+      gotStatus && poolLastUpdate > 0
+        ? poolLastUpdate * 1000
+        : (prev?.poolLastUpdate ?? null),
     state,
     users: gotStatus ? statusUsers : (prev?.users ?? 0),
     workers: gotStatus ? statusWorkers : (prev?.workers ?? 0),
     hashrate5m: gotStatus ? hashrate5m : (prev?.hashrate5m ?? 0),
+    bestShare: gotStatus ? bestShare : (prev?.bestShare ?? 0),
+    sps5m: gotStatus ? sps5m : (prev?.sps5m ?? 0),
+    rejectedTotal: gotStatus ? rejectedTotal : (prev?.rejectedTotal ?? 0),
+    acceptedCount: gotStatus ? acceptedCount : (prev?.acceptedCount ?? 0),
+    rejectedCount: gotStatus ? rejectedCount : (prev?.rejectedCount ?? 0),
   });
   return { pool, state, users: userRows.length, workers: workerRows.length };
 }
 
-/** Capture every configured pool (each independent; one failing doesn't block the others). */
-export async function captureAllPools(): Promise<
+/**
+ * Delete snapshot/source rows for pools that are no longer configured, so an old pool's stale data
+ * stops being summed into the combined stats. No-op if nothing is configured (never wipe blindly).
+ */
+async function pruneOrphanSnapshots(
+  db: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
+  keep: string[]
+): Promise<void> {
+  if (keep.length === 0) return;
+  const inSql = keep.map((_v, i) => `$${i + 1}`).join(', ');
+  const tables = [
+    'pool_status_snapshot',
+    'pool_user_snapshot',
+    'pool_worker_snapshot',
+    'pool_source_status',
+  ];
+  for (const t of tables) {
+    await db.query(`DELETE FROM "${t}" WHERE "pool" NOT IN (${inSql})`, keep);
+  }
+}
+
+/** Capture every configured pool (each independent; one failing doesn't block the others). `mode`
+ *  passes through to capturePool — 'status'/'users'/'both'. */
+export async function captureAllPools(
+  mode: 'status' | 'users' | 'both' = 'both'
+): Promise<
   Array<{ pool: string; state: PoolState; users: number; workers: number }>
 > {
   const db = await getDb();
   const sources = getPoolSources();
-  const rows = (await db.query(
-    'SELECT address FROM "User" WHERE "isActive" = true'
-  )) as Array<{
-    address: string;
-  }>;
-  const addresses = rows.map((r) => r.address);
+  // Active addresses are only needed when capturing users.
+  const addresses =
+    mode === 'status'
+      ? []
+      : (
+          (await db.query(
+            'SELECT address FROM "User" WHERE "isActive" = true'
+          )) as Array<{ address: string }>
+        ).map((r) => r.address);
   const out: Array<{
     pool: string;
     state: PoolState;
@@ -344,8 +451,12 @@ export async function captureAllPools(): Promise<
     workers: number;
   }> = [];
   for (const src of sources) {
-    out.push(await capturePool(db, src.url, src.label, addresses));
+    out.push(await capturePool(db, src.url, src.label, addresses, mode));
   }
+  // Keep the in-memory map and the snapshot tables aligned with the configured pool set.
+  const keep = sources.map((s) => s.url);
+  prunePoolHealth(keep);
+  await pruneOrphanSnapshots(db, keep);
   return out;
 }
 
@@ -425,33 +536,42 @@ function userDataFromRows(
   } as unknown as UserData;
 }
 
-/**
- * Combine the latest stored snapshots and write the existing combined tables. The math ALWAYS uses
- * each pool's latest snapshot (stale or fresh, never zeroed). Reuses combinePoolStatus +
- * persistCombinedPoolStats for the pool view, and combineUserData + the existing updateUser write
- * path (grace/inactivity, WorkerStats, high-score booking) per user — so staleness behaves exactly
- * like the current single-pool model.
- */
-export async function combineCycle(): Promise<{
-  pools: number;
-  users: number;
-}> {
-  const db = await getDb();
+/** Read a snapshot table filtered to currently-configured pools, so a stray orphan row can never
+ *  inflate the combined output. The combine math always uses each pool's latest snapshot (stale or
+ *  fresh, never zeroed), reusing combinePoolStatus / combineUserData + the shared updateUser path. */
+async function configuredSnapshotRows(
+  db: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
+  table: string
+): Promise<Record<string, unknown>[]> {
+  // Only ever combine pools that are currently configured. Orphan rows are normally pruned at
+  // capture, but filter here too so a stray row can never inflate the combined totals.
+  const configured = new Set(getPoolSources().map((s) => s.url));
+  const rows = (await db.query(`SELECT * FROM ${table}`)) as Record<
+    string,
+    unknown
+  >[];
+  return rows.filter((r) => configured.has(r.pool as string));
+}
 
-  const statusRows = (await db.query(
-    'SELECT * FROM pool_status_snapshot'
-  )) as Record<string, unknown>[];
+/** Combine the latest pool.status snapshots into the combined PoolStats / online_devices tables
+ *  (the pool-stats half). Always uses each pool's latest snapshot (stale or fresh, never zeroed). */
+export async function combinePoolStatsCycle(): Promise<{ pools: number }> {
+  const db = await getDb();
+  const statusRows = await configuredSnapshotRows(db, 'pool_status_snapshot');
   if (statusRows.length > 0) {
     const combined = combinePoolStatus(statusRows.map(rawStatusFromRow));
     await persistCombinedPoolStats(db as never, combined);
   }
+  return { pools: statusRows.length };
+}
 
-  const userRows = (await db.query(
-    'SELECT * FROM pool_user_snapshot'
-  )) as Record<string, unknown>[];
-  const workerRows = (await db.query(
-    'SELECT * FROM pool_worker_snapshot'
-  )) as Record<string, unknown>[];
+/** Combine the latest user/worker snapshots into per-user UserStats/Worker via the shared updateUser
+ *  write path (grace/inactivity, high-score booking) — the users half. */
+export async function combineUsersCycle(): Promise<{ users: number }> {
+  const db = await getDb();
+
+  const userRows = await configuredSnapshotRows(db, 'pool_user_snapshot');
+  const workerRows = await configuredSnapshotRows(db, 'pool_worker_snapshot');
 
   const workersByKey = new Map<string, Record<string, unknown>[]>();
   for (const w of workerRows) {
@@ -480,15 +600,96 @@ export async function combineCycle(): Promise<{
     const combined = combineUserData(perPool, address);
     await updateUser(address, messages, combined);
   }
-  return { pools: statusRows.length, users: byAddress.size };
+  // Surface the per-user state changes to the server log (→ systemd journal) the way the old
+  // update-users cron did. Summary line always when there's anything notable; deactivations and
+  // errors printed in full (infrequent, worth seeing), grace kept to a count to avoid flooding.
+  const deactivations = messages.deactivations ?? [];
+  const gracePeriod = messages.gracePeriod ?? [];
+  const errors = messages.errors ?? [];
+  if (deactivations.length || errors.length || gracePeriod.length) {
+    console.log(
+      `[ingest] users: ${deactivations.length} deactivated, ${gracePeriod.length} in grace, ${errors.length} error(s)`
+    );
+    for (const m of deactivations) console.log(`[ingest] ${m}`);
+    for (const m of errors) console.error(`[ingest] ${m}`);
+  }
+  return { users: byAddress.size };
+}
+
+/** Combine both halves (pool stats + users) from the stored snapshots. */
+export async function combineCycle(): Promise<{
+  pools: number;
+  users: number;
+}> {
+  const { pools } = await combinePoolStatsCycle();
+  const { users } = await combineUsersCycle();
+  return { pools, users };
 }
 
 // ─── LOOP driver (started in-process from instrumentation.ts on server boot) ───────────────────
 
-/** One full cycle: capture every pool over persistent connections, then combine into the DB. */
+/** Pool-stats half: capture every pool's pool.status, then combine pool stats (the `seed` cron). */
+export async function runStatsCycle(): Promise<{ pools: number }> {
+  await captureAllPools('status');
+  return combinePoolStatsCycle();
+}
+
+/** Users half: capture every pool's active users, then combine user stats (`update-users` cron). */
+export async function runUsersCycle(): Promise<{ users: number }> {
+  await captureAllPools('users');
+  return combineUsersCycle();
+}
+
+/** Full cycle: capture both halves over persistent connections, then combine into the DB. Used by
+ *  `pnpm ingest` and the internal loop. */
 export async function runCycle(): Promise<{ pools: number; users: number }> {
-  await captureAllPools();
+  await captureAllPools('both');
   return combineCycle();
+}
+
+/**
+ * Seed the in-memory health map from the stored snapshots on boot, so /status and the service
+ * Health badge reflect every known pool immediately instead of only pools captured since this
+ * process started. `fetched_at` seeds both liveness markers: a pool whose last snapshot is recent
+ * reads "up", a long-stale one reads "down" — until the next live capture corrects it. Only
+ * currently-configured pools are seeded.
+ */
+export async function rehydrateHealth(): Promise<void> {
+  const db = await getDb();
+  const sources = getPoolSources();
+  const labelByUrl = new Map(sources.map((s) => [s.url, s.label]));
+  const configured = new Set(sources.map((s) => s.url));
+  const rows = (await db.query('SELECT * FROM pool_status_snapshot')) as Record<
+    string,
+    unknown
+  >[];
+  for (const r of rows) {
+    const pool = r.pool as string;
+    if (!configured.has(pool)) continue;
+    const fetchedMs = r.fetched_at
+      ? new Date(r.fetched_at as string).getTime()
+      : null;
+    setPoolHealth({
+      pool,
+      label: labelByUrl.get(pool) ?? pool,
+      lastUpdate: fetchedMs,
+      uptimeSeconds: Number(r.runtime ?? 0),
+      acceptedTotal: Number(r.accepted ?? 0),
+      lastRuntimeAdvance: fetchedMs,
+      lastDataChange: fetchedMs,
+      poolLastUpdate:
+        Number(r.lastupdate ?? 0) > 0 ? Number(r.lastupdate) * 1000 : null,
+      state: 'ok',
+      users: Number(r.users ?? 0),
+      workers: Number(r.workers ?? 0),
+      hashrate5m: Number(r.hashrate5m ?? 0),
+      bestShare: Number(r.bestshare ?? 0),
+      sps5m: Number(r.sps5m ?? 0),
+      rejectedTotal: Number(r.rejected ?? 0),
+      acceptedCount: Number(r.accepted_count ?? 0),
+      rejectedCount: Number(r.rejected_count ?? 0),
+    });
+  }
 }
 
 let loopStarted = false;
@@ -523,5 +724,13 @@ export function startIngestLoop(): void {
       setTimeout(tick, intervalSec * 1000);
     }
   };
-  void tick();
+  // Seed from stored snapshots first so the UI shows all known pools before the first live cycle.
+  void (async () => {
+    try {
+      await rehydrateHealth();
+    } catch (err) {
+      console.error('[ingest] rehydrate error:', err);
+    }
+    void tick();
+  })();
 }

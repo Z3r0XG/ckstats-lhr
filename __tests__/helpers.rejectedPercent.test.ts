@@ -9,16 +9,16 @@ describe('computeRejectedPercent', () => {
   });
 
   test('below 0.5% => success color', () => {
-    // 1 rejected / 1000 total => 0.10%
+    // 1 rejected / 1000 total => 0.1%
     const res = computeRejectedPercent(999, 1);
-    expect(res.formatted).toBe('0.10%');
+    expect(res.formatted).toBe('0.1%');
     expect(res.color).toBe('text-success');
   });
 
   test('exactly 0.5% => success color', () => {
-    // 50 / 10000 = 0.50%
+    // 50 / 10000 = 0.5%
     const res = computeRejectedPercent(9950, 50);
-    expect(res.formatted).toBe('0.50%');
+    expect(res.formatted).toBe('0.5%');
     expect(res.color).toBe('text-success');
   });
 
@@ -30,9 +30,9 @@ describe('computeRejectedPercent', () => {
   });
 
   test('above 1% => error color and rounding', () => {
-    // 100 / 9100 = ~1.0989 -> formatted 1.10%
+    // 100 / 9100 = ~1.0989 -> formatted 1.1%
     const res = computeRejectedPercent(9000, 100);
-    expect(res.formatted).toBe('1.10%');
+    expect(res.formatted).toBe('1.1%');
     expect(res.color).toBe('text-error');
   });
 

@@ -3,7 +3,7 @@
  * Health. HUMAN/ckstats-meta readout only — the combine math always uses each pool's latest stored
  * snapshot regardless of anything here.
  *
- * Two independent signals (see the design doc):
+ * Two independent signals:
  *   - lastRuntimeAdvance → Pool HEALTH ("is the pool alive"): ckpool's `runtime` ticks every second
  *     it's alive, so if it advanced recently the pool is up (a fresh restart counts; a frozen/
  *     served-but-dead status does not). Miner-independent.
@@ -23,10 +23,17 @@ export interface PoolHealth {
   acceptedTotal: number; // last `accepted` (cumulative) — prev value for data-change detection
   lastRuntimeAdvance: number | null; // epoch ms `runtime` last changed → drives Health liveness
   lastDataChange: number | null; // epoch ms `accepted` last changed → drives "Last Update"
+  poolLastUpdate: number | null; // epoch ms of ckpool's OWN `lastupdate` (pool-side freshness, from
+  // the fetched status — distinct from our fetch time; can't be fresher than `lastUpdate`)
   state: PoolState;
-  users: number; // that pool's last-known pool.status contribution (for the panel)
+  users: number; // that pool's last-known pool.status contribution (for the Status page)
   workers: number;
   hashrate5m: number;
+  bestShare: number; // last-known best diff (pool.status `bestshare`)
+  sps5m: number; // last-known 5m shares-per-second (pool.status `SPS5m`)
+  rejectedTotal: number; // last-known rejected diff (pool.status `rejected`)
+  acceptedCount: number; // last-known accepted share count (pool.status `accepted_count`)
+  rejectedCount: number; // last-known rejected share count (pool.status `rejected_count`)
 }
 
 export type ServiceHealthState = 'healthy' | 'degraded' | 'down' | 'unknown';
@@ -36,6 +43,7 @@ export interface ServiceHealth {
   poolsUp: number;
   poolsTotal: number;
   lastDataChange: number | null; // most-recent data change across pools (epoch ms)
+  poolLastUpdate: number | null; // STALEST ckpool lastupdate across pools (MIN = worst-case freshness)
 }
 
 /** Service health + the per-pool list, for the dashboard payload / Status page (all serializable). */
@@ -66,6 +74,20 @@ export function getPoolHealth(pool: string): PoolHealth | undefined {
 }
 
 /**
+ * Drop in-memory health for any pool not in `keep` (the currently-configured pools). Without this a
+ * removed/renamed pool lingers in the map forever, so /status and the service Health count would
+ * disagree with the combined stats (which only sum configured pools). No-op if `keep` is empty.
+ */
+export function prunePoolHealth(keep: string[]): void {
+  if (keep.length === 0) return;
+  const allow = new Set(keep);
+  const m = store();
+  for (const k of Array.from(m.keys())) {
+    if (!allow.has(k)) m.delete(k);
+  }
+}
+
+/**
  * Derived service Health (ckstats-meta): a pool is "up" if its `runtime` advanced within the
  * staleness window (default POOL_HEALTH_STALE_SECONDS or 300s). Healthy = all up, Down = none up,
  * Degraded = mixed. `lastDataChange` = the most-recent per-pool data change → "since new data".
@@ -79,6 +101,7 @@ export function getServiceHealth(): ServiceHealth {
       poolsUp: 0,
       poolsTotal: 0,
       lastDataChange: null,
+      poolLastUpdate: null,
     };
   }
   const windowMs =
@@ -86,6 +109,9 @@ export function getServiceHealth(): ServiceHealth {
   const now = Date.now();
   let up = 0;
   let lastDataChange: number | null = null;
+  // MIN (oldest) across pools so the combined readout reflects the stalest pool — if any one pool's
+  // ckpool stopped updating, the aggregate freshness shows it rather than being masked by a fresh peer.
+  let poolLastUpdate: number | null = null;
   for (const p of pools) {
     if (p.lastRuntimeAdvance != null && now - p.lastRuntimeAdvance < windowMs) {
       up++;
@@ -93,10 +119,19 @@ export function getServiceHealth(): ServiceHealth {
     if (p.lastDataChange != null) {
       lastDataChange = Math.max(lastDataChange ?? 0, p.lastDataChange);
     }
+    if (p.poolLastUpdate != null) {
+      poolLastUpdate = Math.min(poolLastUpdate ?? Infinity, p.poolLastUpdate);
+    }
   }
   const state: ServiceHealthState =
     up === pools.length ? 'healthy' : up === 0 ? 'down' : 'degraded';
-  return { state, poolsUp: up, poolsTotal: pools.length, lastDataChange };
+  return {
+    state,
+    poolsUp: up,
+    poolsTotal: pools.length,
+    lastDataChange,
+    poolLastUpdate,
+  };
 }
 
 /** Service health + per-pool detail, for the dashboard payload and the Status page. */

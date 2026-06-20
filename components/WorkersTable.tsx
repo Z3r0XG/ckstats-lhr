@@ -355,10 +355,10 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
           Hashrate (1d){renderSortIcon('hashrate1d')}
         </th>
         <th onClick={() => handleSort('shares')} className="cursor-pointer">
-          Total Shares{renderSortIcon('shares')}
+          Accepted Work{renderSortIcon('shares')}
         </th>
         <th onClick={() => handleSort('bestShare')} className="cursor-pointer">
-          Best Share{renderSortIcon('bestShare')}
+          Best Diff{renderSortIcon('bestShare')}
         </th>
         <th onClick={() => handleSort('bestEver')} className="cursor-pointer">
           Best Ever{renderSortIcon('bestEver')}

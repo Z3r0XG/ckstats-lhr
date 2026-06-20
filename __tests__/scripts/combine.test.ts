@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * Unit tests for the multi-region combine (pure functions — no I/O/DB/env).
+ * Unit tests for the multi-pool combine (pure functions — no I/O/DB/env).
  * Expected hashrate sums are computed via convertHashrateFloat so the asserts test the
  * SUM/MAX/MIN/dedup behavior, not a hardcoded unit scale.
  */
@@ -38,22 +38,20 @@ describe('getPoolUrls', () => {
   const saved = { ...process.env };
   afterEach(() => { process.env = { ...saved }; });
 
-  it('parses POOL_URLS as a JSON array', () => {
-    process.env.POOL_URLS = '["https://a.com", "https://b.com"]';
+  it('parses API_URL as a JSON array', () => {
+    process.env.API_URL = '["https://a.com", "https://b.com"]';
     expect(getPoolUrls()).toEqual(['https://a.com', 'https://b.com']);
   });
-  it('parses POOL_URLS as a comma list (trim + drop empties)', () => {
-    process.env.POOL_URLS = ' https://a.com, https://b.com ,, https://c.com ';
-    expect(getPoolUrls()).toEqual(['https://a.com', 'https://b.com', 'https://c.com']);
-  });
-  it('falls back to single API_URL when POOL_URLS unset', () => {
-    delete process.env.POOL_URLS;
+  it('treats a bare API_URL as a single pool', () => {
     process.env.API_URL = '/var/log/ckpool';
     expect(getPoolUrls()).toEqual(['/var/log/ckpool']);
   });
-  it('returns [] when neither is set', () => {
-    delete process.env.POOL_URLS;
+  it('returns [] when API_URL is unset', () => {
     delete process.env.API_URL;
+    expect(getPoolUrls()).toEqual([]);
+  });
+  it('returns [] for a malformed JSON array', () => {
+    process.env.API_URL = '["https://a.com"';
     expect(getPoolUrls()).toEqual([]);
   });
 });
@@ -65,7 +63,7 @@ describe('getPoolSources (urls + labels, universal)', () => {
   });
 
   it('uses explicit labels from the {url,label} object form', () => {
-    process.env.POOL_URLS =
+    process.env.API_URL =
       '[{"url":"https://na.example.org","label":"NA"},{"url":"https://eu.example.org","label":"EU"}]';
     expect(getPoolSources()).toEqual([
       { url: 'https://na.example.org', label: 'NA' },
@@ -74,22 +72,21 @@ describe('getPoolSources (urls + labels, universal)', () => {
   });
 
   it('falls back to the hostname for a plain URL string (no host-naming assumptions)', () => {
-    process.env.POOL_URLS = '["https://api-btc-na.heliospool.com"]';
+    process.env.API_URL = '["https://na.example.org"]';
     expect(getPoolSources()).toEqual([
-      { url: 'https://api-btc-na.heliospool.com', label: 'api-btc-na.heliospool.com' },
+      { url: 'https://na.example.org', label: 'na.example.org' },
     ]);
   });
 
-  it('falls back to the last path segment for a local file root', () => {
-    process.env.POOL_URLS = '/var/log/ckpool-na';
-    delete process.env.API_URL;
+  it('treats a bare path as a single pool, label = last path segment', () => {
+    process.env.API_URL = '/var/log/ckpool-na';
     expect(getPoolSources()).toEqual([
       { url: '/var/log/ckpool-na', label: 'ckpool-na' },
     ]);
   });
 
   it('mixes string and object entries; getPoolUrls returns just the urls', () => {
-    process.env.POOL_URLS =
+    process.env.API_URL =
       '["https://a.com",{"url":"https://b.com","label":"Beta"}]';
     expect(getPoolSources()).toEqual([
       { url: 'https://a.com', label: 'a.com' },

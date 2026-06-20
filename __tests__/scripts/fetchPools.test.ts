@@ -122,7 +122,10 @@ describe('fetchUserFromPool', () => {
 
     it('treats a 200 whose body is not user-shaped (no worker array) as error, not found', async () => {
       // e.g. a misconfigured pool serving a 200 HTML page or an error blob that happens to parse
-      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ error: 'not found' }) });
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({ error: 'not found' }),
+      });
 
       const r = await fetchUserFromPool('https://a.com', 'addr');
 
@@ -154,7 +157,10 @@ describe('fetchUserFromPool', () => {
       const r = await fetchUserFromPool('/var/log/ckpool', 'addr');
 
       expect(r).toEqual({ status: 'found', base: '/var/log/ckpool', data });
-      expect(validateAndResolveUserPath).toHaveBeenCalledWith('addr', '/var/log/ckpool');
+      expect(validateAndResolveUserPath).toHaveBeenCalledWith(
+        'addr',
+        '/var/log/ckpool'
+      );
       expect(readJsonStable).toHaveBeenCalledWith('/safe/users/addr', {
         retries: 6,
         backoffMs: 50,
@@ -202,11 +208,18 @@ describe('fetchPoolStatusFromPool', () => {
   });
 
   it('returns found with the raw text body', async () => {
-    fetchMock.mockResolvedValueOnce({ ok: true, text: async () => '{"Users":5}' });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      text: async () => '{"Users":5}',
+    });
 
     const r = await fetchPoolStatusFromPool('https://a.com');
 
-    expect(r).toEqual({ status: 'found', base: 'https://a.com', data: '{"Users":5}' });
+    expect(r).toEqual({
+      status: 'found',
+      base: 'https://a.com',
+      data: '{"Users":5}',
+    });
     expect(fetchMock.mock.calls[0][0]).toBe('https://a.com/pool/pool.status');
   });
 
@@ -216,11 +229,18 @@ describe('fetchPoolStatusFromPool', () => {
 
     const r = await fetchPoolStatusFromPool('/var/log/ckpool');
 
-    expect(r).toEqual({ status: 'found', base: '/var/log/ckpool', data: '{"Users":7}' });
-    expect(readFileStable).toHaveBeenCalledWith('/var/log/ckpool/pool/pool.status', {
-      retries: 6,
-      backoffMs: 50,
+    expect(r).toEqual({
+      status: 'found',
+      base: '/var/log/ckpool',
+      data: '{"Users":7}',
     });
+    expect(readFileStable).toHaveBeenCalledWith(
+      '/var/log/ckpool/pool/pool.status',
+      {
+        retries: 6,
+        backoffMs: 50,
+      }
+    );
   });
 
   it('returns absent on 404', async () => {
@@ -230,7 +250,10 @@ describe('fetchPoolStatusFromPool', () => {
   });
 
   it('treats a 200 HTML/redirect page (not JSON) as error, not found', async () => {
-    fetchMock.mockResolvedValue({ ok: true, text: async () => '<html>301 Moved</html>' });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      text: async () => '<html>301 Moved</html>',
+    });
     const r = await fetchPoolStatusFromPool('https://a.com');
     expect(r.status).toBe('error');
   });
@@ -242,36 +265,40 @@ describe('poolFetchInit (env-driven request options)', () => {
     process.env = { ...saved };
   });
 
-  it('returns {} when no POOL_API_* env is set (unchanged fetch behavior)', () => {
-    delete process.env.POOL_API_USER_AGENT;
-    delete process.env.POOL_API_TOKEN;
-    delete process.env.POOL_API_EXTRA_HEADERS;
-    delete process.env.POOL_API_REQUEST_TIMEOUT_SECONDS;
+  it('returns {} when no API_* env is set (opt-in only, no default timeout)', () => {
+    delete process.env.API_USER_AGENT;
+    delete process.env.API_TOKEN;
+    delete process.env.API_EXTRA_HEADERS;
+    delete process.env.API_REQUEST_TIMEOUT_SECONDS;
     expect(poolFetchInit()).toEqual({});
   });
 
   it('sets the User-Agent header', () => {
-    process.env.POOL_API_USER_AGENT = 'ckstats/1.0';
-    expect((poolFetchInit().headers as Record<string, string>)['User-Agent']).toBe('ckstats/1.0');
+    process.env.API_USER_AGENT = 'ckstats/1.0';
+    expect(
+      (poolFetchInit().headers as Record<string, string>)['User-Agent']
+    ).toBe('ckstats/1.0');
   });
 
   it('sends the token as a Bearer Authorization header', () => {
-    process.env.POOL_API_TOKEN = 'secret123';
-    expect((poolFetchInit().headers as Record<string, string>)['Authorization']).toBe('Bearer secret123');
+    process.env.API_TOKEN = 'secret123';
+    expect(
+      (poolFetchInit().headers as Record<string, string>)['Authorization']
+    ).toBe('Bearer secret123');
   });
 
   it('merges arbitrary JSON extra headers', () => {
-    process.env.POOL_API_USER_AGENT = 'ckstats/1.0';
-    process.env.POOL_API_EXTRA_HEADERS = '{"X-Pool-Key":"abc","X-Trace":"1"}';
+    process.env.API_USER_AGENT = 'ckstats/1.0';
+    process.env.API_EXTRA_HEADERS = '{"X-Pool-Key":"abc","X-Trace":"1"}';
     const h = poolFetchInit().headers as Record<string, string>;
     expect(h['User-Agent']).toBe('ckstats/1.0');
     expect(h['X-Pool-Key']).toBe('abc');
     expect(h['X-Trace']).toBe('1');
   });
 
-  it('ignores malformed POOL_API_EXTRA_HEADERS without throwing', () => {
-    process.env.POOL_API_USER_AGENT = 'ckstats/1.0';
-    process.env.POOL_API_EXTRA_HEADERS = 'not json';
+  it('ignores malformed API_EXTRA_HEADERS without throwing', () => {
+    process.env.API_USER_AGENT = 'ckstats/1.0';
+    process.env.API_EXTRA_HEADERS = 'not json';
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const h = poolFetchInit().headers as Record<string, string>;
     expect(h['User-Agent']).toBe('ckstats/1.0');
@@ -280,14 +307,14 @@ describe('poolFetchInit (env-driven request options)', () => {
   });
 
   it('attaches an AbortSignal when a positive timeout is set', () => {
-    process.env.POOL_API_REQUEST_TIMEOUT_SECONDS = '5';
+    process.env.API_REQUEST_TIMEOUT_SECONDS = '5';
     expect(poolFetchInit().signal).toBeInstanceOf(AbortSignal);
   });
 
   it('omits the signal for a zero / non-numeric timeout', () => {
-    process.env.POOL_API_REQUEST_TIMEOUT_SECONDS = '0';
+    process.env.API_REQUEST_TIMEOUT_SECONDS = '0';
     expect(poolFetchInit().signal).toBeUndefined();
-    process.env.POOL_API_REQUEST_TIMEOUT_SECONDS = 'abc';
+    process.env.API_REQUEST_TIMEOUT_SECONDS = 'abc';
     expect(poolFetchInit().signal).toBeUndefined();
   });
 });

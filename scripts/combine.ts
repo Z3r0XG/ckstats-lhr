@@ -2,11 +2,10 @@
  * Multi-pool aggregation — PURE functions that merge N upstream ckpool pools into one combined
  * view. No I/O, no DB, no env beyond getPoolUrls(): unit-testable in isolation (this is where all
  * the sum/max/min/dedup rules live). "pool" = one upstream ckpool we aggregate; the combined output
- * feeds the existing PoolStats/Worker/UserStats as today.
+ * feeds the PoolStats/Worker/UserStats tables.
  *
- * See .local/multi-region-combine-plan.md. Outputs normalized NUMERIC shapes (hashrates in H/s)
- * because ckpool reports unit-strings ("73.4T") that can't round-trip cleanly; the ingest
- * consumers (seed / updateUsers) store numbers anyway.
+ * Outputs normalized NUMERIC shapes (hashrates in H/s) because ckpool reports unit-strings
+ * ("73.4T") that can't round-trip cleanly; the ingest consumers store numbers anyway.
  */
 import type { UserData } from './updateUsers';
 import {
@@ -28,7 +27,7 @@ export interface PoolSource {
 /**
  * Generic, deployment-agnostic fallback label when an operator hasn't set one: the hostname for an
  * http URL, or the last path segment for a local file root. Operators set explicit labels via the
- * object form of POOL_URLS (below) for clean names.
+ * object form of API_URL (below) for clean names.
  */
 function defaultPoolLabel(url: string): string {
   try {
@@ -40,53 +39,48 @@ function defaultPoolLabel(url: string): string {
 }
 
 /**
- * Ordered list of upstream pools with display labels. `POOL_URLS` accepts:
- *   - a JSON array of URL strings:      `["https://a","https://b"]`
- *   - a JSON array of {url,label}:      `[{"url":"https://a","label":"NA"},{"url":"https://b","label":"EU"}]`
- *   - a comma-separated URL list:       `https://a,https://b`
- * Strings (and comma form) get a generic fallback label; the object form sets explicit labels.
- * Falls back to the single `API_URL` for back-compat single-pool deploys. Universal — no assumptions
- * about any particular host/naming scheme.
+ * Ordered list of pools with display labels, parsed from `API_URL`. Two forms:
+ *   - a single URL or local path:        `https://a`           (one pool)
+ *   - a JSON array, for multiple pools of the same coin:
+ *       strings:                         `["https://a","https://b"]`
+ *       or {url,label} objects:          `[{"url":"https://a","label":"NA"}, ...]`
+ * String entries get a generic fallback label; the object form sets explicit labels. Universal —
+ * no assumptions about any particular host/naming scheme.
  */
 export function getPoolSources(): PoolSource[] {
-  const raw = (process.env.POOL_URLS ?? '').trim();
-  if (raw) {
-    if (raw.startsWith('[')) {
-      try {
-        const arr = JSON.parse(raw);
-        if (Array.isArray(arr)) {
-          const out: PoolSource[] = [];
-          for (const el of arr) {
-            if (typeof el === 'string') {
-              const u = el.trim();
-              if (u) out.push({ url: u, label: defaultPoolLabel(u) });
-            } else if (el && typeof el === 'object' && el.url) {
-              const u = String(el.url).trim();
-              if (u)
-                out.push({
-                  url: u,
-                  label: el.label ? String(el.label) : defaultPoolLabel(u),
-                });
-            }
+  const raw = (process.env.API_URL ?? '').trim();
+  if (!raw) return [];
+  // JSON array form (string entries or {url,label} objects) — multiple pools.
+  if (raw.startsWith('[')) {
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        const out: PoolSource[] = [];
+        for (const el of arr) {
+          if (typeof el === 'string') {
+            const u = el.trim();
+            if (u) out.push({ url: u, label: defaultPoolLabel(u) });
+          } else if (el && typeof el === 'object' && el.url) {
+            const u = String(el.url).trim();
+            if (u)
+              out.push({
+                url: u,
+                label: el.label ? String(el.label) : defaultPoolLabel(u),
+              });
           }
-          if (out.length > 0) return out;
         }
-      } catch {
-        /* not valid JSON — fall through to comma parsing */
+        return out;
       }
+    } catch {
+      /* malformed JSON — no pools */
     }
-    const list = raw
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (list.length > 0)
-      return list.map((u) => ({ url: u, label: defaultPoolLabel(u) }));
+    return [];
   }
-  const single = (process.env.API_URL ?? '').trim();
-  return single ? [{ url: single, label: defaultPoolLabel(single) }] : [];
+  // Single pool: a bare URL or local path.
+  return [{ url: raw, label: defaultPoolLabel(raw) }];
 }
 
-/** Just the pool URLs (the fetch loops use this; labels via getPoolSources). Back-compat. */
+/** Just the pool URLs (the fetch loops use these; labels come from getPoolSources). */
 export function getPoolUrls(): string[] {
   return getPoolSources().map((s) => s.url);
 }
