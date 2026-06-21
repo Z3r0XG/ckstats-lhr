@@ -178,28 +178,47 @@ DEFAULT_THEME="forest"
 - Single pool: `API_URL="https://solo.ckpool.org"` — or a local log dir `/var/log/ckpool`
 - Multiple pools (same coin): set a JSON array — see [Multi-Pool Aggregation](#multi-pool-aggregation)
 
-**POOL_INGEST / POOL_INGEST_INTERVAL_SECONDS / POOL_CLEANUP_INTERVAL_SECONDS / POOL_HEALTH_STALE_SECONDS**: Control ingestion (see [Enable Ingestion](#6-enable-ingestion)). **OPTIONAL**
+**POOL_INGEST**: ingestion driver — unset/`0` (default) drives ingestion via external cron (`seed` / `update-users` / `cleanup`); `1`/`true` runs the capture+combine loop in-process (see [Enable Ingestion](#6-enable-ingestion)). **OPTIONAL**
 
-- `POOL_INGEST`: chooses the ingestion driver. Unset/`0` (default) = drive ingestion with external **cron** (the `seed` / `update-users` / `cleanup` scripts). `1`/`true` = run the capture+combine loop **in-process**. Use one driver or the other, not both.
-- `POOL_INGEST_INTERVAL_SECONDS`: seconds between in-process cycles (default `60`).
-- `POOL_CLEANUP_INTERVAL_SECONDS`: seconds between prunes of old time-series rows, folded into the in-process loop (default `7200`).
-- `POOL_HEALTH_STALE_SECONDS`: a pool reads as **down** on `/status` if its data hasn't advanced within this window (default `300`).
+**POOL_INGEST_INTERVAL_SECONDS**: seconds between in-process ingest cycles. **OPTIONAL**
 
-**API_USER_AGENT / API_TOKEN / API_EXTRA_HEADERS / API_REQUEST_TIMEOUT_SECONDS**: Tune the outbound HTTP requests made to each CKPool API. **OPTIONAL**
+- Default: `60`
 
-- `API_USER_AGENT`: `User-Agent` header to send (e.g. `ckstats/1.0`). Useful when a pool rate-limits by identity — aggregating several pools multiplies request volume, so a whitelisted agent avoids throttling.
-- `API_TOKEN`: sent as `Authorization: Bearer <token>`.
-- `API_EXTRA_HEADERS`: a JSON object of additional headers, e.g. `{"X-Pool-Key":"abc"}` (merged last). Malformed JSON is ignored with a warning.
-- `API_REQUEST_TIMEOUT_SECONDS`: abort any single request that exceeds this many seconds (omit or `0` = no app-level timeout).
-- Note: these affect HTTP requests only (no effect on local-file reads); with none set, no extra headers or auth are sent.
+**POOL_CLEANUP_INTERVAL_SECONDS**: seconds between prunes of old time-series rows (folded into the in-process loop). **OPTIONAL**
 
-**API_MAX_CONNS / API_KEEPALIVE_TIMEOUT_SECONDS / API_CONNECT_TIMEOUT_SECONDS / API_TCP_KEEPALIVE_SECONDS / API_CONN_MAX_AGE_SECONDS**: Persistent keep-alive connection-pool tuning for HTTP sources (no effect on local files). **OPTIONAL**
+- Default: `7200`
 
-- `API_MAX_CONNS`: max concurrent connections per pool origin (default `4`); keep small so bursts don't trip a pool's connection limit.
-- `API_KEEPALIVE_TIMEOUT_SECONDS`: idle keep-alive timeout (default `30`). Keep it **below** your origin/proxy idle timeout (and the poll interval), so the client refreshes a connection before the server closes it — too high and a silently-dropped socket can wedge a pool.
-- `API_CONNECT_TIMEOUT_SECONDS`: connection / TLS-handshake timeout (default `5`).
-- `API_TCP_KEEPALIVE_SECONDS`: OS-level TCP keepalive probe delay, to detect a dead peer without waiting on a request timeout (default `30`; `0` disables).
-- `API_CONN_MAX_AGE_SECONDS`: how often the connection pool is recycled — a fresh Agent swapped in off the fetch path — bounding connection age so a stale socket can't wedge a pool (default `300`; `0` disables).
+**POOL_HEALTH_STALE_SECONDS**: a pool reads as down on `/status` if its data hasn't advanced within this window. **OPTIONAL**
+
+- Default: `300`
+
+**API_USER_AGENT**: `User-Agent` header sent to each CKPool API (HTTP sources only). **OPTIONAL**
+
+**API_TOKEN**: bearer token sent as `Authorization: Bearer <token>`. **OPTIONAL**
+
+**API_EXTRA_HEADERS**: JSON object of extra headers merged into each request, e.g. `{"X-Pool-Key":"abc"}` (malformed JSON is ignored). **OPTIONAL**
+
+**API_REQUEST_TIMEOUT_SECONDS**: abort any single request exceeding this many seconds (omit or `0` = no app-level timeout). **OPTIONAL**
+
+**API_MAX_CONNS**: max concurrent connections per pool origin (HTTP sources only). **OPTIONAL**
+
+- Default: `4`
+
+**API_KEEPALIVE_TIMEOUT_SECONDS**: idle keep-alive timeout. **OPTIONAL**
+
+- Default: `30`
+
+**API_CONNECT_TIMEOUT_SECONDS**: connection / TLS-handshake timeout. **OPTIONAL**
+
+- Default: `5`
+
+**API_TCP_KEEPALIVE_SECONDS**: OS-level TCP keepalive probe delay (`0` disables). **OPTIONAL**
+
+- Default: `30`
+
+**API_CONN_MAX_AGE_SECONDS**: how often the connection pool is recycled (`0` disables). **OPTIONAL**
+
+- Default: `300`
 
 **DB_HOST**: PostgreSQL server address. **REQUIRED**
 
@@ -210,6 +229,32 @@ DEFAULT_THEME="forest"
   - TCP: `localhost` or `192.168.1.100`
   - Unix socket: `/var/run/postgresql`
 - Note: Unix socket uses peer authentication — the OS user running the app must match the DB user, or an ident map must be configured in `pg_hba.conf` and `pg_ident.conf`
+
+**DB_PORT**: PostgreSQL server port. **REQUIRED**
+
+- Default: `5432`
+
+**DB_USER**: PostgreSQL username. **REQUIRED**
+
+- Default: `postgres`
+
+**DB_PASSWORD**: PostgreSQL password. **REQUIRED**
+
+- Default: `password`
+
+**DB_NAME**: PostgreSQL database name. **REQUIRED**
+
+- Default: `postgres`
+
+**DB_SSL**: enable SSL for the database connection. **OPTIONAL**
+
+- Default: `false`
+- Values: `'true'` | `'false'`
+
+**DB_SSL_REJECT_UNAUTHORIZED**: when SSL is enabled, reject a connection presenting an invalid or self-signed certificate. **OPTIONAL**
+
+- Default: `false`
+- Values: `'true'` | `'false'`
 
 **SITE_NAME**: Custom title for statistics page. **OPTIONAL**
 
@@ -313,7 +358,7 @@ pnpm ingest
 
 > [!NOTE]
 >
-> - Use one driver, not both — running cron **and** the in-process loop against the same DB double-writes.
+> - Use one driver, not both. A per-database advisory lock keeps two ingest cycles from running against the same DB at once (the second skips), so running cron **and** the in-process loop together won't double-write — it is simply redundant.
 > - Stop ingestion (the loop, or the cron lines) before restoring the database or running migrations, to avoid races.
 > - Adjust the interval to pool size and server resources: shorter = more current data but more database load.
 
