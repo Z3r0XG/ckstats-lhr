@@ -74,6 +74,9 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     new Set()
   );
   const [autoHideInactive, setAutoHideInactive] = useState(false);
+  // Client column: full raw UA (default) vs our normalized token. Pure display switch — both are
+  // stored on the worker (userAgentRaw / userAgent). Persisted like the autohide toggle.
+  const [showFullClient, setShowFullClient] = useState(true);
   const [storageReady, setStorageReady] = useState(false);
 
   useEffect(() => {
@@ -89,6 +92,12 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
       setAutoHideInactive(a === 'true');
     } catch (err) {
       console.debug('Failed to load autoHideInactiveWorkers', err);
+    }
+    try {
+      const f = localStorage.getItem('showFullClientWorkers');
+      if (f !== null) setShowFullClient(f === 'true'); // default stays true
+    } catch (err) {
+      console.debug('Failed to load showFullClientWorkers', err);
     } finally {
       setStorageReady(true);
     }
@@ -127,6 +136,18 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     if (storageReady) {
       try {
         localStorage.setItem('autoHideInactiveWorkers', String(newValue));
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  const toggleShowFullClient = () => {
+    const newValue = !showFullClient;
+    setShowFullClient(newValue);
+    if (storageReady) {
+      try {
+        localStorage.setItem('showFullClientWorkers', String(newValue));
       } catch {
         /* ignore */
       }
@@ -239,14 +260,8 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
       return Number.isNaN(n) ? 0 : n;
     };
     const hr5mRaw = worker.hashrate5m ?? '0';
-    const hr1hrRaw = worker.hashrate1hr ?? '0';
-    const hr1dRaw = worker.hashrate1d ?? '0';
     const hr5m = parseHashrateToNumber(hr5mRaw);
-    const hr1hr = parseHashrateToNumber(hr1hrRaw);
-    const hr1d = parseHashrateToNumber(hr1dRaw);
     const cls5m = hr5m === 0 ? '' : hr5m < 1 ? 'text-error' : 'text-accent';
-    const cls1hr = hr1hr === 0 ? '' : hr1hr < 1 ? 'text-error' : '';
-    const cls1d = hr1d === 0 ? '' : hr1d < 1 ? 'text-error' : '';
     const renderHr = (raw: any, numeric: number) => {
       const s = raw !== undefined && raw !== null ? String(raw).trim() : '0';
       if (s === '0' || numeric === 0) return '0 H/s';
@@ -312,15 +327,19 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
             {worker.name || <span className="italic">Unnamed</span>}
           </Link>
         </td>
-        <td title={worker.userAgentRaw || ''}>
-          {getWorkerUserAgentDisplay(worker.userAgentRaw)}
+        <td
+          title={worker.userAgentRaw || ''}
+          className={
+            showFullClient ? 'max-w-[20rem] whitespace-normal break-words' : ''
+          }
+        >
+          {showFullClient
+            ? getWorkerUserAgentDisplay(worker.userAgentRaw)
+            : getWorkerUserAgentDisplay(worker.userAgent)}
         </td>
         <td className={cls5m}>{renderHr(hr5mRaw, hr5m)}</td>
-        <td className={cls1hr}>{renderHr(hr1hrRaw, hr1hr)}</td>
-        <td className={cls1d}>{renderHr(hr1dRaw, hr1d)}</td>
         <td>{formatNumber(worker.shares)}</td>
         <td>{formatNumber(worker.bestShare)}</td>
-        <td>{formatNumber(worker.bestEver)}</td>
         <td>{formatTimeAgo(worker.lastUpdate)}</td>
         <td>{uptimeEl}</td>
       </tr>
@@ -345,26 +364,14 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         <th onClick={() => handleSort('hashrate5m')} className="cursor-pointer">
           Hashrate (5m){renderSortIcon('hashrate5m')}
         </th>
-        <th
-          onClick={() => handleSort('hashrate1hr')}
-          className="cursor-pointer"
-        >
-          Hashrate (1hr){renderSortIcon('hashrate1hr')}
-        </th>
-        <th onClick={() => handleSort('hashrate1d')} className="cursor-pointer">
-          Hashrate (1d){renderSortIcon('hashrate1d')}
-        </th>
         <th onClick={() => handleSort('shares')} className="cursor-pointer">
           Accepted Work{renderSortIcon('shares')}
         </th>
         <th onClick={() => handleSort('bestShare')} className="cursor-pointer">
           Best Diff{renderSortIcon('bestShare')}
         </th>
-        <th onClick={() => handleSort('bestEver')} className="cursor-pointer">
-          Best Ever{renderSortIcon('bestEver')}
-        </th>
         <th onClick={() => handleSort('lastUpdate')} className="cursor-pointer">
-          Last Update{renderSortIcon('lastUpdate')}
+          Last Share{renderSortIcon('lastUpdate')}
         </th>
         <th>Uptime</th>
       </tr>
@@ -379,22 +386,40 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
             Workers ({visibleWorkers.length})
           </h2>
           {storageReady && (
-            <label className="flex items-center gap-3 cursor-pointer">
-              <span
-                className="text-sm tooltip"
-                data-tip="No Activity in 24 hours"
-              >
-                Auto-Hide Inactive
-              </span>
-              <input
-                type="checkbox"
-                checked={autoHideInactive}
-                onChange={toggleAutoHideInactive}
-                className={`toggle toggle-sm tooltip ${autoHideInactive ? 'toggle-success' : ''}`}
-                data-tip="No Activity in 24 hours"
-                aria-checked={autoHideInactive}
-              />
-            </label>
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <span
+                  className="text-sm tooltip"
+                  data-tip="Show the full client string instead of the simplified device name"
+                >
+                  Full Client
+                </span>
+                <input
+                  type="checkbox"
+                  checked={showFullClient}
+                  onChange={toggleShowFullClient}
+                  className={`toggle toggle-sm tooltip ${showFullClient ? 'toggle-success' : ''}`}
+                  data-tip="Show the full client string instead of the simplified device name"
+                  aria-checked={showFullClient}
+                />
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <span
+                  className="text-sm tooltip"
+                  data-tip="No Activity in 24 hours"
+                >
+                  Auto-Hide Inactive
+                </span>
+                <input
+                  type="checkbox"
+                  checked={autoHideInactive}
+                  onChange={toggleAutoHideInactive}
+                  className={`toggle toggle-sm tooltip ${autoHideInactive ? 'toggle-success' : ''}`}
+                  data-tip="No Activity in 24 hours"
+                  aria-checked={autoHideInactive}
+                />
+              </label>
+            </div>
           )}
         </div>
         <div className="overflow-x-auto">

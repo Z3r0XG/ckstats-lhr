@@ -284,12 +284,15 @@ export function combinePoolStatus(pools: RawPoolStatus[]): CombinedPoolStatus {
   const uaMap = new Map<string, CombinedUserAgent>();
   for (const p of pools) {
     for (const u of p.UserAgents ?? []) {
-      const cur = uaMap.get(u.ua);
+      // Key on the normalized UA (same token as Worker.userAgent) so raw variants that collapse to
+      // the same device merge into one entry. Fall back to the raw string if normalize is empty.
+      const key = normalizeUserAgent(u.ua) || u.ua;
+      const cur = uaMap.get(key);
       const devices = Number(u.devices ?? 0);
       const h5 = hr(u.hashrate5m);
       const best = Number(u.bestshare ?? 0);
       if (!cur) {
-        uaMap.set(u.ua, { ua: u.ua, devices, hashrate5m: h5, bestshare: best });
+        uaMap.set(key, { ua: key, devices, hashrate5m: h5, bestshare: best });
       } else {
         cur.devices += devices;
         cur.hashrate5m += h5;

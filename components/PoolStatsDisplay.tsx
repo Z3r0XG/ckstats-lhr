@@ -79,9 +79,10 @@ export default function PoolStatsDisplay({
     } else if (key === 'bestshare') {
       return 'Best Diff';
     } else if (key === 'accepted') {
-      return 'Accepted Work';
+      // Bare label — the "Work Submitted" card title carries the noun.
+      return 'Accepted';
     } else if (key === 'rejected') {
-      return 'Rejected Work';
+      return 'Rejected';
     }
     return key
       .replace(/([A-Z])/g, ' $1')
