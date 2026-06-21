@@ -15,19 +15,21 @@ import {
   type PoolState,
 } from './poolHealth';
 import { persistCombinedPoolStats } from './poolStatsWrite';
-import { cleanOldStats } from '../scripts/cleanOldStats';
+import { cacheDelete, recordBestDiff } from '../lib/api';
+import { cleanOldStats, cleanDeadWorkers } from '../scripts/cleanOldStats';
 import {
   getPoolSources,
   combinePoolStatus,
   combineUserData,
   type RawPoolStatus,
+  type CombinedUser,
 } from '../scripts/combine';
 import {
   fetchUserFromPool,
   fetchPoolStatusFromPool,
 } from '../scripts/fetchPools';
 import {
-  updateUser,
+  shouldMarkUserInactive,
   type UserData,
   type MessageCollectors,
 } from '../scripts/updateUsers';
@@ -36,6 +38,7 @@ import {
   safeParseFloat,
   parseWorkerName,
   normalizeUserAgent,
+  bigIntStringFromFloatLike,
 } from '../utils/helpers';
 
 const hr = (v: unknown): number => convertHashrateFloat(String(v ?? '0'));
@@ -50,8 +53,8 @@ function envSeconds(name: string, dflt: number): number {
 }
 
 function buildAgent(): Agent {
-  // Idle keep-alive timeout. Kept SHORTER than typical origin/proxy idle timeouts (nginx ~75s,
-  // many LBs/NATs 30–60s) so WE refresh first and never reuse a socket the server already closed —
+  // Idle keep-alive timeout. Kept shorter than typical origin/proxy idle timeouts so the client
+  // refreshes first and never reuses a socket the server has already closed —
   // and shorter than the poll interval, so connections stay warm within a cycle's burst but are
   // re-established between cycles rather than lingering long enough to be silently reaped.
   const keepAliveMs = envSeconds('API_KEEPALIVE_TIMEOUT_SECONDS', 30) * 1000;
@@ -84,8 +87,8 @@ let agent: Agent | undefined;
 function getAgent(): Agent {
   if (!agent) {
     agent = buildAgent();
-    // undici has no native max-connection-age, so a long-lived socket silently reaped by a NAT /
-    // firewall can wedge a pool indefinitely (half-open: writes black-holed, no error). Bound the
+    // undici has no native max-connection-age, so a long-lived socket silently dropped by a network
+    // intermediary can wedge a pool indefinitely (half-open: writes black-holed, no error). Bound the
     // age by periodically swapping in a fresh Agent and closing the old one OFF the fetch path
     // (fire-and-forget) — fetches keep using warm connections, and a wedged socket self-heals within
     // API_CONN_MAX_AGE_SECONDS instead of never. 0 disables rotation.
@@ -145,6 +148,115 @@ async function batchUpsert(
   }
 }
 
+// Plain chunked bulk INSERT for append-only tables (UserStats/WorkerStats — generated bigint PKs
+// omitted, timestamp defaults). No ON CONFLICT.
+async function bulkInsert(
+  q: (sql: string, params?: unknown[]) => Promise<unknown>,
+  table: string,
+  columns: string[],
+  rows: Row[]
+): Promise<void> {
+  if (rows.length === 0) return;
+  const colSql = columns.map((c) => `"${c}"`).join(', ');
+  const CHUNK = 400;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const params: unknown[] = [];
+    const valuesSql = chunk
+      .map((row) => {
+        const base = params.length;
+        columns.forEach((c) => params.push(row[c]));
+        return `(${columns.map((_c, j) => `$${base + j + 1}`).join(', ')})`;
+      })
+      .join(', ');
+    await q(`INSERT INTO "${table}" (${colSql}) VALUES ${valuesSql}`, params);
+  }
+}
+
+// User upsert that intentionally does NOT touch lastActivatedAt/createdAt on conflict (they drive the
+// grace period and must only be set at insert). On conflict we refresh authorised, re-assert active,
+// and bump updatedAt. `now` is supplied per-row (lastActivatedAt/createdAt/updatedAt on insert).
+async function bulkUpsertUsers(
+  q: (sql: string, params?: unknown[]) => Promise<unknown>,
+  rows: Array<{ address: string; authorised: string; now: Date }>
+): Promise<void> {
+  if (rows.length === 0) return;
+  const CHUNK = 400;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const params: unknown[] = [];
+    const valuesSql = chunk
+      .map((r) => {
+        const b = params.length;
+        params.push(r.address, r.authorised, true, r.now, r.now, r.now);
+        return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6})`;
+      })
+      .join(', ');
+    await q(
+      `INSERT INTO "User" ("address","authorised","isActive","lastActivatedAt","createdAt","updatedAt")
+       VALUES ${valuesSql}
+       ON CONFLICT ("address") DO UPDATE SET
+         "authorised"=EXCLUDED."authorised", "isActive"=true, "updatedAt"=EXCLUDED."updatedAt"`,
+      params
+    );
+  }
+}
+
+// Worker upsert returning ids so WorkerStats can reference workerId without an extra round-trip.
+// updatedAt is set explicitly (raw SQL has no @UpdateDateColumn auto-bump) — required so cleanOldStats
+// (which deletes workers on updatedAt < 7d) doesn't reap freshly-reported workers. Returns a
+// `${userAddress} ${name}` → id map covering both inserted and updated rows.
+// NOTE: `started` is intentionally absent — it's a WorkerStats column, not a Worker column.
+const WORKER_UPSERT_COLS = [
+  'userAddress',
+  'name',
+  'userAgent',
+  'userAgentRaw',
+  'hashrate1m',
+  'hashrate5m',
+  'hashrate1hr',
+  'hashrate1d',
+  'hashrate7d',
+  'lastUpdate',
+  'shares',
+  'bestShare',
+  'bestEver',
+  'updatedAt',
+];
+async function bulkUpsertWorkersReturningIds(
+  q: (sql: string, params?: unknown[]) => Promise<unknown>,
+  rows: Row[]
+): Promise<Map<string, number>> {
+  const idMap = new Map<string, number>();
+  if (rows.length === 0) return idMap;
+  const cols = WORKER_UPSERT_COLS;
+  const colSql = cols.map((c) => `"${c}"`).join(', ');
+  const setSql = cols
+    .filter((c) => c !== 'userAddress' && c !== 'name')
+    .map((c) => `"${c}"=EXCLUDED."${c}"`)
+    .join(', ');
+  const CHUNK = 400;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const params: unknown[] = [];
+    const valuesSql = chunk
+      .map((row) => {
+        const base = params.length;
+        cols.forEach((c) => params.push(row[c]));
+        return `(${cols.map((_c, j) => `$${base + j + 1}`).join(', ')})`;
+      })
+      .join(', ');
+    const res = (await q(
+      `INSERT INTO "Worker" (${colSql}) VALUES ${valuesSql}
+       ON CONFLICT ("userAddress", "name") DO UPDATE SET ${setSql}
+       RETURNING id, "userAddress", name`,
+      params
+    )) as Array<{ id: number; userAddress: string; name: string }>;
+    for (const r of res) idMap.set(`${r.userAddress} ${r.name}`, r.id);
+  }
+  return idMap;
+}
+
 const USER_COLS = [
   'pool',
   'address',
@@ -189,6 +301,16 @@ const WORKER_COLS = [
  *   'both'   = the full cycle (internal loop / `pnpm ingest`)
  * Never throws — an unreachable pool keeps its last-known snapshot and is marked accordingly.
  */
+// ── Per-cycle phase timing (instrumentation) ───────────────────────────────────────────────────
+// Accumulated by capturePool across all pools in a cycle, reset + logged by the cycle runners.
+// Splits API-fetch latency from the bulk snapshot writes in the [ingest][timing] line.
+const cycleTiming = { statusFetchMs: 0, userFetchMs: 0, snapshotWriteMs: 0 };
+function resetCycleTiming(): void {
+  cycleTiming.statusFetchMs = 0;
+  cycleTiming.userFetchMs = 0;
+  cycleTiming.snapshotWriteMs = 0;
+}
+
 export async function capturePool(
   db: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
   pool: string,
@@ -211,8 +333,10 @@ export async function capturePool(
   let rejectedTotal = 0;
   let acceptedCount = 0;
   let rejectedCount = 0;
+  const tStatusFetch = Date.now();
   const statusRes =
     mode === 'users' ? null : await fetchPoolStatusFromPool(pool, dispatcher);
+  cycleTiming.statusFetchMs += Date.now() - tStatusFetch;
   if (statusRes && statusRes.status === 'found') {
     const s = parsePoolStatus(statusRes.data);
     statusUsers = intOf(s.Users);
@@ -226,6 +350,7 @@ export async function capturePool(
     rejectedTotal = safeParseFloat(s.rejected as never, 0);
     acceptedCount = intOf(s.accepted_count);
     rejectedCount = intOf(s.rejected_count);
+    const tStatusWrite = Date.now();
     await batchUpsert(
       db,
       'pool_status_snapshot',
@@ -294,6 +419,7 @@ export async function capturePool(
         },
       ]
     );
+    cycleTiming.snapshotWriteMs += Date.now() - tStatusWrite;
   }
   const gotStatus = statusRes?.status === 'found';
 
@@ -301,9 +427,11 @@ export async function capturePool(
   const userRows: Row[] = [];
   const workerRows: Row[] = [];
   const targets = mode === 'status' ? [] : addresses;
+  const tUserFetch = Date.now();
   const results = await Promise.all(
     targets.map((address) => fetchUserFromPool(pool, address, dispatcher))
   );
+  cycleTiming.userFetchMs += Date.now() - tUserFetch;
   results.forEach((r, i) => {
     if (r.status !== 'found') return;
     const address = addresses[i];
@@ -349,6 +477,7 @@ export async function capturePool(
     }
   });
 
+  const tUserWrite = Date.now();
   await batchUpsert(
     db,
     'pool_user_snapshot',
@@ -363,6 +492,7 @@ export async function capturePool(
     ['pool', 'address', 'worker_name'],
     workerRows
   );
+  cycleTiming.snapshotWriteMs += Date.now() - tUserWrite;
 
   // A cycle "refreshed" the pool if we got its status OR any of its users. If unreachable, keep the
   // last-known readout (so the panel shows last-update climbing) and mark it error. "stale" is NOT
@@ -565,8 +695,9 @@ export async function combinePoolStatsCycle(): Promise<{ pools: number }> {
   return { pools: statusRows.length };
 }
 
-/** Combine the latest user/worker snapshots into per-user UserStats/Worker via the shared updateUser
- *  write path (grace/inactivity, high-score booking) — the users half. */
+/** Combine the latest user/worker snapshots into per-user UserStats/Worker via a single bulk-write
+ *  transaction (grace/inactivity split inline, bulk upserts/inserts, high-score booking) — the users
+ *  half. */
 export async function combineUsersCycle(): Promise<{ users: number }> {
   const db = await getDb();
 
@@ -590,19 +721,264 @@ export async function combineUsersCycle(): Promise<{ users: number }> {
     else byAddress.set(u.address as string, [ud]);
   }
 
+  // Newest snapshot fetch time per address; used below to label a deactivation idle (fetched this
+  // cycle) vs absent (not fetched).
+  const lastFetchedByAddress = new Map<string, number>();
+  for (const u of userRows) {
+    const addr = u.address as string;
+    const fa = u.fetched_at ? new Date(u.fetched_at as string).getTime() : 0;
+    if (fa > (lastFetchedByAddress.get(addr) ?? 0)) {
+      lastFetchedByAddress.set(addr, fa);
+    }
+  }
+
   const messages: MessageCollectors = {
     gracePeriod: [],
     success: [],
     deactivations: [],
     errors: [],
   };
+
+  // Combine each address's per-pool snapshots once, up front.
+  const combinedByAddress = new Map<string, CombinedUser>();
   for (const [address, perPool] of Array.from(byAddress.entries())) {
-    const combined = combineUserData(perPool, address);
-    await updateUser(address, messages, combined);
+    combinedByAddress.set(address, combineUserData(perPool, address));
   }
-  // Surface the per-user state changes to the server log (→ systemd journal) the way the old
-  // update-users cron did. Summary line always when there's anything notable; deactivations and
-  // errors printed in full (infrequent, worth seeing), grace kept to a count to avoid flooding.
+  const addresses = Array.from(combinedByAddress.keys());
+  if (addresses.length === 0) return { users: 0 };
+
+  // Cache keys to invalidate after the transaction commits.
+  const invalidateUsers: string[] = [];
+  const invalidateWorkers: Array<[string, string]> = [];
+
+  // One bulk-write transaction for the whole active set. The grace check stays inline — it's a pure
+  // function (cheap); only the writes are batched.
+  await db.transaction(async (manager) => {
+    const q = (sql: string, params?: unknown[]) => manager.query(sql, params);
+    const now = new Date();
+    const nowMs = now.getTime();
+
+    // Preload existing users' grace inputs (lastActivatedAt/createdAt) in one query.
+    const existingUsers = (await q(
+      `SELECT address, "lastActivatedAt", "createdAt" FROM "User" WHERE address = ANY($1)`,
+      [addresses]
+    )) as Array<{
+      address: string;
+      lastActivatedAt: Date | null;
+      createdAt: Date;
+    }>;
+    const userMeta = new Map(existingUsers.map((u) => [u.address, u]));
+
+    // Grace split: who to deactivate (skip writes) vs who to write this cycle.
+    const toWrite: string[] = [];
+    const toDeactivate: string[] = [];
+    for (const address of addresses) {
+      const meta = userMeta.get(address);
+      const c = combinedByAddress.get(address)!;
+      if (meta) {
+        const decision = shouldMarkUserInactive(
+          c.lastShare,
+          meta.lastActivatedAt,
+          meta.createdAt,
+          nowMs
+        );
+        if (decision.shouldMarkInactive) {
+          toDeactivate.push(address);
+          // Label the reason: fetched this cycle but no recent share = idle; not fetched = absent.
+          // (Window is far below the 7-day grace, so a recent fetch reliably means this cycle.)
+          const seenThisCycle =
+            (lastFetchedByAddress.get(address) ?? 0) >= nowMs - 5 * 60 * 1000;
+          const why = seenThisCycle
+            ? 'still reporting to a pool, but no accepted shares in 7+ days'
+            : 'not currently reporting on any pool; last share 7+ days ago';
+          messages.deactivations!.push(
+            `Marked user ${address} as inactive (grace expired; ${why})`
+          );
+          continue;
+        }
+        if (decision.daysRemaining !== undefined) {
+          messages.gracePeriod!.push(
+            `User ${address} last share over 7 days ago (grace period: ${decision.daysRemaining} days remaining)`
+          );
+        }
+      }
+      toWrite.push(address);
+    }
+
+    if (toDeactivate.length > 0) {
+      await q(`UPDATE "User" SET "isActive"=false WHERE address = ANY($1)`, [
+        toDeactivate,
+      ]);
+      // Drop the deactivated users' snapshot rows so the combine never re-reads them. The fetch side
+      // skips inactive users (only isActive=true), but the combine reads ALL snapshot rows — so
+      // without this a departed user's stale snapshot lingers and gets re-combined + re-deactivated
+      // every cycle. Deleting once at deactivation beats filtering the combine every cycle, and
+      // self-drains any existing backlog (those rows are in toDeactivate each cycle).
+      await q(`DELETE FROM pool_user_snapshot WHERE address = ANY($1)`, [
+        toDeactivate,
+      ]);
+      await q(`DELETE FROM pool_worker_snapshot WHERE address = ANY($1)`, [
+        toDeactivate,
+      ]);
+      for (const a of toDeactivate) invalidateUsers.push(a);
+    }
+
+    if (toWrite.length === 0) return;
+
+    // Preload existing workers' bestEver for high-score gating (one query).
+    const existingWorkers = (await q(
+      `SELECT "userAddress", name, "bestEver" FROM "Worker" WHERE "userAddress" = ANY($1)`,
+      [toWrite]
+    )) as Array<{ userAddress: string; name: string; bestEver: number }>;
+    const prevBestEver = new Map<string, number>();
+    for (const w of existingWorkers) {
+      prevBestEver.set(w.userAddress + ' ' + w.name, Number(w.bestEver));
+    }
+
+    // 1) Users — bulk upsert (preserves lastActivatedAt/createdAt on conflict).
+    await bulkUpsertUsers(
+      q,
+      toWrite.map((a) => ({
+        address: a,
+        authorised: combinedByAddress.get(a)!.authorised.toString(),
+        now,
+      }))
+    );
+
+    // 2) UserStats — bulk insert (append-only).
+    await bulkInsert(
+      q,
+      'UserStats',
+      [
+        'userAddress',
+        'hashrate1m',
+        'hashrate5m',
+        'hashrate1hr',
+        'hashrate1d',
+        'hashrate7d',
+        'lastShare',
+        'workerCount',
+        'shares',
+        'bestShare',
+        'bestEver',
+      ],
+      toWrite.map((a) => {
+        const c = combinedByAddress.get(a)!;
+        return {
+          userAddress: a,
+          hashrate1m: c.hashrate1m,
+          hashrate5m: c.hashrate5m,
+          hashrate1hr: c.hashrate1hr,
+          hashrate1d: c.hashrate1d,
+          hashrate7d: c.hashrate7d,
+          lastShare: bigIntStringFromFloatLike(c.lastShare),
+          workerCount: c.workerCount,
+          shares: c.shares,
+          bestShare: c.bestShare,
+          bestEver: c.bestEver,
+        };
+      })
+    );
+
+    // 3) Workers — bulk upsert returning ids (needed for WorkerStats.workerId).
+    const workerUpsertRows: Row[] = [];
+    for (const a of toWrite) {
+      for (const cw of combinedByAddress.get(a)!.workers) {
+        workerUpsertRows.push({
+          userAddress: a,
+          name: cw.name,
+          userAgent: cw.userAgent,
+          userAgentRaw: cw.userAgentRaw,
+          hashrate1m: cw.hashrate1m,
+          hashrate5m: cw.hashrate5m,
+          hashrate1hr: cw.hashrate1hr,
+          hashrate1d: cw.hashrate1d,
+          hashrate7d: cw.hashrate7d,
+          lastUpdate: new Date(cw.lastShare * 1000),
+          started: cw.started ? cw.started.toString() : '0',
+          shares: cw.shares,
+          bestShare: cw.bestShare,
+          bestEver: cw.bestEver,
+          updatedAt: now,
+        });
+      }
+    }
+    const idMap = await bulkUpsertWorkersReturningIds(q, workerUpsertRows);
+
+    // 4) WorkerStats — bulk insert; collect high-score record-breaks along the way.
+    const workerStatsRows: Row[] = [];
+    const highScores: Array<{
+      workerId: number;
+      userAddress: string;
+      workerName: string;
+      bestEver: number;
+      device: string;
+    }> = [];
+    for (const a of toWrite) {
+      for (const cw of combinedByAddress.get(a)!.workers) {
+        const key = a + ' ' + cw.name;
+        const workerId = idMap.get(key);
+        if (workerId === undefined) continue; // safety: should always be present
+        workerStatsRows.push({
+          workerId,
+          hashrate1m: cw.hashrate1m,
+          hashrate5m: cw.hashrate5m,
+          hashrate1hr: cw.hashrate1hr,
+          hashrate1d: cw.hashrate1d,
+          hashrate7d: cw.hashrate7d,
+          started: cw.started ? cw.started.toString() : '0',
+          shares: cw.shares,
+          bestShare: cw.bestShare,
+          bestEver: cw.bestEver,
+        });
+        if (cw.bestEver > (prevBestEver.get(key) ?? 0)) {
+          highScores.push({
+            workerId,
+            userAddress: a,
+            workerName: cw.name,
+            bestEver: cw.bestEver,
+            device: cw.userAgent,
+          });
+        }
+        invalidateWorkers.push([a, cw.name]);
+      }
+      invalidateUsers.push(a);
+    }
+    await bulkInsert(
+      q,
+      'WorkerStats',
+      [
+        'workerId',
+        'hashrate1m',
+        'hashrate5m',
+        'hashrate1hr',
+        'hashrate1d',
+        'hashrate7d',
+        'started',
+        'shares',
+        'bestShare',
+        'bestEver',
+      ],
+      workerStatsRows
+    );
+
+    // 5) High-score booking — gated on improvement, so low volume.
+    for (const hs of highScores) {
+      await recordBestDiff(manager, hs);
+    }
+  });
+
+  // Invalidate caches post-commit (same keys the per-user path cleared).
+  for (const a of invalidateUsers) {
+    cacheDelete(`userHistorical:${a}`);
+    cacheDelete(`userWithWorkers:${a}`);
+  }
+  for (const [a, name] of invalidateWorkers) {
+    cacheDelete(`workerWithStats:${a}:${name}`);
+  }
+
+  // Surface per-user state changes to the server log: a summary line when there's anything notable;
+  // deactivations and errors in full, grace kept to a count to avoid flooding.
   const deactivations = messages.deactivations ?? [];
   const gracePeriod = messages.gracePeriod ?? [];
   const errors = messages.errors ?? [];
@@ -613,7 +989,7 @@ export async function combineUsersCycle(): Promise<{ users: number }> {
     for (const m of deactivations) console.log(`[ingest] ${m}`);
     for (const m of errors) console.error(`[ingest] ${m}`);
   }
-  return { users: byAddress.size };
+  return { users: addresses.length };
 }
 
 /** Combine both halves (pool stats + users) from the stored snapshots. */
@@ -628,23 +1004,98 @@ export async function combineCycle(): Promise<{
 
 // ─── LOOP driver (started in-process from instrumentation.ts on server boot) ───────────────────
 
+/**
+ * Cross-process guard: a per-database Postgres advisory lock so two ingest cycles can't run against
+ * the same DB at once (the in-process loop + a cron `ingestOnce`, or two app instances), which would
+ * double-write the append-only UserStats/WorkerStats rows. Keyed on `current_database()` so separate
+ * deployments on one cluster never serialize each other (e.g. different coins) — only same-DB
+ * ingesters contend, and the loser skips its tick (returns null). Lock + unlock run on one dedicated
+ * connection (advisory locks are session-scoped); the cycle's own queries use the pool.
+ */
+async function withIngestLock<T>(
+  label: string,
+  fn: () => Promise<T>
+): Promise<T | null> {
+  const db = await getDb();
+  const runner = db.createQueryRunner();
+  await runner.connect();
+  const LOCK = `hashtext('ckstats_ingest:' || current_database())`;
+  try {
+    const got = (await runner.query(
+      `SELECT pg_try_advisory_lock(${LOCK}) AS ok`
+    )) as Array<{ ok: boolean }>;
+    if (!got[0]?.ok) {
+      console.warn(
+        `[ingest] ${label} skipped: another ingest holds the lock for this database`
+      );
+      return null;
+    }
+    try {
+      return await fn();
+    } finally {
+      await runner.query(`SELECT pg_advisory_unlock(${LOCK})`);
+    }
+  } finally {
+    await runner.release();
+  }
+}
+
 /** Pool-stats half: capture every pool's pool.status, then combine pool stats (the `seed` cron). */
-export async function runStatsCycle(): Promise<{ pools: number }> {
-  await captureAllPools('status');
-  return combinePoolStatsCycle();
+export async function runStatsCycle(): Promise<{ pools: number } | null> {
+  return withIngestLock('stats cycle', async () => {
+    await captureAllPools('status');
+    return combinePoolStatsCycle();
+  });
 }
 
 /** Users half: capture every pool's active users, then combine user stats (`update-users` cron). */
-export async function runUsersCycle(): Promise<{ users: number }> {
-  await captureAllPools('users');
-  return combineUsersCycle();
+export async function runUsersCycle(): Promise<{ users: number } | null> {
+  return withIngestLock('users cycle', async () => {
+    await captureAllPools('users');
+    return combineUsersCycle();
+  });
+}
+
+/** Emit a per-cycle phase-timing line showing where wall-clock goes (fetch vs write) per cycle. */
+function logCycleTiming(
+  captureMs: number,
+  combinePoolMs: number,
+  combineUsersMs: number,
+  pools: number,
+  users: number
+): void {
+  const total = captureMs + combinePoolMs + combineUsersMs;
+  console.log(
+    `[ingest][timing] total=${total}ms | capture=${captureMs}ms ` +
+      `(statusFetch=${cycleTiming.statusFetchMs}ms userFetch=${cycleTiming.userFetchMs}ms ` +
+      `snapWrite=${cycleTiming.snapshotWriteMs}ms) | combinePool=${combinePoolMs}ms | ` +
+      `combineUsers=${combineUsersMs}ms | pools=${pools} users=${users}`
+  );
 }
 
 /** Full cycle: capture both halves over persistent connections, then combine into the DB. Used by
  *  `pnpm ingest` and the internal loop. */
-export async function runCycle(): Promise<{ pools: number; users: number }> {
-  await captureAllPools('both');
-  return combineCycle();
+export async function runCycle(): Promise<{
+  pools: number;
+  users: number;
+} | null> {
+  return withIngestLock('cycle', async () => {
+    resetCycleTiming();
+    const tCapture = Date.now();
+    await captureAllPools('both');
+    const captureMs = Date.now() - tCapture;
+
+    const tCombinePool = Date.now();
+    const { pools } = await combinePoolStatsCycle();
+    const combinePoolMs = Date.now() - tCombinePool;
+
+    const tCombineUsers = Date.now();
+    const { users } = await combineUsersCycle();
+    const combineUsersMs = Date.now() - tCombineUsers;
+
+    logCycleTiming(captureMs, combinePoolMs, combineUsersMs, pools, users);
+    return { pools, users };
+  });
 }
 
 /**
@@ -711,12 +1162,16 @@ export function startIngestLoop(): void {
   const tick = async () => {
     try {
       const r = await runCycle();
-      console.log(`[ingest] cycle ok: ${r.pools} pools, ${r.users} users`);
-      // Prune the time-series tables on a slow cadence — folds the old `cleanup` cron into the loop
-      // so the single process does everything (snapshots are bounded and not pruned here).
+      if (r) {
+        console.log(`[ingest] cycle ok: ${r.pools} pools, ${r.users} users`);
+      }
+      // (r === null means the advisory lock was held by another ingester; withIngestLock logged it.)
+      // Prune the time-series tables on a slow cadence, in-loop (no separate cleanup job needed); the
+      // per-pool snapshot tables are bounded and not pruned here.
       if (Date.now() - lastCleanup >= cleanupSec * 1000) {
         lastCleanup = Date.now();
-        await cleanOldStats();
+        await cleanOldStats(); // retention: prune old time-series rows
+        await cleanDeadWorkers(); // lifecycle: GC workers not sharing for 7d (runs after a fresh cycle)
       }
     } catch (err) {
       console.error('[ingest] cycle error:', err);

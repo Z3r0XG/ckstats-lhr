@@ -11,9 +11,9 @@ import { WorkerStats } from '../lib/entities/WorkerStats';
 
 /**
  * Prune the time-series tables to their retention windows (PoolStats 1wk, UserStats 3d, WorkerStats
- * 1d) and drop Worker rows not updated in 7 days. The per-pool *_snapshot tables are bounded
- * (upsert-latest) and intentionally NOT pruned here. Does NOT close the DB connection — callers own
- * its lifecycle (the in-process loop shares one connection; the CLI entry below destroys it).
+ * 1d). Worker-entity GC is a separate concern — see cleanDeadWorkers() below. The per-pool *_snapshot
+ * tables are bounded (upsert-latest) and intentionally NOT pruned here. Does NOT close the DB
+ * connection — callers own its lifecycle (the in-process loop shares one connection; CLI destroys it).
  */
 export async function cleanOldStats(): Promise<void> {
   const oneWeekAgo = new Date();
@@ -40,18 +40,29 @@ export async function cleanOldStats(): Promise<void> {
     .delete({ timestamp: LessThan(oneDayAgo) });
   console.log(`Deleted ${workerStatsResult.affected || 0} old worker stats`);
 
-  // Drop Worker rows untouched in 7 days — orphaned records whose pool files are gone. Active/idle
-  // workers still reported by the API are saved every cycle, so their updatedAt stays current.
-  const staleWorkerResult = await db
-    .getRepository(Worker)
-    .delete({ updatedAt: LessThan(oneWeekAgo) });
-  console.log(`Deleted ${staleWorkerResult.affected || 0} stale workers`);
-
   console.log('Old stats cleanup completed successfully');
+}
+
+/**
+ * Drop Worker rows whose miner hasn't submitted a share in 7 days. Keys on `lastUpdate` (the worker's
+ * last-share time), NOT `updatedAt` (row-write recency): a worker still listed by ckpool but not
+ * sharing for a week is dead, and keying on write-recency would also delete live workers whenever
+ * ingestion pauses (an outage freezes updatedAt for everyone). WorkerStats children are removed by the
+ * FK's ON DELETE CASCADE. Does NOT close the DB connection — callers own its lifecycle.
+ */
+export async function cleanDeadWorkers(): Promise<void> {
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const db = await getDb();
+  const result = await db
+    .getRepository(Worker)
+    .delete({ lastUpdate: LessThan(oneWeekAgo) });
+  console.log(`Deleted ${result.affected || 0} dead workers`);
 }
 
 if (require.main === module) {
   cleanOldStats()
+    .then(() => cleanDeadWorkers())
     .catch((error) => console.error('Error cleaning old stats:', error))
     .finally(async () => {
       const db = await getDb();

@@ -7,7 +7,7 @@
 //   pnpm ingest                           # full cycle (both halves)
 //   pnpm seed                             # stats half  (ingestOnce stats)
 //   pnpm update-users                     # users half  (ingestOnce users)
-//   DB_NAME=ckstats_scratch pnpm ingest   # run against a scratch DB without touching prod
+//   DB_NAME=other_db pnpm ingest          # run against a different database
 //
 // NOTE: if the in-process loop (POOL_INGEST) is also running against the same DB, both will write —
 // drive ingestion with EITHER the cron scripts OR the loop, not both.
@@ -19,14 +19,19 @@ import { runCycle, runStatsCycle, runUsersCycle } from '../lib/ingest';
 (async () => {
   const mode = process.argv[2]; // 'stats' | 'users' | undefined (both)
   const t0 = Date.now();
+  // Each cycle returns null if another ingester holds the per-database advisory lock (don't run this
+  // alongside the in-process loop) — report that rather than crashing on a null.
+  const skipped = 'skipped (another ingest is running against this database)';
   let summary: string;
   if (mode === 'stats') {
-    summary = `${(await runStatsCycle()).pools} pools (stats)`;
+    const r = await runStatsCycle();
+    summary = r ? `${r.pools} pools (stats)` : skipped;
   } else if (mode === 'users') {
-    summary = `${(await runUsersCycle()).users} users`;
+    const r = await runUsersCycle();
+    summary = r ? `${r.users} users` : skipped;
   } else {
     const r = await runCycle();
-    summary = `${r.pools} pools, ${r.users} users`;
+    summary = r ? `${r.pools} pools, ${r.users} users` : skipped;
   }
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(
