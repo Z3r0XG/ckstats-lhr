@@ -56,18 +56,21 @@ export function getPoolSources(): PoolSource[] {
       const arr = JSON.parse(raw);
       if (Array.isArray(arr)) {
         const out: PoolSource[] = [];
+        const seen = new Set<string>();
         for (const el of arr) {
+          let u = '';
+          let label = '';
           if (typeof el === 'string') {
-            const u = el.trim();
-            if (u) out.push({ url: u, label: defaultPoolLabel(u) });
+            u = el.trim();
+            label = defaultPoolLabel(u);
           } else if (el && typeof el === 'object' && el.url) {
-            const u = String(el.url).trim();
-            if (u)
-              out.push({
-                url: u,
-                label: el.label ? String(el.label) : defaultPoolLabel(u),
-              });
+            u = String(el.url).trim();
+            label = el.label ? String(el.label) : defaultPoolLabel(u);
           }
+          // Skip blanks and duplicate URLs (a URL is the pool's identity; first occurrence wins).
+          if (!u || seen.has(u)) continue;
+          seen.add(u);
+          out.push({ url: u, label });
         }
         return out;
       }
