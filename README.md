@@ -50,7 +50,7 @@ Designed for CKPool instances supporting **fractional difficulty** (sub-"1"):
 ## Prerequisites
 
 - **PostgreSQL** 12+ database server
-- **Node.js** 18+ runtime environment
+- **Node.js** 18.18+ runtime environment
 - **pnpm** package manager
 - **CKPool-LHR** or compatible CKPool instance
 - **nginx** (optional)

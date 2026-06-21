@@ -2,6 +2,9 @@
   "name": "ckstats",
   "version": "0.3.0",
   "private": true,
+  "engines": {
+    "node": ">=18.18.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -34,7 +37,7 @@
     "recharts": "^2.15.4",
     "reflect-metadata": "^0.2.2",
     "typeorm": "^0.3.26",
-    "undici": "^8.5.0"
+    "undici": "^6"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.8.0",
