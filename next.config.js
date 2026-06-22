@@ -1,3 +1,17 @@
+// Fail fast with a clear message if Node is too old, instead of crashing deep in the build with an
+// obscure undici error (undici 8 calls webidl.markAsUncloneable, added in Node 22.19). next.config.js
+// is loaded at the very start of both `next build` and `next start`, so this fires before anything
+// imports undici. Mirrors the `engines` field in package.json.
+{
+  const [maj, min] = process.versions.node.split('.').map(Number);
+  if (maj < 22 || (maj === 22 && min < 19)) {
+    throw new Error(
+      `ckstats requires Node >= 22.19.0 (undici 8); current Node is ${process.versions.node}. ` +
+        `Install Node 22.19+ and re-run pnpm install.`
+    );
+  }
+}
+
 const siteName =
   process.env.SITE_NAME || process.env.NEXT_PUBLIC_SITE_NAME || 'CKstats';
 
