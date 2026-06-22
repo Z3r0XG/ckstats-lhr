@@ -187,15 +187,13 @@ export async function getUserWithWorkersAndStats(address: string) {
       const latestStats = await workerStatsRepo
         .createQueryBuilder('ws')
         .where('ws.workerId IN (:...ids)', { ids: workerIds })
-        .andWhere((qb) => {
-          const subQuery = qb
-            .subQuery()
-            .select('MAX(ws2.timestamp)')
-            .from(WorkerStats, 'ws2')
-            .where('ws2.workerId = ws.workerId')
-            .getQuery();
-          return `ws.timestamp = ${subQuery}`;
-        })
+        // Each worker's latest row only: (workerId, timestamp) = the per-worker MAX(timestamp),
+        // computed once as a grouped set over just this user's workers — not a per-row correlated
+        // subquery. Backed by the (workerId, timestamp) index.
+        .andWhere(
+          `(ws.workerId, ws.timestamp) IN (SELECT "workerId", MAX("timestamp") FROM "WorkerStats" WHERE "workerId" IN (:...latestIds) GROUP BY "workerId")`,
+          { latestIds: workerIds }
+        )
         .getMany();
       latestStats.forEach((s) => latestStatsMap.set(s.workerId, s));
     }
@@ -279,15 +277,12 @@ export async function getTopUserDifficulties(limit: number = 10) {
         'userStats.timestamp',
       ])
       .where('user.isPublic = :isPublic', { isPublic: true })
-      .andWhere((qb) => {
-        const subQuery = qb
-          .subQuery()
-          .select('MAX(us2.timestamp)')
-          .from(UserStats, 'us2')
-          .where('us2.userAddress = userStats.userAddress')
-          .getQuery();
-        return `userStats.timestamp = ${subQuery}`;
-      })
+      // Each user's latest row only: timestamp = that user's MAX(timestamp), computed once as a
+      // grouped set so the filters here apply to current stats (a since-idle user can't surface an
+      // older row that still passes).
+      .andWhere(
+        `(userStats.userAddress, userStats.timestamp) IN (SELECT "userAddress", MAX("timestamp") FROM "UserStats" GROUP BY "userAddress")`
+      )
       .orderBy('userStats.bestEver', 'DESC')
       .limit(sanitizedLimit)
       .getMany();
@@ -328,15 +323,12 @@ export async function getTopUserHashrates(limit: number = 10) {
       ])
       .where('user.isPublic = :isPublic', { isPublic: true })
       .andWhere('user.isActive = :isActive', { isActive: true })
-      .andWhere((qb) => {
-        const subQuery = qb
-          .subQuery()
-          .select('MAX(us2.timestamp)')
-          .from(UserStats, 'us2')
-          .where('us2.userAddress = userStats.userAddress')
-          .getQuery();
-        return `userStats.timestamp = ${subQuery}`;
-      })
+      // Each user's latest row only: timestamp = that user's MAX(timestamp), computed once as a
+      // grouped set so the filters here apply to current stats (a since-idle user can't surface an
+      // older row that still passes).
+      .andWhere(
+        `(userStats.userAddress, userStats.timestamp) IN (SELECT "userAddress", MAX("timestamp") FROM "UserStats" GROUP BY "userAddress")`
+      )
       .andWhere('userStats.workerCount > 0')
       .orderBy('userStats.hashrate1hr', 'DESC')
       .limit(sanitizedLimit)
@@ -384,15 +376,12 @@ export async function getTopUserLoyalty(limit: number = 10) {
       ])
       .where('user.isPublic = :isPublic', { isPublic: true })
       .andWhere('user.isActive = :isActive', { isActive: true })
-      .andWhere((qb) => {
-        const subQuery = qb
-          .subQuery()
-          .select('MAX(us2.timestamp)')
-          .from(UserStats, 'us2')
-          .where('us2.userAddress = userStats.userAddress')
-          .getQuery();
-        return `userStats.timestamp = ${subQuery}`;
-      })
+      // Each user's latest row only: timestamp = that user's MAX(timestamp), computed once as a
+      // grouped set so the filters here apply to current stats (a since-idle user can't surface an
+      // older row that still passes).
+      .andWhere(
+        `(userStats.userAddress, userStats.timestamp) IN (SELECT "userAddress", MAX("timestamp") FROM "UserStats" GROUP BY "userAddress")`
+      )
       .andWhere('userStats.workerCount > 0')
       .andWhere('user.authorised > 0')
       .orderBy('user.authorised', 'ASC')
