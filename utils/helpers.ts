@@ -584,9 +584,10 @@ export function normalizeUserAgent(rawUa: string | undefined): string {
   // eslint-disable-next-line no-control-regex -- intentional: strip C0/C1 control chars from the UA
   let ua = firstSegment.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 
-  // Rule 2: strip trailing BM chip suffix (e.g. " BM1366" or "-BM1366").
-  // Only ASCII space or hyphen separator; uppercase BM only; no separator or lowercase must not match.
-  ua = ua.replace(/[ -]BM\d+$/, '').trim();
+  // Rule 2: strip trailing component-chip suffix — a mining ASIC (" BM1366" / "-BM1366") or a
+  // power-management IC (" TPS546"), so e.g. "NerdQAxe++ TPS546" folds into "NerdQAxe++".
+  // Only ASCII space or hyphen separator; uppercase prefix only; no separator or lowercase must not match.
+  ua = ua.replace(/[ -](?:BM|TPS)\d+$/, '').trim();
 
   // Rule 3: collapse bosminer family to 'bosminer', extracting from anywhere in UA.
   // Handles patterns like "date;bosminer-plus-tuner version" or "bosminer-tuner".
