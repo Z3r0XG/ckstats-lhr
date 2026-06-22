@@ -426,6 +426,129 @@ export default function PoolStatsDisplay({
           extra slot — span 4 vs 3 for the two share panels — to fit the Avg-Time value without a
           scrollbar. Collapses to a single stacked column on mobile. */}
       <div className="grid grid-cols-1 gap-2 md:grid-cols-10">
+        {/* Difficulty pair: network target + best share. Best Diff's "(Proximity)" subtext is its
+            share difficulty as a % of Net Diff, so the two belong together. */}
+        {anyVisible([
+          'dashboard.difficulty.netdiff',
+          'dashboard.difficulty.bestdiff',
+          'dashboard.difficulty.avgtime',
+        ]) && (
+          <div className="card card-compact md:col-span-4">
+            <div className="card-body">
+              <h2 className="card-title">
+                Difficulty
+                <StatInfo id="help-difficulty">
+                  <p className="mb-1 font-semibold">Difficulty</p>
+                  <ul className="ml-4 list-disc space-y-1">
+                    <li>
+                      <strong>Net Diff</strong> — current network difficulty
+                      target.
+                    </li>
+                    <li>
+                      <strong>Best Diff</strong> — highest found difficulty
+                      submitted by any share this round.
+                    </li>
+                    <li>
+                      <strong>Proximity</strong> — how close the Best Diff was
+                      to solving a block.
+                    </li>
+                    <li>
+                      <strong>Avg Time to Block</strong> — statistical time
+                      between finding blocks based on current hashrate.
+                    </li>
+                  </ul>
+                </StatInfo>
+              </h2>
+              <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
+                {isVisible('dashboard.difficulty.netdiff') && (
+                  <div className="stat">
+                    <div className="stat-title">Net Diff</div>
+                    <div className="stat-value text-2xl">
+                      {(() => {
+                        const netdiff =
+                          stats.netdiff != null ? Number(stats.netdiff) : null;
+                        return netdiff != null && netdiff > 0
+                          ? fmt1(netdiff)
+                          : 'N/A';
+                      })()}
+                    </div>
+                    {/* Spacer to align with Best Diff's (Proximity) subtext. */}
+                    <div className="stat-desc">&nbsp;</div>
+                  </div>
+                )}
+                {isVisible('dashboard.difficulty.bestdiff') && (
+                  <div className="stat">
+                    <div className="stat-title">Best Diff</div>
+                    <div className="stat-value text-2xl">
+                      {fmt1(stats.bestshare)}
+                    </div>
+                    {isVisible('dashboard.difficulty.bestdiff.subtext') ? (
+                      (() => {
+                        const percent = calculateProximityPercent(
+                          Number(stats.bestshare),
+                          stats.netdiff != null ? Number(stats.netdiff) : null,
+                          true
+                        );
+                        return (
+                          <div className="stat-desc text-success max-w-full overflow-hidden">
+                            {percent || 'N/A'} (Proximity)
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="stat-desc">&nbsp;</div>
+                    )}
+                  </div>
+                )}
+                {isVisible('dashboard.difficulty.avgtime') &&
+                  (() => {
+                    const networkDifficulty =
+                      stats.netdiff != null
+                        ? stats.netdiff
+                        : stats.diff != null &&
+                            stats.accepted != null &&
+                            Number(stats.diff) > 0
+                          ? (Number(stats.accepted) /
+                              (Number(stats.diff) * 100)) *
+                            10000
+                          : null;
+                    const avgTimeStr = (() => {
+                      if (
+                        stats.hashrate6hr == null ||
+                        networkDifficulty == null
+                      )
+                        return 'N/A';
+                      const seconds = calculateAverageTimeToBlock(
+                        stats.hashrate6hr,
+                        networkDifficulty
+                      );
+                      return formatDurationCapped(seconds);
+                    })();
+                    return (
+                      <div className="stat">
+                        <div className="stat-title">Avg Time to Block</div>
+                        <div className="stat-value text-2xl">{avgTimeStr}</div>
+                        <div className="stat-desc">
+                          {(process.env.NEXT_PUBLIC_COIN ?? 'BTC') === 'BTC' ? (
+                            <Link
+                              href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="link text-primary"
+                            >
+                              Found Blocks
+                            </Link>
+                          ) : (
+                            <>&nbsp;</>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+              </div>
+            </div>
+          </div>
+        )}
         {statGroups.map((group) => {
           // Auto-collapse the whole card when every one of its metrics is hidden.
           const metricKeys =
@@ -595,129 +718,6 @@ export default function PoolStatsDisplay({
             </div>
           );
         })}
-        {/* Difficulty pair: network target + best share. Best Diff's "(Proximity)" subtext is its
-            share difficulty as a % of Net Diff, so the two belong together. */}
-        {anyVisible([
-          'dashboard.difficulty.netdiff',
-          'dashboard.difficulty.bestdiff',
-          'dashboard.difficulty.avgtime',
-        ]) && (
-          <div className="card card-compact md:col-span-4">
-            <div className="card-body">
-              <h2 className="card-title">
-                Difficulty
-                <StatInfo id="help-difficulty">
-                  <p className="mb-1 font-semibold">Difficulty</p>
-                  <ul className="ml-4 list-disc space-y-1">
-                    <li>
-                      <strong>Net Diff</strong> — current network difficulty
-                      target.
-                    </li>
-                    <li>
-                      <strong>Best Diff</strong> — highest found difficulty
-                      submitted by any share this round.
-                    </li>
-                    <li>
-                      <strong>Proximity</strong> — how close the Best Diff was
-                      to solving a block.
-                    </li>
-                    <li>
-                      <strong>Avg Time to Block</strong> — statistical time
-                      between finding blocks based on current hashrate.
-                    </li>
-                  </ul>
-                </StatInfo>
-              </h2>
-              <div className="stats stats-vertical lg:stats-horizontal shadow-lg my-2">
-                {isVisible('dashboard.difficulty.netdiff') && (
-                  <div className="stat">
-                    <div className="stat-title">Net Diff</div>
-                    <div className="stat-value text-2xl">
-                      {(() => {
-                        const netdiff =
-                          stats.netdiff != null ? Number(stats.netdiff) : null;
-                        return netdiff != null && netdiff > 0
-                          ? fmt1(netdiff)
-                          : 'N/A';
-                      })()}
-                    </div>
-                    {/* Spacer to align with Best Diff's (Proximity) subtext. */}
-                    <div className="stat-desc">&nbsp;</div>
-                  </div>
-                )}
-                {isVisible('dashboard.difficulty.bestdiff') && (
-                  <div className="stat">
-                    <div className="stat-title">Best Diff</div>
-                    <div className="stat-value text-2xl">
-                      {fmt1(stats.bestshare)}
-                    </div>
-                    {isVisible('dashboard.difficulty.bestdiff.subtext') ? (
-                      (() => {
-                        const percent = calculateProximityPercent(
-                          Number(stats.bestshare),
-                          stats.netdiff != null ? Number(stats.netdiff) : null,
-                          true
-                        );
-                        return (
-                          <div className="stat-desc text-success max-w-full overflow-hidden">
-                            {percent || 'N/A'} (Proximity)
-                          </div>
-                        );
-                      })()
-                    ) : (
-                      <div className="stat-desc">&nbsp;</div>
-                    )}
-                  </div>
-                )}
-                {isVisible('dashboard.difficulty.avgtime') &&
-                  (() => {
-                    const networkDifficulty =
-                      stats.netdiff != null
-                        ? stats.netdiff
-                        : stats.diff != null &&
-                            stats.accepted != null &&
-                            Number(stats.diff) > 0
-                          ? (Number(stats.accepted) /
-                              (Number(stats.diff) * 100)) *
-                            10000
-                          : null;
-                    const avgTimeStr = (() => {
-                      if (
-                        stats.hashrate6hr == null ||
-                        networkDifficulty == null
-                      )
-                        return 'N/A';
-                      const seconds = calculateAverageTimeToBlock(
-                        stats.hashrate6hr,
-                        networkDifficulty
-                      );
-                      return formatDurationCapped(seconds);
-                    })();
-                    return (
-                      <div className="stat">
-                        <div className="stat-title">Avg Time to Block</div>
-                        <div className="stat-value text-2xl">{avgTimeStr}</div>
-                        <div className="stat-desc">
-                          {(process.env.NEXT_PUBLIC_COIN ?? 'BTC') === 'BTC' ? (
-                            <Link
-                              href={`https://mempool.space/mining/pool/${process.env.NEXT_PUBLIC_MEMPOOL_LINK_TAG}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="link text-primary"
-                            >
-                              Found Blocks
-                            </Link>
-                          ) : (
-                            <>&nbsp;</>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
       {(() => {
         const spsId = (key: string) =>

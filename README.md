@@ -292,9 +292,9 @@ DEFAULT_THEME="forest"
 | Home   | Stats Service     | `HIDE_STATS-SERVICE` · `_STREAMS` · `_LAST-UPDATE`                                                                    |
 | Home   | Pool Service      | `HIDE_POOL-SERVICE` · `_UPTIME` · `_LAST-UPDATE`                                                                      |
 | Home   | Connections       | `HIDE_CONNECTIONS` · `_USERS` (`_IDLE`) · `_WORKERS` (`_DISCONNECTED`)                                                |
+| Home   | Difficulty        | `HIDE_DIFFICULTY` · `_NET-DIFF` · `_BEST-DIFF` (`_PROXIMITY`) · `_AVG-TIME`                                           |
 | Home   | Work Submitted    | `HIDE_WORK-SUBMITTED` · `_EFFORT` · `_ACCEPTED` (`_PERCENTAGE`) · `_REJECTED` (`_PERCENTAGE`)                         |
 | Home   | Share Counts      | `HIDE_SHARE-COUNTS` · `_TOTAL` · `_ACCEPTED` (`_PERCENTAGE`) · `_REJECTED` (`_PERCENTAGE`)                            |
-| Home   | Difficulty        | `HIDE_DIFFICULTY` · `_NET-DIFF` · `_BEST-DIFF` (`_PROXIMITY`) · `_AVG-TIME`                                           |
 | Home   | Shares Per Second | `HIDE_SHARES-PER-SECOND` · `_1M` · `_5M` · `_15M` · `_1H`                                                             |
 | Home   | Hashrates         | `HIDE_HASHRATES` · `_1M` · `_5M` · `_15M` · `_1HR` · `_6HR` · `_1D` · `_7D`                                           |
 | Home   | Chart             | `HIDE_CHART`                                                                                                          |
