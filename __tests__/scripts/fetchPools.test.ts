@@ -108,7 +108,7 @@ describe('fetchUserFromPool', () => {
       expect(delay).toHaveBeenCalledTimes(MAX_RETRIES - 1);
     });
 
-    it('retries a network rejection then returns error, with linear backoff', async () => {
+    it('retries a network rejection then returns error, with jittered exponential backoff', async () => {
       fetchMock.mockRejectedValue(new Error('Network error'));
 
       const r = await fetchUserFromPool('https://a.com', 'addr');
@@ -116,8 +116,13 @@ describe('fetchUserFromPool', () => {
       expect(r.status).toBe('error');
       expect((r as any).error.message).toBe('Network error');
       expect(fetchMock).toHaveBeenCalledTimes(MAX_RETRIES);
-      expect(delay).toHaveBeenNthCalledWith(1, RETRY_DELAY_MS * 1);
-      expect(delay).toHaveBeenNthCalledWith(2, RETRY_DELAY_MS * 2);
+      expect(delay).toHaveBeenCalledTimes(MAX_RETRIES - 1);
+      // Full-jitter exponential: each sleep is random in [0, RETRY_DELAY_MS * 2^(attempt-1)].
+      const sleeps = (delay as jest.Mock).mock.calls.map((c) => c[0]);
+      expect(sleeps[0]).toBeGreaterThanOrEqual(0);
+      expect(sleeps[0]).toBeLessThanOrEqual(RETRY_DELAY_MS); // attempt 1 cap
+      expect(sleeps[1]).toBeGreaterThanOrEqual(0);
+      expect(sleeps[1]).toBeLessThanOrEqual(RETRY_DELAY_MS * 2); // attempt 2 cap
     });
 
     it('treats a 200 whose body is not user-shaped (no worker array) as error, not found', async () => {

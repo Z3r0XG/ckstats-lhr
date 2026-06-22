@@ -19,6 +19,15 @@ import type { UserData } from './updateUsers';
 // The fetch layer owns its own retry config (mirrors updateUsers' MAX_RETRIES values).
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 500;
+const RETRY_MAX_DELAY_MS = 5000;
+
+// Exponential backoff with full jitter — sleep a random duration in [0, capped exponential]. A cycle
+// fans out many requests at once, so a fixed/linear delay would make all the failures retry in
+// lockstep and hammer a struggling endpoint in synchronized waves; the random spread breaks that up.
+function retryBackoffMs(attempt: number): number {
+  const exp = Math.min(RETRY_MAX_DELAY_MS, RETRY_DELAY_MS * 2 ** (attempt - 1));
+  return Math.random() * exp;
+}
 
 /**
  * Build the per-request options applied to every pool HTTP call, from optional env config. This is
@@ -55,9 +64,14 @@ export function poolFetchInit(dispatcher?: unknown): RequestInit {
   const init: RequestInit = {};
   if (Object.keys(headers).length > 0) init.headers = headers;
 
-  // Abort a hung request when configured (opt-in). Omit or set 0 for no app-level timeout.
+  // Bound a hung request when configured (opt-in; omit/0 = no app-level timeout). With a keep-alive
+  // Agent (dispatcher) the Agent's headersTimeout/bodyTimeout already bound each request from DISPATCH
+  // time — correct whether requests multiplex (HTTP/2) or queue behind a small connection pool
+  // (HTTP/1.1). A request-level AbortSignal.timeout instead starts at creation, so on HTTP/1.1 a
+  // queued request can abort before it is ever sent. So only use the signal on the no-dispatcher
+  // (global fetch) path, where it is the only available bound.
   const seconds = Number(process.env.API_REQUEST_TIMEOUT_SECONDS);
-  if (Number.isFinite(seconds) && seconds > 0) {
+  if (Number.isFinite(seconds) && seconds > 0 && !dispatcher) {
     init.signal = AbortSignal.timeout(seconds * 1000);
   }
 
@@ -156,7 +170,7 @@ export async function fetchUserFromPool(
 
       if (attempt === MAX_RETRIES)
         return { status: 'error', base, error: lastError };
-      await delay(RETRY_DELAY_MS * attempt);
+      await delay(retryBackoffMs(attempt));
     }
   }
   return { status: 'error', base, error: lastError };
@@ -204,7 +218,7 @@ export async function fetchPoolStatusFromPool(
       }
       if (attempt === MAX_RETRIES)
         return { status: 'error', base, error: lastError };
-      await delay(RETRY_DELAY_MS * attempt);
+      await delay(retryBackoffMs(attempt));
     }
   }
   return { status: 'error', base, error: lastError };
