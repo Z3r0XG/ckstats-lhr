@@ -437,10 +437,22 @@ export async function capturePool(
     targets.map((address) => fetchUserFromPool(pool, address, dispatcher))
   );
   if (targets.length > 0) {
-    const okCount = results.filter((r) => r.status === 'found').length;
-    console.log(
-      `[ingest][capture] ${label} user fetch done ${Date.now() - tUserFetch}ms (${okCount}/${targets.length} found)`
+    const found = results.filter((r) => r.status === 'found').length;
+    const absent = results.filter((r) => r.status === 'absent').length;
+    const erroredAddrs = targets.filter(
+      (_a, i) => results[i].status === 'error'
     );
+    console.log(
+      `[ingest][capture] ${label} user fetch done ${Date.now() - tUserFetch}ms ` +
+        `(found ${found}, absent ${absent}, error ${erroredAddrs.length} of ${targets.length})`
+    );
+    // Name the failures (capped) so a fetch problem is diagnosable from the log instead of hiding
+    // behind a count. `absent` = the pool says the user isn't there; `error` = the fetch failed.
+    if (erroredAddrs.length > 0) {
+      console.warn(
+        `[ingest][capture] ${label} user fetch errors: ${erroredAddrs.slice(0, 10).join(', ')}${erroredAddrs.length > 10 ? ` (+${erroredAddrs.length - 10} more)` : ''}`
+      );
+    }
   }
   cycleTiming.userFetchMs += Date.now() - tUserFetch;
   results.forEach((r, i) => {

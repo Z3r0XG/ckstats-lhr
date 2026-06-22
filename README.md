@@ -198,6 +198,10 @@ DEFAULT_THEME="forest"
 
 - Default: `300`
 
+**DEBUG_ENDPOINTS**: set to `true` to enable the `/api/debug/*` routes (otherwise they return 404). `/api/debug/user/<address>` live-probes each configured pool for that address and reports `found`/`absent`/`error` per pool — for diagnosing why a user isn't ingesting. **OPTIONAL**
+
+- Default: unset (disabled). Each call makes real outbound pool fetches, so leave it off in normal operation.
+
 **API_USER_AGENT**: `User-Agent` header sent to each CKPool API (HTTP sources only). **OPTIONAL**
 
 **API_TOKEN**: bearer token sent as `Authorization: Bearer <token>`. **OPTIONAL**
