@@ -192,6 +192,7 @@ DEFAULT_THEME="forest"
 **POOL_CLEANUP_INTERVAL_SECONDS**: seconds between prunes of old time-series rows (folded into the in-process loop). **OPTIONAL**
 
 - Default: `7200`
+- Set to `0` to disable the in-loop prune entirely and run the `cleanup` script from system cron instead.
 
 **POOL_HEALTH_STALE_SECONDS**: a pool reads as down on `/status` if its data hasn't advanced within this window. **OPTIONAL**
 

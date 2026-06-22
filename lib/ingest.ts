@@ -1190,11 +1190,15 @@ export function startIngestLoop(): void {
   if (loopStarted) return;
   loopStarted = true;
   const intervalSec = Number(process.env.POOL_INGEST_INTERVAL_SECONDS) || 60;
-  // Default 7200s (2h) matches the README's recommended `cleanup` cron cadence.
-  const cleanupSec = Number(process.env.POOL_CLEANUP_INTERVAL_SECONDS) || 7200;
+  // Prune cadence in seconds. Default 7200 (2h). Set to 0 to disable the in-loop prune entirely and
+  // run the `cleanup` script from system cron instead — full control over timing/staggering.
+  const rawCleanup = Number(process.env.POOL_CLEANUP_INTERVAL_SECONDS);
+  const cleanupSec =
+    Number.isFinite(rawCleanup) && rawCleanup >= 0 ? rawCleanup : 7200;
   let lastCleanup = Date.now();
   console.log(
-    `[ingest] starting in-process loop every ${intervalSec}s (cleanup every ${cleanupSec}s)`
+    `[ingest] starting in-process loop every ${intervalSec}s ` +
+      `(cleanup ${cleanupSec > 0 ? `every ${cleanupSec}s` : 'disabled — run via cron'})`
   );
   const tick = async () => {
     try {
@@ -1205,7 +1209,7 @@ export function startIngestLoop(): void {
       // (r === null means the advisory lock was held by another ingester; withIngestLock logged it.)
       // Prune the time-series tables on a slow cadence, in-loop (no separate cleanup job needed); the
       // per-pool snapshot tables are bounded and not pruned here.
-      if (Date.now() - lastCleanup >= cleanupSec * 1000) {
+      if (cleanupSec > 0 && Date.now() - lastCleanup >= cleanupSec * 1000) {
         lastCleanup = Date.now();
         await cleanOldStats(); // retention: prune old time-series rows
         await cleanDeadWorkers(); // lifecycle: GC workers not sharing for 7d (runs after a fresh cycle)
