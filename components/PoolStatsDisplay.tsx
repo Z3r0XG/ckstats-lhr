@@ -655,9 +655,9 @@ export default function PoolStatsDisplay({
                       let display = 'N/A';
                       if (Number.isFinite(percent)) {
                         if (percent === 0) display = '0%';
-                        else if (percent < 0.01) display = '<0.01%';
+                        else if (percent < 0.1) display = '<0.1%';
                         else
-                          display = Number(percent.toFixed(2)).toString() + '%';
+                          display = Number(percent.toFixed(1)).toString() + '%';
                       }
                       return (
                         <div key="effort" className="stat">
