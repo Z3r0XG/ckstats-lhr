@@ -14,6 +14,7 @@ import {
   formatHashrate,
   formatNumber,
 } from '../utils/helpers';
+import { isVisible, anyVisible } from '../utils/visibility';
 
 export default function DashboardClient({
   initialData,
@@ -62,253 +63,270 @@ export default function DashboardClient({
         generatedAt={data.generatedAt ? new Date(data.generatedAt) : undefined}
         service={data.service}
       />
-      {historicalStats && historicalStats.length > 0 ? (
-        <PoolStatsChart data={historicalStats} />
-      ) : (
-        <p>Historical data is not available.</p>
+      {isVisible('dashboard.chart') &&
+        (historicalStats && historicalStats.length > 0 ? (
+          <PoolStatsChart data={historicalStats} />
+        ) : (
+          <p>Historical data is not available.</p>
+        ))}
+      {anyVisible([
+        'dashboard.leaderboard.difficulties',
+        'dashboard.leaderboard.hashrates',
+        'dashboard.leaderboard.loyalty',
+      ]) && (
+        <div className="flex flex-wrap gap-4 mt-8">
+          {/* Top 10 Difficulties */}
+          {isVisible('dashboard.leaderboard.difficulties') && (
+            <div className="card bg-base-100 shadow-xl card-compact sm:card-normal flex-1 min-w-[320px] max-w-full">
+              <div className="card-body">
+                <h2 className="card-title">
+                  <Link href="/top-difficulties" className="link text-primary">
+                    Top 10 User Difficulties Ever
+                  </Link>
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="table w-full table-sm sm:table-md">
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Address</th>
+                        <th>Best Diff</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data.topUserDifficulties ?? []).length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={3}
+                            className="text-center text-sm text-base-content/60"
+                          >
+                            No Stats Available Yet
+                          </td>
+                        </tr>
+                      ) : (
+                        (data.topUserDifficulties ?? [])
+                          .slice(0, 10)
+                          .map((user, index) => (
+                            <tr key={user.address}>
+                              <td>{index + 1}</td>
+                              <td>{user.address}</td>
+                              <td className="text-accent whitespace-nowrap">
+                                {formatNumber(Number(user.difficulty))}
+                              </td>
+                            </tr>
+                          ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Top 10 Hashrates */}
+          {isVisible('dashboard.leaderboard.hashrates') && (
+            <div className="card bg-base-100 shadow-xl card-compact sm:card-normal flex-1 min-w-[320px] max-w-full">
+              <div className="card-body">
+                <h2 className="card-title">
+                  <Link href="/top-hashrates" className="link text-primary">
+                    Top 10 Active User Hashrates
+                  </Link>
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="table w-full table-sm sm:table-md">
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Address</th>
+                        <th>Hashrate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data.topUserHashrates ?? []).length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={3}
+                            className="text-center text-sm text-base-content/60"
+                          >
+                            No Stats Available Yet
+                          </td>
+                        </tr>
+                      ) : (
+                        (data.topUserHashrates ?? [])
+                          .slice(0, 10)
+                          .map((user, index) => (
+                            <tr key={user.address}>
+                              <td>{index + 1}</td>
+                              <td>{user.address}</td>
+                              <td className="text-accent whitespace-nowrap">
+                                {formatHashrate(user.hashrate1hr)}
+                              </td>
+                            </tr>
+                          ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Top 10 Loyalty */}
+          {isVisible('dashboard.leaderboard.loyalty') && (
+            <div className="card bg-base-100 shadow-xl card-compact sm:card-normal flex-1 min-w-[320px] max-w-full">
+              <div className="card-body">
+                <h2 className="card-title">
+                  <Link href="/top-loyalty" className="link text-primary">
+                    Top 10 Longest Active Users
+                  </Link>
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="table w-full table-sm sm:table-md">
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Address</th>
+                        <th>When</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data.topUserLoyalty ?? []).length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={3}
+                            className="text-center text-sm text-base-content/60"
+                          >
+                            No Stats Available Yet
+                          </td>
+                        </tr>
+                      ) : (
+                        (data.topUserLoyalty ?? [])
+                          .slice(0, 10)
+                          .map((user, index) => {
+                            const when = user.authorised
+                              ? new Date(Number(user.authorised) * 1000)
+                              : null;
+                            return (
+                              <tr key={user.address}>
+                                <td>{index + 1}</td>
+                                <td>{user.address}</td>
+                                <td className="text-sm text-base-content/60 whitespace-nowrap">
+                                  {when ? formatConciseTimeAgo(when) : '-'}
+                                </td>
+                              </tr>
+                            );
+                          })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
-      <div className="flex flex-wrap gap-4 mt-8">
-        {/* Top 10 Difficulties */}
-        <div className="card bg-base-100 shadow-xl card-compact sm:card-normal flex-1 min-w-[320px] max-w-full">
-          <div className="card-body">
-            <h2 className="card-title">
-              <Link href="/top-difficulties" className="link text-primary">
-                Top 10 User Difficulties Ever
-              </Link>
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="table w-full table-sm sm:table-md">
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Address</th>
-                    <th>Best Diff</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(data.topUserDifficulties ?? []).length === 0 ? (
+
+      {isVisible('dashboard.highscores') && (
+        <div className="mt-8">
+          <div className="card bg-base-100 shadow-xl card-compact sm:card-normal">
+            <div className="card-body">
+              <h2 className="card-title">High Scores</h2>
+              <div className="overflow-x-auto">
+                <table className="table w-full table-sm sm:table-md">
+                  <thead>
                     <tr>
-                      <td
-                        colSpan={3}
-                        className="text-center text-sm text-base-content/60"
-                      >
-                        No Stats Available Yet
-                      </td>
+                      <th>Rank</th>
+                      <th>Client</th>
+                      <th>Difficulty</th>
+                      <th>When</th>
                     </tr>
-                  ) : (
-                    (data.topUserDifficulties ?? [])
-                      .slice(0, 10)
-                      .map((user, index) => (
-                        <tr key={user.address}>
-                          <td>{index + 1}</td>
-                          <td>{user.address}</td>
+                  </thead>
+                  <tbody>
+                    {(data.highScores ?? []).length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="text-center text-sm text-base-content/60"
+                        >
+                          No high scores yet
+                        </td>
+                      </tr>
+                    ) : (
+                      (data.highScores ?? []).slice(0, 10).map((score) => (
+                        <tr
+                          key={`${score.rank}-${score.device}-${score.timestamp}`}
+                        >
+                          <td>{score.rank}</td>
+                          <td className="whitespace-nowrap">{score.device}</td>
                           <td className="text-accent whitespace-nowrap">
-                            {formatNumber(Number(user.difficulty))}
+                            {formatNumber(score.difficulty)}
+                          </td>
+                          <td className="text-sm text-base-content/60 whitespace-nowrap">
+                            {formatConciseTimeAgo(new Date(score.timestamp))}
                           </td>
                         </tr>
                       ))
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Top 10 Hashrates */}
-        <div className="card bg-base-100 shadow-xl card-compact sm:card-normal flex-1 min-w-[320px] max-w-full">
-          <div className="card-body">
-            <h2 className="card-title">
-              <Link href="/top-hashrates" className="link text-primary">
-                Top 10 Active User Hashrates
-              </Link>
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="table w-full table-sm sm:table-md">
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Address</th>
-                    <th>Hashrate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(data.topUserHashrates ?? []).length === 0 ? (
+      {isVisible('dashboard.online_devices') && (
+        <div className="mt-4">
+          <div className="card bg-base-100 shadow-xl card-compact sm:card-normal">
+            <div className="card-body">
+              <h2 className="card-title">Online Devices</h2>
+              <div className="overflow-x-auto">
+                <table className="table w-full table-sm sm:table-md">
+                  <thead>
                     <tr>
-                      <td
-                        colSpan={3}
-                        className="text-center text-sm text-base-content/60"
-                      >
-                        No Stats Available Yet
-                      </td>
+                      <th>Rank</th>
+                      <th>Client</th>
+                      <th>Active</th>
+                      <th>Hashrate</th>
+                      <th>Best Diff</th>
                     </tr>
-                  ) : (
-                    (data.topUserHashrates ?? [])
-                      .slice(0, 10)
-                      .map((user, index) => (
-                        <tr key={user.address}>
+                  </thead>
+                  <tbody>
+                    {(data.onlineDevices ?? []).length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="text-center text-sm text-base-content/60"
+                        >
+                          No devices online
+                        </td>
+                      </tr>
+                    ) : (
+                      (data.onlineDevices ?? []).map((device, index) => (
+                        <tr key={device.client}>
                           <td>{index + 1}</td>
-                          <td>{user.address}</td>
+                          <td className="whitespace-nowrap">
+                            {device.client || 'Other'}
+                          </td>
                           <td className="text-accent whitespace-nowrap">
-                            {formatHashrate(user.hashrate1hr)}
+                            {device.activeWorkers}
+                          </td>
+                          <td className="text-accent whitespace-nowrap">
+                            {formatHashrate(device.hashrate1hr)}
+                          </td>
+                          <td className="text-accent whitespace-nowrap">
+                            {formatNumber(device.bestEver)}
                           </td>
                         </tr>
                       ))
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Top 10 Loyalty */}
-        <div className="card bg-base-100 shadow-xl card-compact sm:card-normal flex-1 min-w-[320px] max-w-full">
-          <div className="card-body">
-            <h2 className="card-title">
-              <Link href="/top-loyalty" className="link text-primary">
-                Top 10 Longest Active Users
-              </Link>
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="table w-full table-sm sm:table-md">
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Address</th>
-                    <th>When</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(data.topUserLoyalty ?? []).length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={3}
-                        className="text-center text-sm text-base-content/60"
-                      >
-                        No Stats Available Yet
-                      </td>
-                    </tr>
-                  ) : (
-                    (data.topUserLoyalty ?? [])
-                      .slice(0, 10)
-                      .map((user, index) => {
-                        const when = user.authorised
-                          ? new Date(Number(user.authorised) * 1000)
-                          : null;
-                        return (
-                          <tr key={user.address}>
-                            <td>{index + 1}</td>
-                            <td>{user.address}</td>
-                            <td className="text-sm text-base-content/60 whitespace-nowrap">
-                              {when ? formatConciseTimeAgo(when) : '-'}
-                            </td>
-                          </tr>
-                        );
-                      })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-8">
-        <div className="card bg-base-100 shadow-xl card-compact sm:card-normal">
-          <div className="card-body">
-            <h2 className="card-title">High Scores</h2>
-            <div className="overflow-x-auto">
-              <table className="table w-full table-sm sm:table-md">
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Client</th>
-                    <th>Difficulty</th>
-                    <th>When</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(data.highScores ?? []).length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="text-center text-sm text-base-content/60"
-                      >
-                        No high scores yet
-                      </td>
-                    </tr>
-                  ) : (
-                    (data.highScores ?? []).slice(0, 10).map((score) => (
-                      <tr
-                        key={`${score.rank}-${score.device}-${score.timestamp}`}
-                      >
-                        <td>{score.rank}</td>
-                        <td className="whitespace-nowrap">{score.device}</td>
-                        <td className="text-accent whitespace-nowrap">
-                          {formatNumber(score.difficulty)}
-                        </td>
-                        <td className="text-sm text-base-content/60 whitespace-nowrap">
-                          {formatConciseTimeAgo(new Date(score.timestamp))}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <div className="card bg-base-100 shadow-xl card-compact sm:card-normal">
-          <div className="card-body">
-            <h2 className="card-title">Online Devices</h2>
-            <div className="overflow-x-auto">
-              <table className="table w-full table-sm sm:table-md">
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Client</th>
-                    <th>Active</th>
-                    <th>Hashrate</th>
-                    <th>Best Diff</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(data.onlineDevices ?? []).length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="text-center text-sm text-base-content/60"
-                      >
-                        No devices online
-                      </td>
-                    </tr>
-                  ) : (
-                    (data.onlineDevices ?? []).map((device, index) => (
-                      <tr key={device.client}>
-                        <td>{index + 1}</td>
-                        <td className="whitespace-nowrap">
-                          {device.client || 'Other'}
-                        </td>
-                        <td className="text-accent whitespace-nowrap">
-                          {device.activeWorkers}
-                        </td>
-                        <td className="text-accent whitespace-nowrap">
-                          {formatHashrate(device.hashrate1hr)}
-                        </td>
-                        <td className="text-accent whitespace-nowrap">
-                          {formatNumber(device.bestEver)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
     </main>
   );
 }

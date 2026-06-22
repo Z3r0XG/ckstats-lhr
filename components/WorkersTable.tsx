@@ -13,6 +13,7 @@ import {
   getWorkerUserAgentDisplay,
   compareWorkerUserAgentStrings,
 } from '../utils/helpers';
+import { isVisible, anyVisible } from '../utils/visibility';
 import { isWorkerIdle } from '../utils/workerActivity';
 
 interface WorkersTableProps {
@@ -319,29 +320,43 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
             </button>
           </td>
         )}
-        <td>
-          <Link
-            className="link text-primary"
-            href={`/users/${encodeURIComponent(address)}/workers/${encodeURIComponent(worker.name)}`}
+        {isVisible('worker.table.name') && (
+          <td>
+            <Link
+              className="link text-primary"
+              href={`/users/${encodeURIComponent(address)}/workers/${encodeURIComponent(worker.name)}`}
+            >
+              {worker.name || <span className="italic">Unnamed</span>}
+            </Link>
+          </td>
+        )}
+        {isVisible('worker.table.client') && (
+          <td
+            title={worker.userAgentRaw || ''}
+            className={
+              showFullClient
+                ? 'max-w-[20rem] whitespace-normal break-words'
+                : ''
+            }
           >
-            {worker.name || <span className="italic">Unnamed</span>}
-          </Link>
-        </td>
-        <td
-          title={worker.userAgentRaw || ''}
-          className={
-            showFullClient ? 'max-w-[20rem] whitespace-normal break-words' : ''
-          }
-        >
-          {showFullClient
-            ? getWorkerUserAgentDisplay(worker.userAgentRaw)
-            : getWorkerUserAgentDisplay(worker.userAgent)}
-        </td>
-        <td className={cls5m}>{renderHr(hr5mRaw, hr5m)}</td>
-        <td>{formatNumber(worker.shares)}</td>
-        <td>{formatNumber(worker.bestShare)}</td>
-        <td>{formatTimeAgo(worker.lastUpdate)}</td>
-        <td>{uptimeEl}</td>
+            {showFullClient
+              ? getWorkerUserAgentDisplay(worker.userAgentRaw)
+              : getWorkerUserAgentDisplay(worker.userAgent)}
+          </td>
+        )}
+        {isVisible('worker.table.hashrate') && (
+          <td className={cls5m}>{renderHr(hr5mRaw, hr5m)}</td>
+        )}
+        {isVisible('worker.table.accepted') && (
+          <td>{formatNumber(worker.shares)}</td>
+        )}
+        {isVisible('worker.table.bestdiff') && (
+          <td>{formatNumber(worker.bestShare)}</td>
+        )}
+        {isVisible('worker.table.lastshare') && (
+          <td>{formatTimeAgo(worker.lastUpdate)}</td>
+        )}
+        {isVisible('worker.table.uptime') && <td>{uptimeEl}</td>}
       </tr>
     );
   };
@@ -352,84 +367,119 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         {!autoHideInactive && (
           <th style={{ padding: '0.75rem 0 0.75rem 1rem', width: '1%' }}></th>
         )}
-        <th onClick={() => handleSort('name')} className="cursor-pointer">
-          Name{renderSortIcon('name')}
-        </th>
-        <th
-          onClick={() => handleSort('userAgentRaw')}
-          className="cursor-pointer"
-        >
-          Client{renderSortIcon('userAgentRaw')}
-        </th>
-        <th onClick={() => handleSort('hashrate5m')} className="cursor-pointer">
-          Hashrate (5m){renderSortIcon('hashrate5m')}
-        </th>
-        <th onClick={() => handleSort('shares')} className="cursor-pointer">
-          Accepted Work{renderSortIcon('shares')}
-        </th>
-        <th onClick={() => handleSort('bestShare')} className="cursor-pointer">
-          Best Diff{renderSortIcon('bestShare')}
-        </th>
-        <th onClick={() => handleSort('lastUpdate')} className="cursor-pointer">
-          Last Share{renderSortIcon('lastUpdate')}
-        </th>
-        <th>Uptime</th>
+        {isVisible('worker.table.name') && (
+          <th onClick={() => handleSort('name')} className="cursor-pointer">
+            Name{renderSortIcon('name')}
+          </th>
+        )}
+        {isVisible('worker.table.client') && (
+          <th
+            onClick={() => handleSort('userAgentRaw')}
+            className="cursor-pointer"
+          >
+            Client{renderSortIcon('userAgentRaw')}
+          </th>
+        )}
+        {isVisible('worker.table.hashrate') && (
+          <th
+            onClick={() => handleSort('hashrate5m')}
+            className="cursor-pointer"
+          >
+            Hashrate (5m){renderSortIcon('hashrate5m')}
+          </th>
+        )}
+        {isVisible('worker.table.accepted') && (
+          <th onClick={() => handleSort('shares')} className="cursor-pointer">
+            Accepted Work{renderSortIcon('shares')}
+          </th>
+        )}
+        {isVisible('worker.table.bestdiff') && (
+          <th
+            onClick={() => handleSort('bestShare')}
+            className="cursor-pointer"
+          >
+            Best Diff{renderSortIcon('bestShare')}
+          </th>
+        )}
+        {isVisible('worker.table.lastshare') && (
+          <th
+            onClick={() => handleSort('lastUpdate')}
+            className="cursor-pointer"
+          >
+            Last Share{renderSortIcon('lastUpdate')}
+          </th>
+        )}
+        {isVisible('worker.table.uptime') && <th>Uptime</th>}
       </tr>
     </thead>
   );
 
+  const tableVisible = anyVisible([
+    'worker.table.name',
+    'worker.table.client',
+    'worker.table.hashrate',
+    'worker.table.accepted',
+    'worker.table.bestdiff',
+    'worker.table.lastshare',
+    'worker.table.uptime',
+  ]);
+
   return (
     <>
-      <div className="bg-base-200 p-4 rounded-lg mt-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">
-            Workers ({visibleWorkers.length})
-          </h2>
-          {storageReady && (
-            <div className="flex items-center gap-6">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <span
-                  className="text-sm tooltip"
-                  data-tip="Show the full client string instead of the simplified device name"
-                >
-                  Full Client
-                </span>
-                <input
-                  type="checkbox"
-                  checked={showFullClient}
-                  onChange={toggleShowFullClient}
-                  className={`toggle toggle-sm tooltip ${showFullClient ? 'toggle-success' : ''}`}
-                  data-tip="Show the full client string instead of the simplified device name"
-                  aria-checked={showFullClient}
-                />
-              </label>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <span
-                  className="text-sm tooltip"
-                  data-tip="No Activity in 24 hours"
-                >
-                  Auto-Hide Inactive
-                </span>
-                <input
-                  type="checkbox"
-                  checked={autoHideInactive}
-                  onChange={toggleAutoHideInactive}
-                  className={`toggle toggle-sm tooltip ${autoHideInactive ? 'toggle-success' : ''}`}
-                  data-tip="No Activity in 24 hours"
-                  aria-checked={autoHideInactive}
-                />
-              </label>
-            </div>
-          )}
+      {tableVisible && (
+        <div className="bg-base-200 p-4 rounded-lg mt-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">
+              Workers ({visibleWorkers.length})
+            </h2>
+            {storageReady && (
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <span
+                    className="text-sm tooltip"
+                    data-tip="Show the full client string instead of the simplified device name"
+                  >
+                    Full Client
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={showFullClient}
+                    onChange={toggleShowFullClient}
+                    className={`toggle toggle-sm tooltip ${showFullClient ? 'toggle-success' : ''}`}
+                    data-tip="Show the full client string instead of the simplified device name"
+                    aria-checked={showFullClient}
+                  />
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <span
+                    className="text-sm tooltip"
+                    data-tip="No Activity in 24 hours"
+                  >
+                    Auto-Hide Inactive
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={autoHideInactive}
+                    onChange={toggleAutoHideInactive}
+                    className={`toggle toggle-sm tooltip ${autoHideInactive ? 'toggle-success' : ''}`}
+                    data-tip="No Activity in 24 hours"
+                    aria-checked={autoHideInactive}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="table w-full table-sm sm:table-md whitespace-nowrap">
+              {tableHead}
+              <tbody>
+                {visibleWorkers.map((w) => renderWorkerRow(w, true))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="table w-full table-sm sm:table-md whitespace-nowrap">
-            {tableHead}
-            <tbody>{visibleWorkers.map((w) => renderWorkerRow(w, true))}</tbody>
-          </table>
-        </div>
-      </div>
-      {hiddenWorkers.length > 0 && (
+      )}
+      {tableVisible && hiddenWorkers.length > 0 && (
         <details className="collapse collapse-arrow bg-base-300 mt-4">
           <summary className="collapse-title text-sm font-medium">
             Hidden ({hiddenWorkers.length})
