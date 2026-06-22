@@ -163,8 +163,8 @@ SITE_NAME="My Solo Pool Stats"
 MEMPOOL_LINK_TAG="custom_tag"
 DB_SSL="false"
 DB_SSL_REJECT_UNAUTHORIZED="true"
-HIDE_REJECTED_STATS="false"
-HIDE_SHARE_COUNTS="false"
+HIDE_ONLINE-DEVICES="true"
+HIDE_USER_ODDS="true"
 DONATION_ADDRESS="your_wallet_address_here"
 DEFAULT_THEME="forest"
 ```
@@ -274,19 +274,40 @@ DEFAULT_THEME="forest"
 - Default: `solock`
 - Note: Only shown when `COIN=BTC`. Sets the pool tag in `https://mempool.space/mining/pool/<tag>`
 
-**HIDE_SHARE_COUNTS**: Hide the accepted/rejected share counts box on the pool stats display. **OPTIONAL**
+**HIDE\_\* flags**: Hide UI elements across the home, user, and worker pages. **OPTIONAL**
 
-- Type: String
-- Default: `false` (shown)
-- Values: `'true'` | `'false'`
-- Note: Stats are shown by default; set `'true'` to hide. Legacy `SHOW_SHARE_COUNTS` is still honored for backwards compatibility.
+- Type: String per flag — set to `"true"` to hide; everything is shown by default.
+- Naming: `HIDE_<PAGE>_<CARD>_<METRIC>_<SUBTEXT>` — a hyphen joins the words of one label, an underscore steps down a tier. Home-page flags have no page prefix; user and worker pages use `HIDE_USER_` and `HIDE_WORKER_`.
+- Hierarchy: setting a parent hides all of its children — `HIDE_HASHRATES="true"` hides the whole card, `HIDE_WORK-SUBMITTED_REJECTED="true"` hides just the rejected box, `HIDE_WORK-SUBMITTED_REJECTED_PERCENTAGE="true"` hides only its subtext. A card or section whose children are all hidden collapses and the layout reflows.
+- Resolved at build time — rebuild to apply changes. Header, footer, search, and nav are never hidden.
 
-**HIDE_REJECTED_STATS**: Hide the rejected-work box on the pool stats display. **OPTIONAL**
+| Page   | Card / section    | Flag (parent hides all children)                                                                                      |
+| ------ | ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Home   | Stats Service     | `HIDE_STATS-SERVICE` · `_STREAMS` · `_LAST-UPDATE`                                                                    |
+| Home   | Pool Service      | `HIDE_POOL-SERVICE` · `_UPTIME` · `_LAST-UPDATE`                                                                      |
+| Home   | Connections       | `HIDE_CONNECTIONS` · `_USERS` (`_IDLE`) · `_WORKERS` (`_DISCONNECTED`)                                                |
+| Home   | Work Submitted    | `HIDE_WORK-SUBMITTED` · `_EFFORT` · `_ACCEPTED` (`_PERCENTAGE`) · `_REJECTED` (`_PERCENTAGE`)                         |
+| Home   | Share Counts      | `HIDE_SHARE-COUNTS` · `_TOTAL` · `_ACCEPTED` (`_PERCENTAGE`) · `_REJECTED` (`_PERCENTAGE`)                            |
+| Home   | Difficulty        | `HIDE_DIFFICULTY` · `_NET-DIFF` · `_BEST-DIFF` (`_PROXIMITY`) · `_AVG-TIME`                                           |
+| Home   | Shares Per Second | `HIDE_SHARES-PER-SECOND` · `_1M` · `_5M` · `_15M` · `_1H`                                                             |
+| Home   | Hashrates         | `HIDE_HASHRATES` · `_1M` · `_5M` · `_15M` · `_1HR` · `_6HR` · `_1D` · `_7D`                                           |
+| Home   | Chart             | `HIDE_CHART`                                                                                                          |
+| Home   | Leaderboards      | `HIDE_LEADERBOARDS` · `_DIFFICULTIES` · `_HASHRATES` · `_LOYALTY`                                                     |
+| Home   | High Scores       | `HIDE_HIGH-SCORES`                                                                                                    |
+| Home   | Online Devices    | `HIDE_ONLINE-DEVICES`                                                                                                 |
+| User   | Connection        | `HIDE_USER_CONNECTION` · `_WORKERS` (`_TOTAL`) · `_AUTHORISED` · `_LAST-SHARE`                                        |
+| User   | Difficulty        | `HIDE_USER_DIFFICULTY` · `_ACCEPTED-WORK` (`_EFFORT`) · `_BEST-DIFF` (`_PROXIMITY`) · `_BEST-EVER` (`_PROXIMITY`)     |
+| User   | Hashrates         | `HIDE_USER_HASHRATES` · `_5M` · `_1HR` · `_1D` · `_7D` (each + `_CHANGE`)                                             |
+| User   | Odds              | `HIDE_USER_ODDS` · `_1-DAY` · `_1-WEEK` · `_1-MONTH` · `_1-YEAR`                                                      |
+| User   | Chart             | `HIDE_USER_CHART`                                                                                                     |
+| User   | Workers table     | `HIDE_USER_WORKERS`                                                                                                   |
+| Worker | Connection        | `HIDE_WORKER_CONNECTION` · `_CLIENT` · `_UPTIME` · `_LAST-SHARE`                                                      |
+| Worker | Difficulty        | `HIDE_WORKER_DIFFICULTY` · `_ACCEPTED-WORK` (`_EFFORT`) · `_BEST-DIFF` (`_PROXIMITY`) · `_BEST-EVER` (`_PROXIMITY`)   |
+| Worker | Hashrates         | `HIDE_WORKER_HASHRATES` · `_1M` · `_5M` · `_1HR` · `_1D` · `_7D` (each + `_CHANGE`)                                   |
+| Worker | Chart             | `HIDE_WORKER_CHART`                                                                                                   |
+| Worker | Table             | `HIDE_WORKER_TABLE` · `_NAME` · `_CLIENT` · `_HASHRATE` · `_ACCEPTED-WORK` · `_BEST-DIFF` · `_LAST-SHARE` · `_UPTIME` |
 
-- Type: String
-- Default: `false` (shown)
-- Values: `'true'` | `'false'`
-- Note: Stats are shown by default; set `'true'` to hide. Useful when rejected difficulty is skewed by a misconfigured miner. Legacy `SHOW_REJECTED_STATS` is still honored for backwards compatibility.
+The older `HIDE_REJECTED_STATS` flag (and the `SHOW_*` predecessors) still work as back-compat aliases — `HIDE_REJECTED_STATS` is superseded by `HIDE_WORK-SUBMITTED_REJECTED`.
 
 **DONATION_ADDRESS**: Wallet address displayed in the footer donation link. **OPTIONAL**
 
