@@ -261,7 +261,8 @@ export default function UserPageClient({
                             Number(legacyAccepted);
                         }
 
-                        if (effortPercent === null) return null;
+                        if (effortPercent === null)
+                          return <div className="stat-desc">&nbsp;</div>;
 
                         let display = '';
                         if (effortPercent === 0) {
@@ -301,7 +302,9 @@ export default function UserPageClient({
                           <div className="stat-desc text-success text-xs max-w-full overflow-hidden">
                             {percent} (Proximity)
                           </div>
-                        ) : null;
+                        ) : (
+                          <div className="stat-desc">&nbsp;</div>
+                        );
                       })()
                     ) : (
                       <div className="stat-desc">&nbsp;</div>
@@ -326,7 +329,9 @@ export default function UserPageClient({
                           <div className="stat-desc text-success text-xs max-w-full overflow-hidden">
                             {percent} (Proximity)
                           </div>
-                        ) : null;
+                        ) : (
+                          <div className="stat-desc">&nbsp;</div>
+                        );
                       })()
                     ) : (
                       <div className="stat-desc">&nbsp;</div>

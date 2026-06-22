@@ -707,7 +707,9 @@ export default function PoolStatsDisplay({
                             >
                               Found Blocks
                             </Link>
-                          ) : null}
+                          ) : (
+                            <>&nbsp;</>
+                          )}
                         </div>
                       </div>
                     );
