@@ -139,6 +139,7 @@ API_URL="https://solo.ckpool.org"
 # set POOL_INGEST=1 to run the capture+combine loop in-process instead.
 POOL_INGEST="1"
 POOL_INGEST_INTERVAL_SECONDS="60"
+POOL_INGEST_CYCLE_TIMEOUT_SECONDS="120"
 POOL_CLEANUP_INTERVAL_SECONDS="7200"
 POOL_HEALTH_STALE_SECONDS="300"
 
@@ -183,6 +184,10 @@ DEFAULT_THEME="forest"
 **POOL_INGEST_INTERVAL_SECONDS**: seconds between in-process ingest cycles. **OPTIONAL**
 
 - Default: `60`
+
+**POOL_INGEST_CYCLE_TIMEOUT_SECONDS**: seconds after which a still-running ingest cycle is abandoned and its lock released so the next cycle can start. **OPTIONAL**
+
+- Default: `120`
 
 **POOL_CLEANUP_INTERVAL_SECONDS**: seconds between prunes of old time-series rows (folded into the in-process loop). **OPTIONAL**
 
