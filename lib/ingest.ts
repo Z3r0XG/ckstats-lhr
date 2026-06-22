@@ -428,9 +428,20 @@ export async function capturePool(
   const workerRows: Row[] = [];
   const targets = mode === 'status' ? [] : addresses;
   const tUserFetch = Date.now();
+  if (targets.length > 0) {
+    console.log(
+      `[ingest][capture] ${label} fetching ${targets.length} users (concurrency ${process.env.API_MAX_CONNS || 4})`
+    );
+  }
   const results = await Promise.all(
     targets.map((address) => fetchUserFromPool(pool, address, dispatcher))
   );
+  if (targets.length > 0) {
+    const okCount = results.filter((r) => r.status === 'found').length;
+    console.log(
+      `[ingest][capture] ${label} user fetch done ${Date.now() - tUserFetch}ms (${okCount}/${targets.length} found)`
+    );
+  }
   cycleTiming.userFetchMs += Date.now() - tUserFetch;
   results.forEach((r, i) => {
     if (r.status !== 'found') return;
@@ -581,7 +592,14 @@ export async function captureAllPools(
     workers: number;
   }> = [];
   for (const src of sources) {
-    out.push(await capturePool(db, src.url, src.label, addresses, mode));
+    const startedAt = Date.now();
+    console.log(`[ingest][capture] ${src.label} ${mode} start`);
+    const result = await capturePool(db, src.url, src.label, addresses, mode);
+    console.log(
+      `[ingest][capture] ${src.label} ${mode} done ${Date.now() - startedAt}ms ` +
+        `state=${result.state} users=${result.users} workers=${result.workers}`
+    );
+    out.push(result);
   }
   // Keep the in-memory map and the snapshot tables aligned with the configured pool set.
   const keep = sources.map((s) => s.url);
@@ -1030,9 +1048,28 @@ async function withIngestLock<T>(
       );
       return null;
     }
+    // Watchdog: if a cycle hangs (e.g. a stuck HTTP capture), don't hold the lock forever. Time
+    // out so the finally releases the lock and the next tick can run; the hung work is abandoned.
+    const watchdogMs =
+      envSeconds('POOL_INGEST_CYCLE_TIMEOUT_SECONDS', 120) * 1000;
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
     try {
-      return await fn();
+      return await Promise.race([
+        fn(),
+        new Promise<never>((_, reject) => {
+          watchdog = setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `${label} exceeded ${watchdogMs}ms watchdog — abandoning cycle, releasing lock`
+                )
+              ),
+            watchdogMs
+          );
+        }),
+      ]);
     } finally {
+      if (watchdog) clearTimeout(watchdog);
       await runner.query(`SELECT pg_advisory_unlock(${LOCK})`);
     }
   } finally {
