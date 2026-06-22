@@ -10,6 +10,10 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * Hashrates are stored as parsed numeric H/s (the unit-string "73.4T" parsing, parseWorkerName
  * identity, and normalizeUserAgent device resolution all happen in the capture step, once per fetch).
+ *
+ * Also adds a composite (workerId, timestamp) index on WorkerStats so the user page's
+ * latest-row-per-worker lookup is one grouped MAX(timestamp) rather than a per-row subquery.
+ * Every statement here is idempotent (IF [NOT] EXISTS), so this migration is safe to re-run.
  */
 export class AddPoolSnapshotTables1710000000023 implements MigrationInterface {
   name = 'AddPoolSnapshotTables1710000000023';
@@ -112,9 +116,18 @@ export class AddPoolSnapshotTables1710000000023 implements MigrationInterface {
         PRIMARY KEY ("pool")
       );
     `);
+
+    // Backs latest-row-per-worker lookups (getUserWithWorkers): with (workerId, timestamp) the
+    // join resolves each worker's newest row via a grouped MAX instead of a per-row correlated scan.
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "WorkerStats_workerId_timestamp_idx" ON "WorkerStats" ("workerId", "timestamp");`
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "WorkerStats_workerId_timestamp_idx";`
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "pool_source_status";`);
     await queryRunner.query(`DROP TABLE IF EXISTS "pool_status_snapshot";`);
     await queryRunner.query(`DROP TABLE IF EXISTS "pool_worker_snapshot";`);
