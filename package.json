@@ -15,6 +15,7 @@
     "seed": "ts-node --transpile-only -r dotenv/config -P tsconfig.scripts.json scripts/ingestOnce.ts stats",
     "update-users": "ts-node --transpile-only -r dotenv/config -P tsconfig.scripts.json scripts/ingestOnce.ts users",
     "cleanup": "ts-node --transpile-only -r dotenv/config -P tsconfig.scripts.json scripts/cleanOldStats.ts",
+    "check-endpoints": "node scripts/checkEndpoints.mjs",
     "vacuum": "PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f scripts/vacuum.sql",
     "test": "jest",
     "test:watch": "jest --watch",

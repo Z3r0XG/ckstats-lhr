@@ -202,6 +202,14 @@ DEFAULT_THEME="forest"
 
 - Default: unset (disabled). Each call makes real outbound pool fetches, so leave it off in normal operation.
 
+**Endpoint health check** (`pnpm check-endpoints`): probes every pool in one or more deployments' `.env` (`API_URL`) — `pool.status` + `/users` per region — and flags unreachable endpoints or the `/users` nginx mapping bug (a `301` instead of `200`/`404`). Exits non-zero on any issue, so it's usable from cron/CI after an nginx or DNS change.
+
+```bash
+pnpm check-endpoints .env                          # this deployment
+pnpm check-endpoints /stats/ckstats-lhr_btc /stats/ckstats-lhr_bch   # several deployments
+pnpm check-endpoints .env --addr <wallet>          # also confirm a real user resolves (found/absent)
+```
+
 **API_USER_AGENT**: `User-Agent` header sent to each CKPool API (HTTP sources only). **OPTIONAL**
 
 **API_TOKEN**: bearer token sent as `Authorization: Bearer <token>`. **OPTIONAL**
