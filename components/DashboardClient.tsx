@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 import Link from 'next/link';
 
@@ -15,6 +15,30 @@ import {
   formatNumber,
 } from '../utils/helpers';
 import { isVisible, anyVisible } from '../utils/visibility';
+
+// On mobile (<sm) the leaderboard tables render as self-contained cards instead of a horizontally
+// scrolling table: a hero header (identity left + #rank right) over label-left / value-right stat
+// rows (see KvRow), matching each table's desktop column order. The <table> is kept for sm+.
+
+// One label-left / value-right stat row inside a mobile card.
+function KvRow({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string;
+  value: ReactNode;
+  valueClass?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 text-sm">
+      <span className="shrink-0 text-base-content/60">{label}</span>
+      <span className={`min-w-0 break-words text-right ${valueClass ?? ''}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
 
 export default function DashboardClient({
   initialData,
@@ -84,7 +108,7 @@ export default function DashboardClient({
                     Top 10 User Difficulties Ever
                   </Link>
                 </h2>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto hidden sm:block">
                   <table className="table w-full table-sm sm:table-md">
                     <thead>
                       <tr>
@@ -119,6 +143,36 @@ export default function DashboardClient({
                     </tbody>
                   </table>
                 </div>
+                <ul className="sm:hidden space-y-2">
+                  {(data.topUserDifficulties ?? []).length === 0 ? (
+                    <li className="text-center text-sm text-base-content/60">
+                      No Stats Available Yet
+                    </li>
+                  ) : (
+                    (data.topUserDifficulties ?? [])
+                      .slice(0, 10)
+                      .map((user, index) => (
+                        <li
+                          key={user.address}
+                          className="rounded-box border border-base-300 bg-base-200/50 p-3 space-y-1.5"
+                        >
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="min-w-0 truncate text-base font-semibold">
+                              {user.address}
+                            </span>
+                            <span className="shrink-0 text-sm text-base-content/50">
+                              #{index + 1}
+                            </span>
+                          </div>
+                          <KvRow
+                            label="best diff"
+                            value={formatNumber(Number(user.difficulty))}
+                            valueClass="text-accent font-semibold"
+                          />
+                        </li>
+                      ))
+                  )}
+                </ul>
               </div>
             </div>
           )}
@@ -132,7 +186,7 @@ export default function DashboardClient({
                     Top 10 Active User Hashrates
                   </Link>
                 </h2>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto hidden sm:block">
                   <table className="table w-full table-sm sm:table-md">
                     <thead>
                       <tr>
@@ -167,6 +221,36 @@ export default function DashboardClient({
                     </tbody>
                   </table>
                 </div>
+                <ul className="sm:hidden space-y-2">
+                  {(data.topUserHashrates ?? []).length === 0 ? (
+                    <li className="text-center text-sm text-base-content/60">
+                      No Stats Available Yet
+                    </li>
+                  ) : (
+                    (data.topUserHashrates ?? [])
+                      .slice(0, 10)
+                      .map((user, index) => (
+                        <li
+                          key={user.address}
+                          className="rounded-box border border-base-300 bg-base-200/50 p-3 space-y-1.5"
+                        >
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="min-w-0 truncate text-base font-semibold">
+                              {user.address}
+                            </span>
+                            <span className="shrink-0 text-sm text-base-content/50">
+                              #{index + 1}
+                            </span>
+                          </div>
+                          <KvRow
+                            label="hashrate"
+                            value={formatHashrate(user.hashrate1hr)}
+                            valueClass="text-accent font-semibold"
+                          />
+                        </li>
+                      ))
+                  )}
+                </ul>
               </div>
             </div>
           )}
@@ -180,7 +264,7 @@ export default function DashboardClient({
                     Top 10 Longest Active Users
                   </Link>
                 </h2>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto hidden sm:block">
                   <table className="table w-full table-sm sm:table-md">
                     <thead>
                       <tr>
@@ -210,7 +294,7 @@ export default function DashboardClient({
                               <tr key={user.address}>
                                 <td>{index + 1}</td>
                                 <td>{user.address}</td>
-                                <td className="text-sm text-base-content/60 whitespace-nowrap">
+                                <td className="text-accent whitespace-nowrap">
                                   {when ? formatConciseTimeAgo(when) : '-'}
                                 </td>
                               </tr>
@@ -220,6 +304,41 @@ export default function DashboardClient({
                     </tbody>
                   </table>
                 </div>
+                <ul className="sm:hidden space-y-2">
+                  {(data.topUserLoyalty ?? []).length === 0 ? (
+                    <li className="text-center text-sm text-base-content/60">
+                      No Stats Available Yet
+                    </li>
+                  ) : (
+                    (data.topUserLoyalty ?? [])
+                      .slice(0, 10)
+                      .map((user, index) => {
+                        const when = user.authorised
+                          ? new Date(Number(user.authorised) * 1000)
+                          : null;
+                        return (
+                          <li
+                            key={user.address}
+                            className="rounded-box border border-base-300 bg-base-200/50 p-3 space-y-1.5"
+                          >
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="min-w-0 truncate text-base font-semibold">
+                                {user.address}
+                              </span>
+                              <span className="shrink-0 text-sm text-base-content/50">
+                                #{index + 1}
+                              </span>
+                            </div>
+                            <KvRow
+                              label="when"
+                              value={when ? formatConciseTimeAgo(when) : '-'}
+                              valueClass="text-accent font-semibold"
+                            />
+                          </li>
+                        );
+                      })
+                  )}
+                </ul>
               </div>
             </div>
           )}
@@ -231,7 +350,7 @@ export default function DashboardClient({
           <div className="card bg-base-100 shadow-xl card-compact sm:card-normal">
             <div className="card-body">
               <h2 className="card-title">High Scores</h2>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto hidden sm:block">
                 <table className="table w-full table-sm sm:table-md">
                   <thead>
                     <tr>
@@ -261,7 +380,7 @@ export default function DashboardClient({
                           <td className="text-accent whitespace-nowrap">
                             {formatNumber(score.difficulty)}
                           </td>
-                          <td className="text-sm text-base-content/60 whitespace-nowrap">
+                          <td className="text-accent whitespace-nowrap">
                             {formatConciseTimeAgo(new Date(score.timestamp))}
                           </td>
                         </tr>
@@ -270,6 +389,40 @@ export default function DashboardClient({
                   </tbody>
                 </table>
               </div>
+              {/* Mobile: each row as a self-contained card (no horizontal scroll) */}
+              <ul className="sm:hidden space-y-2">
+                {(data.highScores ?? []).length === 0 ? (
+                  <li className="text-center text-sm text-base-content/60">
+                    No high scores yet
+                  </li>
+                ) : (
+                  (data.highScores ?? []).slice(0, 10).map((score) => (
+                    <li
+                      key={`m-${score.rank}-${score.device}-${score.timestamp}`}
+                      className="rounded-box border border-base-300 bg-base-200/50 p-3 space-y-1.5"
+                    >
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="min-w-0 truncate text-base font-semibold">
+                          {score.device}
+                        </span>
+                        <span className="shrink-0 text-sm text-base-content/50">
+                          #{score.rank}
+                        </span>
+                      </div>
+                      <KvRow
+                        label="difficulty"
+                        value={formatNumber(score.difficulty)}
+                        valueClass="text-accent font-semibold"
+                      />
+                      <KvRow
+                        label="when"
+                        value={formatConciseTimeAgo(new Date(score.timestamp))}
+                        valueClass="text-accent font-semibold"
+                      />
+                    </li>
+                  ))
+                )}
+              </ul>
             </div>
           </div>
         </div>
@@ -280,7 +433,7 @@ export default function DashboardClient({
           <div className="card bg-base-100 shadow-xl card-compact sm:card-normal">
             <div className="card-body">
               <h2 className="card-title">Online Devices</h2>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto hidden sm:block">
                 <table className="table w-full table-sm sm:table-md">
                   <thead>
                     <tr>
@@ -323,6 +476,44 @@ export default function DashboardClient({
                   </tbody>
                 </table>
               </div>
+              <ul className="sm:hidden space-y-2">
+                {(data.onlineDevices ?? []).length === 0 ? (
+                  <li className="text-center text-sm text-base-content/60">
+                    No devices online
+                  </li>
+                ) : (
+                  (data.onlineDevices ?? []).map((device, index) => (
+                    <li
+                      key={device.client}
+                      className="rounded-box border border-base-300 bg-base-200/50 p-3 space-y-1.5"
+                    >
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="min-w-0 truncate text-base font-semibold">
+                          {device.client || 'Other'}
+                        </span>
+                        <span className="shrink-0 text-sm text-base-content/50">
+                          #{index + 1}
+                        </span>
+                      </div>
+                      <KvRow
+                        label="active"
+                        value={device.activeWorkers}
+                        valueClass="text-accent font-semibold"
+                      />
+                      <KvRow
+                        label="hashrate"
+                        value={formatHashrate(device.hashrate1hr)}
+                        valueClass="text-accent font-semibold"
+                      />
+                      <KvRow
+                        label="best diff"
+                        value={formatNumber(device.bestEver)}
+                        valueClass="text-accent font-semibold"
+                      />
+                    </li>
+                  ))
+                )}
+              </ul>
             </div>
           </div>
         </div>
