@@ -14,6 +14,7 @@ import {
   Brush,
 } from 'recharts';
 
+import { useIsMobile } from '../lib/hooks/useIsMobile';
 import { SerializedUserStats } from '../lib/types/user';
 
 function getHashrateUnit(maxHashrate: number): [string, number] {
@@ -30,6 +31,9 @@ interface UserStatsChartsProps {
 }
 
 export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
+  // Tighter Y-axis on mobile only; desktop keeps recharts' defaults.
+  const isMobile = useIsMobile();
+  const yAxisWidth = isMobile ? 38 : 60;
   const [hashrateUnit, setHashrateUnit] = useState<string>('PH/s');
 
   const [visibleLines, setVisibleLines] = useState({
@@ -175,6 +179,7 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
           >
             <XAxis dataKey="timestamp" minTickGap={50} />
             <YAxis
+              width={yAxisWidth}
               allowDataOverflow={true}
               domain={[
                 (dataMin: number) => Math.floor(dataMin * 0.99),
@@ -192,7 +197,7 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
             <Brush
               dataKey="timestamp"
               height={30}
-              alwaysShowText={true}
+              alwaysShowText={!isMobile}
               startIndex={
                 chartData.length - 1440 > 0 ? chartData.length - 1440 : 0
               }
@@ -256,6 +261,7 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
             >
               <XAxis dataKey="timestamp" minTickGap={50} />
               <YAxis
+                width={yAxisWidth}
                 allowDataOverflow={true}
                 domain={[
                   (dataMin: number) => Math.floor(dataMin * 0.99),
@@ -275,7 +281,7 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
               <Brush
                 dataKey="timestamp"
                 height={30}
-                alwaysShowText={true}
+                alwaysShowText={!isMobile}
                 startIndex={
                   chartData.length - 1440 > 0 ? chartData.length - 1440 : 0
                 }

@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 
 import { PoolStats } from '../lib/entities/PoolStats';
+import { useIsMobile } from '../lib/hooks/useIsMobile';
 import { ISOUnit, findISOUnit } from '../utils/helpers';
 
 interface PoolStatsChartProps {
@@ -22,6 +23,9 @@ interface PoolStatsChartProps {
 }
 
 export default function PoolStatsChart({ data }: PoolStatsChartProps) {
+  // Tighter Y-axis on mobile only; desktop keeps recharts' defaults.
+  const isMobile = useIsMobile();
+  const yAxisWidth = isMobile ? 38 : 60;
   const [visibleLines, setVisibleLines] = useState({
     '1m': false,
     '5m': true,
@@ -189,6 +193,7 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
           <XAxis dataKey="timestamp" minTickGap={40} />
           <YAxis
             yAxisId="left"
+            width={yAxisWidth}
             allowDataOverflow={true}
             domain={[
               (dataMin: number) => Math.floor(dataMin * 0.99),
@@ -198,6 +203,7 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
           <YAxis
             yAxisId="right"
             orientation="right"
+            width={isMobile ? 48 : 60}
             allowDataOverflow={true}
             domain={[
               (dataMin: number) => Math.floor(dataMin * 0.99),
@@ -209,7 +215,7 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
           <Brush
             dataKey="timestamp"
             height={30}
-            alwaysShowText={true}
+            alwaysShowText={!isMobile}
             startIndex={
               formattedData.length - 1440 > 0 ? formattedData.length - 1440 : 0
             }
@@ -259,7 +265,7 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
             tickFormatter={(value: number) =>
               value.toLocaleString(undefined, { maximumFractionDigits: 1 })
             }
-            width={50}
+            width={isMobile ? 38 : 50}
           />
           <Tooltip formatter={hashrateTooltipFormatter} />
           <Legend
@@ -272,7 +278,7 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
           <Brush
             dataKey="timestamp"
             height={30}
-            alwaysShowText={true}
+            alwaysShowText={!isMobile}
             startIndex={
               formattedData.length - 1440 > 0 ? formattedData.length - 1440 : 0
             }
@@ -362,6 +368,7 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
         >
           <XAxis dataKey="timestamp" minTickGap={40} />
           <YAxis
+            width={yAxisWidth}
             allowDataOverflow={true}
             domain={[
               (dataMin: number) => Math.floor(dataMin * 0.99),
@@ -373,7 +380,7 @@ export default function PoolStatsChart({ data }: PoolStatsChartProps) {
           <Brush
             dataKey="timestamp"
             height={30}
-            alwaysShowText={true}
+            alwaysShowText={!isMobile}
             startIndex={
               formattedData.length - 1440 > 0 ? formattedData.length - 1440 : 0
             }
