@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
@@ -27,7 +31,10 @@
     "**/*.ts",
     "**/*.tsx",
     "scripts/seed.js",
-    "migrations/YYYYMMDDHHMMSS_create_pool_stats.js"
+    "migrations/YYYYMMDDHHMMSS_create_pool_stats.js",
+    ".next-bake/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

@@ -14,6 +14,7 @@ import {
   Brush,
 } from 'recharts';
 
+import { useIsMobile } from '../lib/hooks/useIsMobile';
 import { SerializedUserStats } from '../lib/types/user';
 
 function getHashrateUnit(maxHashrate: number): [string, number] {
@@ -30,18 +31,34 @@ interface UserStatsChartsProps {
 }
 
 export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
+  // Tighter Y-axis on mobile only; desktop keeps recharts' defaults.
+  const isMobile = useIsMobile();
+  const yAxisWidth = isMobile ? 38 : 60;
   const [hashrateUnit, setHashrateUnit] = useState<string>('PH/s');
+
+  const [visibleLines, setVisibleLines] = useState({
+    '1m': false,
+    '5m': true,
+    '1hr': true,
+    '1d': true,
+    '7d': false,
+  });
 
   const chartData = useMemo(() => {
     const reversedStats = [...userStats].reverse();
 
+    // Scale the axis unit to only the VISIBLE series. A hidden long-window average (e.g. a 7d EMA,
+    // which decays slowly and can sit orders of magnitude above the current rate) would otherwise
+    // push the unit up to GH/s and flatten the visible lines to ~0. The 0 seed keeps Math.max sane
+    // when every line is toggled off.
     const maxHashrate = Math.max(
+      0,
       ...reversedStats.flatMap((stat) => [
-        Number(stat.hashrate1m),
-        Number(stat.hashrate5m),
-        Number(stat.hashrate1hr),
-        Number(stat.hashrate1d),
-        Number(stat.hashrate7d),
+        visibleLines['1m'] ? Number(stat.hashrate1m) : 0,
+        visibleLines['5m'] ? Number(stat.hashrate5m) : 0,
+        visibleLines['1hr'] ? Number(stat.hashrate1hr) : 0,
+        visibleLines['1d'] ? Number(stat.hashrate1d) : 0,
+        visibleLines['7d'] ? Number(stat.hashrate7d) : 0,
       ])
     );
 
@@ -62,15 +79,7 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
       '1d': Number(stat.hashrate1d) / scaleFactor,
       '7d': Number(stat.hashrate7d) / scaleFactor,
     }));
-  }, [userStats]);
-
-  const [visibleLines, setVisibleLines] = useState({
-    '1m': false,
-    '5m': true,
-    '1hr': true,
-    '1d': true,
-    '7d': false,
-  });
+  }, [userStats, visibleLines]);
 
   const handleLegendClick = (dataKey: string) => {
     setVisibleLines((prev) => ({ ...prev, [dataKey]: !prev[dataKey] }));
@@ -170,6 +179,7 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
           >
             <XAxis dataKey="timestamp" minTickGap={50} />
             <YAxis
+              width={yAxisWidth}
               allowDataOverflow={true}
               domain={[
                 (dataMin: number) => Math.floor(dataMin * 0.99),
@@ -187,7 +197,7 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
             <Brush
               dataKey="timestamp"
               height={30}
-              alwaysShowText={true}
+              alwaysShowText={!isMobile}
               startIndex={
                 chartData.length - 1440 > 0 ? chartData.length - 1440 : 0
               }
@@ -251,6 +261,7 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
             >
               <XAxis dataKey="timestamp" minTickGap={50} />
               <YAxis
+                width={yAxisWidth}
                 allowDataOverflow={true}
                 domain={[
                   (dataMin: number) => Math.floor(dataMin * 0.99),
@@ -270,7 +281,7 @@ export default function UserStatsCharts({ userStats }: UserStatsChartsProps) {
               <Brush
                 dataKey="timestamp"
                 height={30}
-                alwaysShowText={true}
+                alwaysShowText={!isMobile}
                 startIndex={
                   chartData.length - 1440 > 0 ? chartData.length - 1440 : 0
                 }

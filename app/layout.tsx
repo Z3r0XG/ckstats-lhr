@@ -1,6 +1,6 @@
 import './globals.css';
 import { Metadata } from 'next';
-import { Lato } from 'next/font/google';
+import localFont from 'next/font/local';
 
 import Footer from '../components/Footer';
 import Header from '../components/Header';
@@ -8,7 +8,14 @@ import Providers from '../components/Providers';
 import { RefreshProvider } from '../lib/contexts/RefreshContext';
 import { SITE_NAME } from '../lib/site';
 
-const lato = Lato({ subsets: ['latin'], weight: ['400', '700'] });
+// Self-hosted Lato: the production build has no build-time dependency on fonts.googleapis.com.
+const lato = localFont({
+  src: [
+    { path: './fonts/Lato-Regular.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/Lato-Bold.woff2', weight: '700', style: 'normal' },
+  ],
+  display: 'swap',
+});
 
 const siteTitle = SITE_NAME;
 

@@ -70,12 +70,16 @@ export function formatNumber(num: number | bigint | string): string {
 
   // Numbers < 1000: up to 2 decimal places (e.g. 0.046 → 0.05, 42.78, 999.5)
   // Values < 0.005 round to 0 — intentional, as 5 shares at min difficulty (0.001) = 0.005
-  return numberVal.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+  return numberVal.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  });
 }
 
 export function formatHashrate(
   num: string | bigint | number,
-  showLessThanOne: boolean = false
+  showLessThanOne: boolean = false,
+  decimals: number = 2
 ): string {
   const numberValue = Number(num);
   const absNum = Math.abs(numberValue);
@@ -84,7 +88,7 @@ export function formatHashrate(
     if (absNum >= unit.threshold) {
       return (
         (numberValue / unit.threshold).toLocaleString(undefined, {
-          maximumFractionDigits: 2,
+          maximumFractionDigits: decimals,
         }) +
         ' ' +
         unit.iso +
@@ -106,7 +110,8 @@ export function formatHashrate(
   }
 
   return (
-    numberValue.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' H/s'
+    numberValue.toLocaleString(undefined, { maximumFractionDigits: decimals }) +
+    ' H/s'
   );
 }
 
@@ -232,9 +237,7 @@ export function formatTimeAgo(
   }
 }
 
-export function formatConciseTimeAgo(
-  date: Date | number | string
-): string {
+export function formatConciseTimeAgo(date: Date | number | string): string {
   const target = new Date(date);
   if (target.getTime() <= 0) return 'Never';
   const diffMs = Date.now() - target.getTime();
@@ -247,7 +250,9 @@ export function formatConciseTimeAgo(
 
   const formatUnit = (value: number, unit: string) => {
     const fixed = Number(value.toFixed(1));
-    const formatted = Number.isInteger(fixed) ? fixed.toFixed(0) : fixed.toFixed(1);
+    const formatted = Number.isInteger(fixed)
+      ? fixed.toFixed(0)
+      : fixed.toFixed(1);
     return `${formatted} ${unit}${fixed !== 1 ? 's' : ''} ago`;
   };
 
@@ -298,16 +303,37 @@ export function calculatePercentageChange(
   return Number(percentageChange.toFixed(2));
 }
 
+// Time-window % change (default 24h). Historical arrives newest-first (timestamp DESC). We anchor the
+// window to the newest sample's timestamp — NOT wall-clock — so the result is (a) hydration-stable in
+// client components (no Date.now() during render) and (b) cadence-independent: it always means "latest
+// vs ~windowHours before latest", regardless of ingest interval, gaps, or external-cron setups. The
+// old fixed 120-record offset only equalled 24h at upstream's 12-min cron; at any other cadence the
+// "24 hour" label silently lied.
+const CHANGE_WINDOW_HOURS = 24;
+
 export function getHistoricalPercentageChange(
   stats: any,
   historical: any[] | null | undefined,
   key: string,
-  requiredSamples: number = 120
+  windowHours: number = CHANGE_WINDOW_HOURS
 ): number | 'N/A' {
-  if (!historical || historical.length < requiredSamples) return 'N/A';
+  if (!historical || historical.length === 0) return 'N/A';
 
-  const index = requiredSamples - 1; // 120th-most-recent sample -> index 119
-  const pastEntry = historical[index];
+  const latestMs = new Date(historical[0]?.timestamp).getTime();
+  if (Number.isNaN(latestMs)) return 'N/A';
+  const targetMs = latestMs - windowHours * 60 * 60 * 1000;
+
+  // First entry at or older than the target = the most recent sample that is ≥ windowHours old, the
+  // closest anchor to the window boundary from the older side. None reaching that far back => history
+  // doesn't span the window yet, so there's nothing honest to compare against.
+  let pastEntry: any = null;
+  for (const entry of historical) {
+    const t = new Date(entry?.timestamp).getTime();
+    if (!Number.isNaN(t) && t <= targetMs) {
+      pastEntry = entry;
+      break;
+    }
+  }
   if (!pastEntry) return 'N/A';
 
   const pastValue = Number(pastEntry[key]);
@@ -440,8 +466,7 @@ export function calculateBlockChances(
     diffNum > 0 &&
     acceptedNum > 0
   ) {
-    const legacyNetworkDiff =
-      (acceptedNum / (diffNum * 100)) * 10000; // original upstream approximation
+    const legacyNetworkDiff = (acceptedNum / (diffNum * 100)) * 10000; // original upstream approximation
     if (Number.isFinite(legacyNetworkDiff) && legacyNetworkDiff > 0) {
       const probabilityPerHash = 1 / (legacyNetworkDiff * hashesPerDifficulty);
       return maybeCalc(probabilityPerHash);
@@ -453,9 +478,11 @@ export function calculateBlockChances(
 
 export function calculateProximityPercent(
   value: number,
-  networkDiff: number | string | null | undefined
+  networkDiff: number | string | null | undefined,
+  trimZeros: boolean = false
 ): string {
-  const numDiff = typeof networkDiff === 'string' ? Number(networkDiff) : networkDiff;
+  const numDiff =
+    typeof networkDiff === 'string' ? Number(networkDiff) : networkDiff;
   if (!value || value <= 0 || !numDiff || numDiff <= 0) {
     return '';
   }
@@ -464,7 +491,11 @@ export function calculateProximityPercent(
   if (rawPercent < 0.01) {
     return '<0.01%';
   } else {
-    return rawPercent.toFixed(2) + '%';
+    // trimZeros (dashboard): drop trailing zeros, e.g. 5.00% → 5%, 0.10% → 0.1%.
+    const num = trimZeros
+      ? Number(rawPercent.toFixed(2)).toString()
+      : rawPercent.toFixed(2);
+    return num + '%';
   }
 }
 
@@ -521,7 +552,8 @@ export function computeRejectedPercent(
 
   return {
     pct,
-    formatted: `${pct.toFixed(2)}%`,
+    // Up to 2 dp, trailing zeros dropped (0.10% → 0.1%).
+    formatted: `${Number(pct.toFixed(2)).toString()}%`,
     color,
   };
 }
@@ -537,7 +569,8 @@ export function computeAcceptedPct(
   const p = (Number(ac) / total) * 100;
   if (p === 100) return '100%';
   if (p > 99.99) return '>99.99%';
-  return p.toFixed(2) + '%';
+  // Up to 2 dp, trailing zeros dropped (98.00% → 98%, 0.10% → 0.1%).
+  return Number(p.toFixed(2)).toString() + '%';
 }
 
 export function normalizeUserAgent(rawUa: string | undefined): string {
@@ -548,11 +581,13 @@ export function normalizeUserAgent(rawUa: string | undefined): string {
   const raw = String(rawUa);
   const stopIdx = raw.search(/[/|(]/);
   const firstSegment = (stopIdx === -1 ? raw : raw.slice(0, stopIdx)).trim();
+  // eslint-disable-next-line no-control-regex -- intentional: strip C0/C1 control chars from the UA
   let ua = firstSegment.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 
-  // Rule 2: strip trailing BM chip suffix (e.g. " BM1366" or "-BM1366").
-  // Only ASCII space or hyphen separator; uppercase BM only; no separator or lowercase must not match.
-  ua = ua.replace(/[ -]BM\d+$/, '').trim();
+  // Rule 2: strip trailing component-chip suffix — a mining ASIC (" BM1366" / "-BM1366") or a
+  // power-management IC (" TPS546"), so e.g. "NerdQAxe++ TPS546" folds into "NerdQAxe++".
+  // Only ASCII space or hyphen separator; uppercase prefix only; no separator or lowercase must not match.
+  ua = ua.replace(/[ -](?:BM|TPS)\d+$/, '').trim();
 
   // Rule 3: collapse bosminer family to 'bosminer', extracting from anywhere in UA.
   // Handles patterns like "date;bosminer-plus-tuner version" or "bosminer-tuner".
@@ -616,7 +651,9 @@ export function parseWorkerName(
  * @param value - The value to convert (number, string, or undefined)
  * @returns BigInt string representation of the integer part
  */
-export function bigIntStringFromFloatLike(value: number | string | undefined): string {
+export function bigIntStringFromFloatLike(
+  value: number | string | undefined
+): string {
   if (value == null) return '0';
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) return '0';

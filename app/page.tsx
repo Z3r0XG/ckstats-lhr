@@ -8,6 +8,7 @@ import {
   getTopUserHashrates,
   getTopUserLoyalty,
 } from '../lib/api';
+import { getServiceSnapshot } from '../lib/poolHealth';
 import { serializeData } from '../utils/helpers';
 
 export const revalidate = 60;
@@ -53,6 +54,7 @@ export default async function Home() {
       topUserLoyalty: serializeData(topLoyalty),
       onlineDevices: serializeData(onlineDevices),
       highScores: serializeData(highScores),
+      service: getServiceSnapshot(),
       limits: {
         topUsers: 10,
         onlineDevices: 10000,

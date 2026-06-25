@@ -43,6 +43,8 @@ export class Worker {
   @Column('double precision', { default: 0 })
   hashrate7d: number;
 
+  // Holds the worker's last-share time (ckpool `lastshare`, written as
+  // new Date(lastShare * 1000) in updateUsers). Surfaced in the UI as "Last Share".
   @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   lastUpdate: Date;
 

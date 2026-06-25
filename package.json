@@ -2,15 +2,20 @@
   "name": "ckstats",
   "version": "0.3.0",
   "private": true,
+  "engines": {
+    "node": ">=22.19.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "NODE_OPTIONS='--max-old-space-size=6144' next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "seed": "ts-node --transpile-only -r dotenv/config -P tsconfig.scripts.json scripts/seed.ts",
-    "update-users": "ts-node --transpile-only -r dotenv/config -P tsconfig.scripts.json scripts/updateUsers.ts",
+    "ingest": "ts-node --transpile-only -r dotenv/config -P tsconfig.scripts.json scripts/ingestOnce.ts",
+    "seed": "ts-node --transpile-only -r dotenv/config -P tsconfig.scripts.json scripts/ingestOnce.ts stats",
+    "update-users": "ts-node --transpile-only -r dotenv/config -P tsconfig.scripts.json scripts/ingestOnce.ts users",
     "cleanup": "ts-node --transpile-only -r dotenv/config -P tsconfig.scripts.json scripts/cleanOldStats.ts",
+    "check-endpoints": "node scripts/checkEndpoints.mjs",
     "vacuum": "PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f scripts/vacuum.sql",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -32,7 +37,8 @@
     "react-dom": "^18.3.1",
     "recharts": "^2.15.4",
     "reflect-metadata": "^0.2.2",
-    "typeorm": "^0.3.26"
+    "typeorm": "^0.3.26",
+    "undici": "^8"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.8.0",

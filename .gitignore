@@ -1,63 +1,53 @@
-/.env
+# Dependencies
 /node_modules/
-/.next/
-/dist/
-/npm-debug.log
+/.pnp
+.pnp.js
+
+# Lockfiles (not committed for this project)
 /pnpm-lock.yaml
 /yarn.lock
 /package-lock.json
-/.run_outputs/# Dependencies
-node_modules
-/.pnp
-.pnp.js
+
+# Build output
+/.next/
+/out/
+/build
+/dist/
 
 # Testing
 /coverage
 
-# Next.js
-/.next/
-/out/
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
 
-# Production
-/build
+# Env
+.env
+.env*.local
 
-# Misc
-.DS_Store
-*.pem
-
-# Debug
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Local env files
-.env*.local
-.env
+# Profiling (pnpm load-test)
+.clinic
+
+# Editors / OS
+.DS_Store
+.idea
+.vscode
+.github/copilot-instructions.md
+
+# Misc
+*.pem
+*.bak
 
 # Vercel
 .vercel
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
 
 # Prisma
 /prisma/*.sqlite3
 /prisma/*.sqlite3-journal
 /prisma/*.db
 /prisma/*.db-journal
-
-# IDE-specific files
-.github/copilot-instructions.md
-.idea
-.vscode
-
-.clinic
-.wsl-backup/
-*.bak
-
-# Local run outputs (do not commit)
-.run_outputs/
-
-# Local development files
-.local/
