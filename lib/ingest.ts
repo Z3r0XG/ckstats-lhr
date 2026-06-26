@@ -1214,7 +1214,7 @@ export function startIngestLoop(): void {
     process.env.POOL_USERS_INTERVAL_SECONDS,
     intervalSec
   );
-  let lastUsers = 0; // 0 = never run; isUsersHalfDue treats it as due on the first tick
+  let lastUsersRunMs = 0; // 0 = never run; isUsersHalfDue treats it as due on the first tick
   // Prune cadence in seconds. Default 7200 (2h). Set to 0 to disable the in-loop prune entirely and
   // run the `cleanup` script from system cron instead — full control over timing/staggering.
   const rawCleanup = Number(process.env.POOL_CLEANUP_INTERVAL_SECONDS);
@@ -1231,10 +1231,10 @@ export function startIngestLoop(): void {
       // Status every tick (keeps pool stats + the in-memory health map fresh); users only when due.
       const nowMs = Date.now();
       let r: { pools: number; users?: number } | null;
-      if (isUsersHalfDue(lastUsers, nowMs, usersSec)) {
+      if (isUsersHalfDue(lastUsersRunMs, nowMs, usersSec)) {
         r = await runCycle(); // both halves
         // Advance only when the cycle ran; runCycle returns null on lock contention.
-        lastUsers = advanceUsersClock(lastUsers, nowMs, r !== null);
+        lastUsersRunMs = advanceUsersClock(lastUsersRunMs, nowMs, r !== null);
       } else {
         r = await runStatsCycle(); // status half only
       }
