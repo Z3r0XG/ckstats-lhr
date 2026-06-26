@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     const recentUsersCount = await userRepository
       .createQueryBuilder('user')
       .where(
-        'user."createdAt" >= now() - (interval \'1 second\' * (:secs)::int)',
+        '"user"."createdAt" >= now() - (interval \'1 second\' * (:secs)::int)',
         { secs: SIGNUP_WINDOW_SECONDS }
       )
       .getCount();
