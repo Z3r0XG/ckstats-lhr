@@ -196,7 +196,8 @@ const VISIBILITY_FLAGS = {
   HIDE_WORKER_TABLE: 'worker.table',
   HIDE_WORKER_TABLE_NAME: 'worker.table.name',
   HIDE_WORKER_TABLE_CLIENT: 'worker.table.client',
-  HIDE_WORKER_TABLE_HASHRATE: 'worker.table.hashrate',
+  'HIDE_WORKER_TABLE_HASHRATE-5M': 'worker.table.hashrate',
+  HIDE_WORKER_TABLE_HASHRATE: 'worker.table.hashrate', // back-compat alias for _HASHRATE-5M
   'HIDE_WORKER_TABLE_HASHRATE-1HR': 'worker.table.hashrate1hr',
   'HIDE_WORKER_TABLE_HASHRATE-1D': 'worker.table.hashrate1d',
   'HIDE_WORKER_TABLE_ACCEPTED-WORK': 'worker.table.accepted',
