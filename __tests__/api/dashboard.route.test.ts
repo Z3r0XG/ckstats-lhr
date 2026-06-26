@@ -7,18 +7,19 @@ import * as healthModule from '../../lib/poolHealth';
 // (existence check, status codes, headers, payload assembly) is exercised for real.
 beforeEach(() => {
   jest.restoreAllMocks();
+  apiModule.cacheDeletePrefix(''); // clear the real getCached store between tests
 });
 
-// Everything the payload builder needs, except getLatestPoolStats (set per test). getCached is made
-// pass-through so the route's loader runs deterministically without cross-test cache state.
+// Everything the payload builder needs, except getLatestPoolStats (set per test). The real getCached
+// is used (cleared in beforeEach) so a cached null vs a thrown null is actually distinguishable.
 function mockDeps() {
   jest
-    .spyOn(apiModule, 'getCached')
-    .mockImplementation(((_k: string, _t: number, loader: () => unknown) =>
-      loader()) as never);
-  jest.spyOn(apiModule, 'getHistoricalPoolStats').mockResolvedValue([] as never);
+    .spyOn(apiModule, 'getHistoricalPoolStats')
+    .mockResolvedValue([] as never);
   jest.spyOn(apiModule, 'getTopUserHashrates').mockResolvedValue([] as never);
-  jest.spyOn(apiModule, 'getTopUserDifficulties').mockResolvedValue([] as never);
+  jest
+    .spyOn(apiModule, 'getTopUserDifficulties')
+    .mockResolvedValue([] as never);
   jest.spyOn(apiModule, 'getTopUserLoyalty').mockResolvedValue([] as never);
   jest.spyOn(apiModule, 'getOnlineDevices').mockResolvedValue([] as never);
   jest.spyOn(apiModule, 'getTopBestDiffs').mockResolvedValue([] as never);

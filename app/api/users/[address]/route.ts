@@ -11,6 +11,10 @@ import { validateBitcoinAddress } from '../../../../utils/validateBitcoinAddress
 
 const USER_CACHE_SECONDS = 30;
 
+// Thrown by the loader when the user is not found; getCached does not store a throw, so it is mapped
+// to 404 by the handler rather than cached.
+class UserNotFoundError extends Error {}
+
 export async function GET(
   request: Request,
   { params }: { params: { address: string } }
@@ -22,22 +26,20 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
     }
 
-    // Resolve the user first (getUserWithWorkersAndStats is cached); only built payloads are cached
-    // below, so a not-found response is never stored.
-    const userORM = await getUserWithWorkersAndStats(address);
-    if (!userORM) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    // Pre-serialized payload per address, rebuilt at most once per USER_CACHE_SECONDS.
+    // Built + cached per address at most once per USER_CACHE_SECONDS; the loader throws
+    // UserNotFoundError when the user is absent.
     const body = await getCached<string>(
       `userPayload:${address}`,
       USER_CACHE_SECONDS,
       async () => {
-        const [poolStatsORM, historicalStatsORM] = await Promise.all([
+        const [userORM, poolStatsORM, historicalStatsORM] = await Promise.all([
+          getUserWithWorkersAndStats(address),
           getLatestPoolStats(),
           getUserHistoricalStats(address),
         ]);
+
+        if (!userORM) throw new UserNotFoundError();
+
         return JSON.stringify({
           user: serializeData(userORM),
           poolStats: serializeData(poolStatsORM),
@@ -51,6 +53,9 @@ export async function GET(
       headers: { 'content-type': 'application/json' },
     });
   } catch (error) {
+    if (error instanceof UserNotFoundError) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
     if (error instanceof URIError) {
       return NextResponse.json(
         { error: 'Invalid address encoding' },

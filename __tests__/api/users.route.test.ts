@@ -8,13 +8,11 @@ const VALID = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa'; // valid mainnet P2PKH (gene
 
 beforeEach(() => {
   jest.restoreAllMocks();
+  apiModule.cacheDeletePrefix(''); // clear the real getCached store between tests
 });
 
+// The real getCached is used (cleared in beforeEach) so a cached 404 vs a thrown one is distinguishable.
 function mockDeps() {
-  jest
-    .spyOn(apiModule, 'getCached')
-    .mockImplementation(((_k: string, _t: number, loader: () => unknown) =>
-      loader()) as never);
   jest.spyOn(apiModule, 'getLatestPoolStats').mockResolvedValue({} as never);
   jest
     .spyOn(apiModule, 'getUserHistoricalStats')

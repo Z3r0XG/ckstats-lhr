@@ -19,6 +19,10 @@ const DASHBOARD_TOP_LIMIT = 10;
 const DASHBOARD_ONLINE_LIMIT = 10000;
 const DASHBOARD_CACHE_SECONDS = 30;
 
+// Thrown by the loader when there are no stats; getCached does not store a throw, so it is mapped
+// to 503 by the handler rather than cached.
+class NoStatsError extends Error {}
+
 export async function GET(request: Request) {
   try {
     // Debug mode: force error for testing
@@ -29,22 +33,14 @@ export async function GET(request: Request) {
         { status: 500 }
       );
     }
-    // Resolve latest stats first (getLatestPoolStats is cached); only the built payload is cached
-    // below, so a "no stats" 503 is never stored.
-    const latestStats = await getLatestPoolStats();
-    if (!latestStats) {
-      return NextResponse.json(
-        { error: 'No stats available' },
-        { status: 503 }
-      );
-    }
-
-    // Pre-serialized payload, rebuilt at most once per DASHBOARD_CACHE_SECONDS.
+    // Built + cached at most once per DASHBOARD_CACHE_SECONDS; the loader throws NoStatsError on the
+    // empty state.
     const body = await getCached<string>(
       'dashboardBody',
       DASHBOARD_CACHE_SECONDS,
       async () => {
         const [
+          latestStats,
           historicalStats,
           topHashrates,
           topDifficulties,
@@ -52,6 +48,7 @@ export async function GET(request: Request) {
           onlineDevices,
           highScores,
         ] = await Promise.all([
+          getLatestPoolStats(),
           getHistoricalPoolStats(),
           getTopUserHashrates(DASHBOARD_TOP_LIMIT),
           getTopUserDifficulties(DASHBOARD_TOP_LIMIT),
@@ -59,6 +56,8 @@ export async function GET(request: Request) {
           getOnlineDevices(DASHBOARD_ONLINE_LIMIT),
           getTopBestDiffs(DASHBOARD_TOP_LIMIT),
         ]);
+
+        if (!latestStats) throw new NoStatsError();
 
         return JSON.stringify({
           version: 1,
@@ -84,6 +83,12 @@ export async function GET(request: Request) {
       headers: { 'content-type': 'application/json' },
     });
   } catch (error) {
+    if (error instanceof NoStatsError) {
+      return NextResponse.json(
+        { error: 'No stats available' },
+        { status: 503 }
+      );
+    }
     console.error('Error building dashboard payload:', error);
     return NextResponse.json(
       { error: 'Internal Server Error' },
