@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 
 import StatInfo from '../../../../../components/StatInfo';
 import UserStatsCharts from '../../../../../components/UserStatsCharts';
+import WorkerClientValue from '../../../../../components/WorkerClientValue';
 import { getWorkerWithStats, getLatestPoolStats } from '../../../../../lib/api';
 import {
   formatHashrate,
@@ -14,7 +15,6 @@ import {
   formatTimeAgo,
   getHistoricalPercentageChange,
   getPercentageChangeColor,
-  getWorkerUserAgentDisplay,
   calculateProximityPercent,
   serializeData,
 } from '../../../../../utils/helpers';
@@ -136,7 +136,10 @@ export default async function WorkerPage({
                   <div className="stat">
                     <div className="stat-title">Client</div>
                     <div className="stat-value text-2xl">
-                      {getWorkerUserAgentDisplay(worker.userAgentRaw)}
+                      <WorkerClientValue
+                        userAgentRaw={worker.userAgentRaw}
+                        userAgent={worker.userAgent}
+                      />
                     </div>
                     <div className="stat-desc">&nbsp;</div>
                   </div>
