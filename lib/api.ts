@@ -43,10 +43,13 @@ async function getCached<T>(
 ): Promise<T> {
   const now = Date.now();
   const entry = _cache.get(key);
-  if (entry && entry.expires > now) {
-    _cache.delete(key); // bump to most-recently-used
-    _cache.set(key, entry);
-    return entry.value as T;
+  if (entry) {
+    if (entry.expires > now) {
+      _cache.delete(key);
+      _cache.set(key, entry); // bump to most-recently-used
+      return entry.value as T;
+    }
+    _cache.delete(key); // expired — remove it
   }
 
   const pending = _pendingLoads.get(key);

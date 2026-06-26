@@ -35,4 +35,19 @@ describe('bounded LRU cache', () => {
     expect(cacheGet('k0')).toBeDefined();
     expect(cacheGet('k1')).toBeUndefined();
   });
+
+  it('drops an expired entry on access even when the reload fails', async () => {
+    cacheSet('x', 'old', 0); // expires immediately
+    expect(getCacheStats().size).toBe(1);
+
+    await expect(
+      getCached('x', 60, async () => {
+        throw new Error('boom');
+      })
+    ).rejects.toThrow('boom');
+
+    // The expired entry must be gone (not lingering toward the cap), despite the failed reload.
+    expect(cacheGet('x')).toBeUndefined();
+    expect(getCacheStats().size).toBe(0);
+  });
 });
