@@ -5,12 +5,27 @@ import { getDb } from '../../../lib/db';
 import { User } from '../../../lib/entities/User';
 import { validateBitcoinAddress } from '../../../utils/validateBitcoinAddress';
 
+// A positive-integer env knob, falling back to `def` for unset/blank/invalid values. Validates
+// explicitly (rather than `Number(x) || def`) so a negative or non-integer doesn't silently slip
+// through — e.g. a negative limit would 429 every signup, a negative window would disable the guard.
+function intEnv(name: string, def: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return def;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) {
+    console.warn(
+      `${name}="${raw}" is not a positive integer; using default ${def}`
+    );
+    return def;
+  }
+  return n;
+}
+
 // Anti-spam guard on new-user activation: at most USER_SIGNUP_LIMIT new users may be created within
 // the trailing USER_SIGNUP_WINDOW_SECONDS. Operator-tunable; defaults suit a single pool and can be
 // raised for higher-traffic (e.g. combined multi-region) deployments.
-const SIGNUP_LIMIT = Number(process.env.USER_SIGNUP_LIMIT) || 30;
-const SIGNUP_WINDOW_SECONDS =
-  Number(process.env.USER_SIGNUP_WINDOW_SECONDS) || 180;
+const SIGNUP_LIMIT = intEnv('USER_SIGNUP_LIMIT', 30);
+const SIGNUP_WINDOW_SECONDS = intEnv('USER_SIGNUP_WINDOW_SECONDS', 180);
 
 export async function POST(request: Request) {
   try {
