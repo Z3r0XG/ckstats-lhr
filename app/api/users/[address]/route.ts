@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 
 import {
+  getCached,
   getUserWithWorkersAndStats,
   getUserHistoricalStats,
   getLatestPoolStats,
 } from '../../../../lib/api';
 import { serializeData } from '../../../../utils/helpers';
 import { validateBitcoinAddress } from '../../../../utils/validateBitcoinAddress';
+
+const USER_CACHE_SECONDS = 30;
 
 export async function GET(
   request: Request,
@@ -19,28 +22,35 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
     }
 
-    const [userORM, poolStatsORM, historicalStatsORM] = await Promise.all([
-      getUserWithWorkersAndStats(address),
-      getLatestPoolStats(),
-      getUserHistoricalStats(address),
-    ]);
+    // Pre-serialized payload per address, rebuilt at most once per USER_CACHE_SECONDS; null = not found.
+    const body = await getCached<string | null>(
+      `userPayload:${address}`,
+      USER_CACHE_SECONDS,
+      async () => {
+        const [userORM, poolStatsORM, historicalStatsORM] = await Promise.all([
+          getUserWithWorkersAndStats(address),
+          getLatestPoolStats(),
+          getUserHistoricalStats(address),
+        ]);
 
-    if (!userORM) {
+        if (!userORM) return null;
+
+        return JSON.stringify({
+          user: serializeData(userORM),
+          poolStats: serializeData(poolStatsORM),
+          historicalStats: serializeData(historicalStatsORM),
+          generatedAt: new Date().toISOString(),
+        });
+      }
+    );
+
+    if (body === null) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const user = serializeData(userORM);
-    const poolStats = serializeData(poolStatsORM);
-    const historicalStats = serializeData(historicalStatsORM);
-
-    const payload = {
-      user,
-      poolStats,
-      historicalStats,
-      generatedAt: new Date().toISOString(),
-    };
-
-    return NextResponse.json(payload);
+    return new NextResponse(body, {
+      headers: { 'content-type': 'application/json' },
+    });
   } catch (error) {
     if (error instanceof URIError) {
       return NextResponse.json(
