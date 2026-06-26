@@ -1202,6 +1202,13 @@ export function startIngestLoop(): void {
   if (loopStarted) return;
   loopStarted = true;
   const intervalSec = Number(process.env.POOL_INGEST_INTERVAL_SECONDS) || 60;
+  // Users-half cadence. The status half (pool.status → combined pool stats, plus the in-memory health
+  // map) runs every tick; the per-user half (per-user fetch + snapshot writes + combine) runs only
+  // every POOL_USERS_INTERVAL_SECONDS. Default = the tick interval (every cycle).
+  const rawUsers = Number(process.env.POOL_USERS_INTERVAL_SECONDS);
+  const usersSec =
+    Number.isFinite(rawUsers) && rawUsers > 0 ? rawUsers : intervalSec;
+  let lastUsers = 0; // 0 → the first tick runs the users half too
   // Prune cadence in seconds. Default 7200 (2h). Set to 0 to disable the in-loop prune entirely and
   // run the `cleanup` script from system cron instead — full control over timing/staggering.
   const rawCleanup = Number(process.env.POOL_CLEANUP_INTERVAL_SECONDS);
@@ -1209,14 +1216,26 @@ export function startIngestLoop(): void {
     Number.isFinite(rawCleanup) && rawCleanup >= 0 ? rawCleanup : 7200;
   let lastCleanup = Date.now();
   console.log(
-    `[ingest] starting in-process loop every ${intervalSec}s ` +
+    `[ingest] starting in-process loop: status every ${intervalSec}s, ` +
+      `users every ${usersSec}s ` +
       `(cleanup ${cleanupSec > 0 ? `every ${cleanupSec}s` : 'disabled — run via cron'})`
   );
   const tick = async () => {
     try {
-      const r = await runCycle();
+      // Status every tick (keeps pool stats + the in-memory health map fresh); users only when due.
+      const usersDue = Date.now() - lastUsers >= usersSec * 1000;
+      let r: { pools: number; users?: number } | null;
+      if (usersDue) {
+        lastUsers = Date.now();
+        r = await runCycle(); // both halves
+      } else {
+        r = await runStatsCycle(); // status half only
+      }
       if (r) {
-        console.log(`[ingest] cycle ok: ${r.pools} pools, ${r.users} users`);
+        console.log(
+          `[ingest] cycle ok: ${r.pools} pools` +
+            (r.users !== undefined ? `, ${r.users} users` : ' (status only)')
+        );
       }
       // (r === null means the advisory lock was held by another ingester; withIngestLock logged it.)
       // Prune the time-series tables on a slow cadence, in-loop (no separate cleanup job needed); the
