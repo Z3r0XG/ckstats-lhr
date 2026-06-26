@@ -9,6 +9,11 @@ import { Agent } from 'undici';
 
 import { getDb } from './db';
 import {
+  resolveUsersIntervalSeconds,
+  isUsersHalfDue,
+  advanceUsersClock,
+} from './ingestSchedule';
+import {
   setPoolHealth,
   getPoolHealth,
   prunePoolHealth,
@@ -1205,9 +1210,10 @@ export function startIngestLoop(): void {
   // Users-half cadence. The status half (pool.status → combined pool stats, plus the in-memory health
   // map) runs every tick; the per-user half (per-user fetch + snapshot writes + combine) runs only
   // every POOL_USERS_INTERVAL_SECONDS. Default = the tick interval (every cycle).
-  const rawUsers = Number(process.env.POOL_USERS_INTERVAL_SECONDS);
-  const usersSec =
-    Number.isFinite(rawUsers) && rawUsers > 0 ? rawUsers : intervalSec;
+  const usersSec = resolveUsersIntervalSeconds(
+    process.env.POOL_USERS_INTERVAL_SECONDS,
+    intervalSec
+  );
   let lastUsers = 0; // 0 → the first tick runs the users half too
   // Prune cadence in seconds. Default 7200 (2h). Set to 0 to disable the in-loop prune entirely and
   // run the `cleanup` script from system cron instead — full control over timing/staggering.
@@ -1223,11 +1229,12 @@ export function startIngestLoop(): void {
   const tick = async () => {
     try {
       // Status every tick (keeps pool stats + the in-memory health map fresh); users only when due.
-      const usersDue = Date.now() - lastUsers >= usersSec * 1000;
       let r: { pools: number; users?: number } | null;
-      if (usersDue) {
-        lastUsers = Date.now();
+      if (isUsersHalfDue(lastUsers, Date.now(), usersSec)) {
+        const usersStart = Date.now();
         r = await runCycle(); // both halves
+        // Advance only when the cycle ran; runCycle returns null on lock contention.
+        lastUsers = advanceUsersClock(lastUsers, usersStart, r !== null);
       } else {
         r = await runStatsCycle(); // status half only
       }
