@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
-import { MoreThanOrEqual } from 'typeorm';
 
 import { updateSingleUser } from '../../../lib/api';
 import { getDb } from '../../../lib/db';
 import { User } from '../../../lib/entities/User';
 import { validateBitcoinAddress } from '../../../utils/validateBitcoinAddress';
+
+// Anti-spam guard on new-user activation: at most USER_SIGNUP_LIMIT new users may be created within
+// the trailing USER_SIGNUP_WINDOW_SECONDS. Operator-tunable; defaults suit a single pool and can be
+// raised for higher-traffic (e.g. combined multi-region) deployments.
+const SIGNUP_LIMIT = Number(process.env.USER_SIGNUP_LIMIT) || 30;
+const SIGNUP_WINDOW_SECONDS =
+  Number(process.env.USER_SIGNUP_WINDOW_SECONDS) || 180;
 
 export async function POST(request: Request) {
   try {
@@ -28,14 +34,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
-    const recentUsersCount = await userRepository.count({
-      where: {
-        createdAt: MoreThanOrEqual(threeMinutesAgo),
-      },
-    });
+    // Compute the trailing window in SQL with now() so the comparison uses the same clock that
+    // stamped "createdAt". A JS Date param here would be skewed against the tz-naive timestamp
+    // column on a non-UTC database (the window stretched by the server's UTC offset), wrongly
+    // counting hours of users as "recent" and 429-ing legitimate activations.
+    const recentUsersCount = await userRepository
+      .createQueryBuilder('user')
+      .where(
+        'user."createdAt" >= now() - (interval \'1 second\' * (:secs)::int)',
+        { secs: SIGNUP_WINDOW_SECONDS }
+      )
+      .getCount();
 
-    if (recentUsersCount >= 10) {
+    if (recentUsersCount >= SIGNUP_LIMIT) {
       return NextResponse.json(
         { error: 'Too many users created recently, please try again later.' },
         { status: 429 }
