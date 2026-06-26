@@ -1229,12 +1229,12 @@ export function startIngestLoop(): void {
   const tick = async () => {
     try {
       // Status every tick (keeps pool stats + the in-memory health map fresh); users only when due.
+      const nowMs = Date.now();
       let r: { pools: number; users?: number } | null;
-      if (isUsersHalfDue(lastUsers, Date.now(), usersSec)) {
-        const usersStart = Date.now();
+      if (isUsersHalfDue(lastUsers, nowMs, usersSec)) {
         r = await runCycle(); // both halves
         // Advance only when the cycle ran; runCycle returns null on lock contention.
-        lastUsers = advanceUsersClock(lastUsers, usersStart, r !== null);
+        lastUsers = advanceUsersClock(lastUsers, nowMs, r !== null);
       } else {
         r = await runStatsCycle(); // status half only
       }
