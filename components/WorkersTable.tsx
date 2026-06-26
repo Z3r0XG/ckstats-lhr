@@ -281,13 +281,20 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
       const n = Number(s);
       return Number.isNaN(n) ? 0 : n;
     };
-    const hr5mRaw = worker.hashrate5m ?? '0';
-    const hr5m = parseHashrateToNumber(hr5mRaw);
-    const cls5m = hr5m === 0 ? '' : hr5m < 1 ? 'text-error' : 'text-accent';
-    const hrEl =
-      String(hr5mRaw ?? '0').trim() === '0' || hr5m === 0
-        ? '0 H/s'
-        : formatHashrate(hr5mRaw as any, true);
+    // raw hashrate → display cell; `accent` tints the 5m column (1hr/1d stay untinted, per the original).
+    const hrCell = (raw: string | number, accent: boolean) => {
+      const n = parseHashrateToNumber(raw);
+      const className =
+        n === 0 ? '' : n < 1 ? 'text-error' : accent ? 'text-accent' : '';
+      const value =
+        String(raw ?? '0').trim() === '0' || n === 0
+          ? '0 H/s'
+          : formatHashrate(raw, true);
+      return { className, value };
+    };
+    const c5m = hrCell(worker.hashrate5m ?? '0', true);
+    const c1hr = hrCell(worker.hashrate1hr ?? '0', false);
+    const c1d = hrCell(worker.hashrate1d ?? '0', false);
     const startedSec = worker.latestStats?.started
       ? Number(worker.latestStats.started)
       : 0;
@@ -309,7 +316,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     const client = showFullClient
       ? getWorkerUserAgentDisplay(worker.userAgentRaw)
       : getWorkerUserAgentDisplay(worker.userAgent);
-    return { cls5m, hrEl, uptimeEl, client };
+    return { c5m, c1hr, c1d, uptimeEl, client };
   };
 
   const renderEyeButton = (worker: SerializedWorker, showEye: boolean) => (
@@ -336,7 +343,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
   );
 
   const renderWorkerRow = (worker: SerializedWorker, showEye: boolean) => {
-    const { cls5m, hrEl, uptimeEl, client } = deriveWorker(worker);
+    const { c5m, c1hr, c1d, uptimeEl, client } = deriveWorker(worker);
     return (
       <tr key={worker.id}>
         {!autoHideInactive && (
@@ -373,13 +380,22 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
           </td>
         )}
         {isVisible('worker.table.hashrate') && (
-          <td className={cls5m}>{hrEl}</td>
+          <td className={c5m.className}>{c5m.value}</td>
+        )}
+        {isVisible('worker.table.hashrate1hr') && (
+          <td className={c1hr.className}>{c1hr.value}</td>
+        )}
+        {isVisible('worker.table.hashrate1d') && (
+          <td className={c1d.className}>{c1d.value}</td>
         )}
         {isVisible('worker.table.accepted') && (
           <td>{formatNumber(worker.shares)}</td>
         )}
         {isVisible('worker.table.bestdiff') && (
           <td>{formatNumber(worker.bestShare)}</td>
+        )}
+        {isVisible('worker.table.bestever') && (
+          <td>{formatNumber(worker.bestEver)}</td>
         )}
         {isVisible('worker.table.lastshare') && (
           <td>{formatTimeAgo(worker.lastUpdate)}</td>
@@ -391,7 +407,7 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
 
   // Mobile (<sm): each worker as a self-contained card instead of a scrolling row.
   const renderWorkerCard = (worker: SerializedWorker, showEye: boolean) => {
-    const { cls5m, hrEl, uptimeEl, client } = deriveWorker(worker);
+    const { c5m, c1hr, c1d, uptimeEl, client } = deriveWorker(worker);
     // Each stat is a label-left / value-right row (the name is the card header + hide toggle).
     const statRow = (label: string, value: React.ReactNode, key: string) => (
       <div
@@ -429,8 +445,26 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         {isVisible('worker.table.hashrate') &&
           statRow(
             'hashrate (5m)',
-            <span className={`font-semibold ${cls5m}`}>{hrEl}</span>,
+            <span className={`font-semibold ${c5m.className}`}>
+              {c5m.value}
+            </span>,
             'hr'
+          )}
+        {isVisible('worker.table.hashrate1hr') &&
+          statRow(
+            'hashrate (1hr)',
+            <span className={`font-semibold ${c1hr.className}`}>
+              {c1hr.value}
+            </span>,
+            'hr1hr'
+          )}
+        {isVisible('worker.table.hashrate1d') &&
+          statRow(
+            'hashrate (1d)',
+            <span className={`font-semibold ${c1d.className}`}>
+              {c1d.value}
+            </span>,
+            'hr1d'
           )}
         {isVisible('worker.table.accepted') &&
           statRow(
@@ -447,6 +481,14 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
               {formatNumber(worker.bestShare)}
             </span>,
             'best'
+          )}
+        {isVisible('worker.table.bestever') &&
+          statRow(
+            'best ever',
+            <span className="font-semibold">
+              {formatNumber(worker.bestEver)}
+            </span>,
+            'bestever'
           )}
         {isVisible('worker.table.lastshare') &&
           statRow('last share', formatTimeAgo(worker.lastUpdate), 'lastshare')}
@@ -465,8 +507,11 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         {isVisible('worker.table.name') && <th>Name</th>}
         {isVisible('worker.table.client') && <th>Client</th>}
         {isVisible('worker.table.hashrate') && <th>Hashrate (5m)</th>}
+        {isVisible('worker.table.hashrate1hr') && <th>Hashrate (1hr)</th>}
+        {isVisible('worker.table.hashrate1d') && <th>Hashrate (1d)</th>}
         {isVisible('worker.table.accepted') && <th>Accepted Work</th>}
         {isVisible('worker.table.bestdiff') && <th>Best Diff</th>}
+        {isVisible('worker.table.bestever') && <th>Best Ever</th>}
         {isVisible('worker.table.lastshare') && <th>Last Share</th>}
         {isVisible('worker.table.uptime') && <th>Uptime</th>}
       </tr>
@@ -477,8 +522,11 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     'worker.table.name',
     'worker.table.client',
     'worker.table.hashrate',
+    'worker.table.hashrate1hr',
+    'worker.table.hashrate1d',
     'worker.table.accepted',
     'worker.table.bestdiff',
+    'worker.table.bestever',
     'worker.table.lastshare',
     'worker.table.uptime',
   ]);
@@ -495,11 +543,26 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         flag: 'worker.table.hashrate',
       },
       {
+        field: 'hashrate1hr',
+        label: 'Hashrate (1hr)',
+        flag: 'worker.table.hashrate1hr',
+      },
+      {
+        field: 'hashrate1d',
+        label: 'Hashrate (1d)',
+        flag: 'worker.table.hashrate1d',
+      },
+      {
         field: 'shares',
         label: 'Accepted Work',
         flag: 'worker.table.accepted',
       },
       { field: 'bestShare', label: 'Best Diff', flag: 'worker.table.bestdiff' },
+      {
+        field: 'bestEver',
+        label: 'Best Ever',
+        flag: 'worker.table.bestever',
+      },
       {
         field: 'lastUpdate',
         label: 'Last Share',

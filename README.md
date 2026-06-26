@@ -202,6 +202,14 @@ DEFAULT_THEME="forest"
 
 - Default: unset (disabled). Each call makes real outbound pool fetches, so leave it off in normal operation.
 
+**USER_SIGNUP_LIMIT**: maximum new users that may be activated within the trailing `USER_SIGNUP_WINDOW_SECONDS`; further activations return HTTP 429 until the window clears. **OPTIONAL**
+
+- Default: `30`
+
+**USER_SIGNUP_WINDOW_SECONDS**: the trailing window over which `USER_SIGNUP_LIMIT` is counted. **OPTIONAL**
+
+- Default: `180`
+
 **Endpoint health check** (`pnpm check-endpoints`): probes every pool in one or more deployments' `.env` (`API_URL`) — `pool.status` + `/users` per region — and flags unreachable endpoints or the `/users` nginx mapping bug (a `301` instead of `200`/`404`). Exits non-zero on any issue, so it's usable from cron/CI after an nginx or DNS change.
 
 ```bash
@@ -323,7 +331,7 @@ pnpm check-endpoints .env --addr <wallet>          # also confirm a real user re
 | Worker | Difficulty        | `HIDE_WORKER_DIFFICULTY` · `_ACCEPTED-WORK` (`_EFFORT`) · `_BEST-DIFF` (`_PROXIMITY`) · `_BEST-EVER` (`_PROXIMITY`)   |
 | Worker | Hashrates         | `HIDE_WORKER_HASHRATES` · `_1M` · `_5M` · `_1HR` · `_1D` · `_7D` (each + `_CHANGE`)                                   |
 | Worker | Chart             | `HIDE_WORKER_CHART`                                                                                                   |
-| Worker | Table             | `HIDE_WORKER_TABLE` · `_NAME` · `_CLIENT` · `_HASHRATE` · `_ACCEPTED-WORK` · `_BEST-DIFF` · `_LAST-SHARE` · `_UPTIME` |
+| Worker | Table             | `HIDE_WORKER_TABLE` · `_NAME` · `_CLIENT` · `_HASHRATE-5M` · `_HASHRATE-1HR` · `_HASHRATE-1D` · `_ACCEPTED-WORK` · `_BEST-DIFF` · `_BEST-EVER` · `_LAST-SHARE` · `_UPTIME` |
 
 The older `HIDE_REJECTED_STATS` flag (and the `SHOW_*` predecessors) still work as back-compat aliases — `HIDE_REJECTED_STATS` is superseded by `HIDE_WORK-SUBMITTED_REJECTED`.
 
