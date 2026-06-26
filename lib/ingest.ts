@@ -1214,7 +1214,7 @@ export function startIngestLoop(): void {
     process.env.POOL_USERS_INTERVAL_SECONDS,
     intervalSec
   );
-  let lastUsers = 0; // 0 → the first tick runs the users half too
+  let lastUsers = 0; // 0 = never run; isUsersHalfDue treats it as due on the first tick
   // Prune cadence in seconds. Default 7200 (2h). Set to 0 to disable the in-loop prune entirely and
   // run the `cleanup` script from system cron instead — full control over timing/staggering.
   const rawCleanup = Number(process.env.POOL_CLEANUP_INTERVAL_SECONDS);

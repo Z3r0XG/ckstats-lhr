@@ -9,12 +9,14 @@ export function resolveUsersIntervalSeconds(
   return Number.isFinite(n) && n > 0 ? n : fallbackSec;
 }
 
-/** True when at least usersIntervalSec has elapsed since the users half last ran. */
+/** True when the users half is due: never run yet (lastRunMs ≤ 0), or at least usersIntervalSec has
+ *  elapsed since it last ran. */
 export function isUsersHalfDue(
   lastRunMs: number,
   nowMs: number,
   usersIntervalSec: number
 ): boolean {
+  if (lastRunMs <= 0) return true; // never run yet → due
   return nowMs - lastRunMs >= usersIntervalSec * 1000;
 }
 

@@ -16,6 +16,19 @@ describe('resolveUsersIntervalSeconds', () => {
   });
 });
 
+describe('isUsersHalfDue', () => {
+  it('is due when never run (lastRun ≤ 0), independent of the clock magnitude', () => {
+    expect(isUsersHalfDue(0, 0, 180)).toBe(true);
+    expect(isUsersHalfDue(0, 5, 180)).toBe(true);
+    expect(isUsersHalfDue(-1, 1000, 180)).toBe(true);
+  });
+
+  it('after it has run, is due only once the interval has elapsed', () => {
+    expect(isUsersHalfDue(1000, 1000 + 179_000, 180)).toBe(false);
+    expect(isUsersHalfDue(1000, 1000 + 180_000, 180)).toBe(true);
+  });
+});
+
 // Drive a simulated tick sequence with the real scheduling functions, exactly as startIngestLoop
 // does (status every tick; users when due; advance the users clock only when the cycle ran).
 // START stands in for Date.now()'s epoch so the lastUsers=0 sentinel makes the first tick due.
