@@ -22,19 +22,22 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid address' }, { status: 400 });
     }
 
-    // Pre-serialized payload per address, rebuilt at most once per USER_CACHE_SECONDS; null = not found.
-    const body = await getCached<string | null>(
+    // Resolve the user first (getUserWithWorkersAndStats is cached); only built payloads are cached
+    // below, so a not-found response is never stored.
+    const userORM = await getUserWithWorkersAndStats(address);
+    if (!userORM) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Pre-serialized payload per address, rebuilt at most once per USER_CACHE_SECONDS.
+    const body = await getCached<string>(
       `userPayload:${address}`,
       USER_CACHE_SECONDS,
       async () => {
-        const [userORM, poolStatsORM, historicalStatsORM] = await Promise.all([
-          getUserWithWorkersAndStats(address),
+        const [poolStatsORM, historicalStatsORM] = await Promise.all([
           getLatestPoolStats(),
           getUserHistoricalStats(address),
         ]);
-
-        if (!userORM) return null;
-
         return JSON.stringify({
           user: serializeData(userORM),
           poolStats: serializeData(poolStatsORM),
@@ -43,10 +46,6 @@ export async function GET(
         });
       }
     );
-
-    if (body === null) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
 
     return new NextResponse(body, {
       headers: { 'content-type': 'application/json' },

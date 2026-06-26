@@ -29,13 +29,22 @@ export async function GET(request: Request) {
         { status: 500 }
       );
     }
-    // Pre-serialized payload, rebuilt at most once per DASHBOARD_CACHE_SECONDS; null = no stats yet.
-    const body = await getCached<string | null>(
+    // Resolve latest stats first (getLatestPoolStats is cached); only the built payload is cached
+    // below, so a "no stats" 503 is never stored.
+    const latestStats = await getLatestPoolStats();
+    if (!latestStats) {
+      return NextResponse.json(
+        { error: 'No stats available' },
+        { status: 503 }
+      );
+    }
+
+    // Pre-serialized payload, rebuilt at most once per DASHBOARD_CACHE_SECONDS.
+    const body = await getCached<string>(
       'dashboardBody',
       DASHBOARD_CACHE_SECONDS,
       async () => {
         const [
-          latestStats,
           historicalStats,
           topHashrates,
           topDifficulties,
@@ -43,7 +52,6 @@ export async function GET(request: Request) {
           onlineDevices,
           highScores,
         ] = await Promise.all([
-          getLatestPoolStats(),
           getHistoricalPoolStats(),
           getTopUserHashrates(DASHBOARD_TOP_LIMIT),
           getTopUserDifficulties(DASHBOARD_TOP_LIMIT),
@@ -51,8 +59,6 @@ export async function GET(request: Request) {
           getOnlineDevices(DASHBOARD_ONLINE_LIMIT),
           getTopBestDiffs(DASHBOARD_TOP_LIMIT),
         ]);
-
-        if (!latestStats) return null;
 
         return JSON.stringify({
           version: 1,
@@ -73,13 +79,6 @@ export async function GET(request: Request) {
         });
       }
     );
-
-    if (body === null) {
-      return NextResponse.json(
-        { error: 'No stats available' },
-        { status: 503 }
-      );
-    }
 
     return new NextResponse(body, {
       headers: { 'content-type': 'application/json' },
