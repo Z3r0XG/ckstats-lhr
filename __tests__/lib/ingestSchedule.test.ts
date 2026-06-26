@@ -31,11 +31,12 @@ describe('isUsersHalfDue', () => {
 
 // Drive a simulated tick sequence with the real scheduling functions, exactly as startIngestLoop
 // does (status every tick; users when due; advance the users clock only when the cycle ran).
-// START stands in for Date.now()'s epoch so the lastUsers=0 sentinel makes the first tick due.
+// START is an arbitrary nonzero base time for the tick timeline; first-tick-due comes from the
+// never-run sentinel in isUsersHalfDue (lastRun ≤ 0), not from START's magnitude.
 describe('users-half cadence in the loop', () => {
   const USERS = 180;
   const TICK = 60;
-  const START = 10_000_000; // any value ≥ USERS*1000 reproduces the first-tick-due sentinel
+  const START = 10_000_000; // arbitrary nonzero base time
 
   it('runs the users half on the first tick and then once per interval', () => {
     let lastUsers = 0;
