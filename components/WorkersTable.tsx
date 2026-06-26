@@ -288,6 +288,21 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
       String(hr5mRaw ?? '0').trim() === '0' || hr5m === 0
         ? '0 H/s'
         : formatHashrate(hr5mRaw as any, true);
+    // 1hr / 1d windows: same zero/sub-1 handling as 5m, but no accent tint (matches the original).
+    const hr1hrRaw = worker.hashrate1hr ?? '0';
+    const hr1hr = parseHashrateToNumber(hr1hrRaw);
+    const cls1hr = hr1hr === 0 ? '' : hr1hr < 1 ? 'text-error' : '';
+    const hr1hrEl =
+      String(hr1hrRaw ?? '0').trim() === '0' || hr1hr === 0
+        ? '0 H/s'
+        : formatHashrate(hr1hrRaw as any, true);
+    const hr1dRaw = worker.hashrate1d ?? '0';
+    const hr1d = parseHashrateToNumber(hr1dRaw);
+    const cls1d = hr1d === 0 ? '' : hr1d < 1 ? 'text-error' : '';
+    const hr1dEl =
+      String(hr1dRaw ?? '0').trim() === '0' || hr1d === 0
+        ? '0 H/s'
+        : formatHashrate(hr1dRaw as any, true);
     const startedSec = worker.latestStats?.started
       ? Number(worker.latestStats.started)
       : 0;
@@ -309,7 +324,16 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     const client = showFullClient
       ? getWorkerUserAgentDisplay(worker.userAgentRaw)
       : getWorkerUserAgentDisplay(worker.userAgent);
-    return { cls5m, hrEl, uptimeEl, client };
+    return {
+      cls5m,
+      hrEl,
+      cls1hr,
+      hr1hrEl,
+      cls1d,
+      hr1dEl,
+      uptimeEl,
+      client,
+    };
   };
 
   const renderEyeButton = (worker: SerializedWorker, showEye: boolean) => (
@@ -336,7 +360,8 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
   );
 
   const renderWorkerRow = (worker: SerializedWorker, showEye: boolean) => {
-    const { cls5m, hrEl, uptimeEl, client } = deriveWorker(worker);
+    const { cls5m, hrEl, cls1hr, hr1hrEl, cls1d, hr1dEl, uptimeEl, client } =
+      deriveWorker(worker);
     return (
       <tr key={worker.id}>
         {!autoHideInactive && (
@@ -375,11 +400,20 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         {isVisible('worker.table.hashrate') && (
           <td className={cls5m}>{hrEl}</td>
         )}
+        {isVisible('worker.table.hashrate1hr') && (
+          <td className={cls1hr}>{hr1hrEl}</td>
+        )}
+        {isVisible('worker.table.hashrate1d') && (
+          <td className={cls1d}>{hr1dEl}</td>
+        )}
         {isVisible('worker.table.accepted') && (
           <td>{formatNumber(worker.shares)}</td>
         )}
         {isVisible('worker.table.bestdiff') && (
           <td>{formatNumber(worker.bestShare)}</td>
+        )}
+        {isVisible('worker.table.bestever') && (
+          <td>{formatNumber(worker.bestEver)}</td>
         )}
         {isVisible('worker.table.lastshare') && (
           <td>{formatTimeAgo(worker.lastUpdate)}</td>
@@ -391,7 +425,8 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
 
   // Mobile (<sm): each worker as a self-contained card instead of a scrolling row.
   const renderWorkerCard = (worker: SerializedWorker, showEye: boolean) => {
-    const { cls5m, hrEl, uptimeEl, client } = deriveWorker(worker);
+    const { cls5m, hrEl, cls1hr, hr1hrEl, cls1d, hr1dEl, uptimeEl, client } =
+      deriveWorker(worker);
     // Each stat is a label-left / value-right row (the name is the card header + hide toggle).
     const statRow = (label: string, value: React.ReactNode, key: string) => (
       <div
@@ -432,6 +467,18 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
             <span className={`font-semibold ${cls5m}`}>{hrEl}</span>,
             'hr'
           )}
+        {isVisible('worker.table.hashrate1hr') &&
+          statRow(
+            'hashrate (1hr)',
+            <span className={`font-semibold ${cls1hr}`}>{hr1hrEl}</span>,
+            'hr1hr'
+          )}
+        {isVisible('worker.table.hashrate1d') &&
+          statRow(
+            'hashrate (1d)',
+            <span className={`font-semibold ${cls1d}`}>{hr1dEl}</span>,
+            'hr1d'
+          )}
         {isVisible('worker.table.accepted') &&
           statRow(
             'accepted work',
@@ -447,6 +494,14 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
               {formatNumber(worker.bestShare)}
             </span>,
             'best'
+          )}
+        {isVisible('worker.table.bestever') &&
+          statRow(
+            'best ever',
+            <span className="font-semibold">
+              {formatNumber(worker.bestEver)}
+            </span>,
+            'bestever'
           )}
         {isVisible('worker.table.lastshare') &&
           statRow('last share', formatTimeAgo(worker.lastUpdate), 'lastshare')}
@@ -465,8 +520,11 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         {isVisible('worker.table.name') && <th>Name</th>}
         {isVisible('worker.table.client') && <th>Client</th>}
         {isVisible('worker.table.hashrate') && <th>Hashrate (5m)</th>}
+        {isVisible('worker.table.hashrate1hr') && <th>Hashrate (1hr)</th>}
+        {isVisible('worker.table.hashrate1d') && <th>Hashrate (1d)</th>}
         {isVisible('worker.table.accepted') && <th>Accepted Work</th>}
         {isVisible('worker.table.bestdiff') && <th>Best Diff</th>}
+        {isVisible('worker.table.bestever') && <th>Best Ever</th>}
         {isVisible('worker.table.lastshare') && <th>Last Share</th>}
         {isVisible('worker.table.uptime') && <th>Uptime</th>}
       </tr>
@@ -477,8 +535,11 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
     'worker.table.name',
     'worker.table.client',
     'worker.table.hashrate',
+    'worker.table.hashrate1hr',
+    'worker.table.hashrate1d',
     'worker.table.accepted',
     'worker.table.bestdiff',
+    'worker.table.bestever',
     'worker.table.lastshare',
     'worker.table.uptime',
   ]);
@@ -495,11 +556,26 @@ const WorkersTable: React.FC<WorkersTableProps> = ({ workers, address }) => {
         flag: 'worker.table.hashrate',
       },
       {
+        field: 'hashrate1hr',
+        label: 'Hashrate (1hr)',
+        flag: 'worker.table.hashrate1hr',
+      },
+      {
+        field: 'hashrate1d',
+        label: 'Hashrate (1d)',
+        flag: 'worker.table.hashrate1d',
+      },
+      {
         field: 'shares',
         label: 'Accepted Work',
         flag: 'worker.table.accepted',
       },
       { field: 'bestShare', label: 'Best Diff', flag: 'worker.table.bestdiff' },
+      {
+        field: 'bestEver',
+        label: 'Best Ever',
+        flag: 'worker.table.bestever',
+      },
       {
         field: 'lastUpdate',
         label: 'Last Share',
