@@ -50,7 +50,7 @@ export async function GET(
     );
 
     return new NextResponse(body, {
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json; charset=utf-8' },
     });
   } catch (error) {
     if (error instanceof UserNotFoundError) {

@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     );
 
     return new NextResponse(body, {
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json; charset=utf-8' },
     });
   } catch (error) {
     if (error instanceof NoStatsError) {
