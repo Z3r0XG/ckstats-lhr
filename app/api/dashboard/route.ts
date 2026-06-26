@@ -21,7 +21,12 @@ const DASHBOARD_CACHE_SECONDS = 30;
 
 // Thrown by the loader when there are no stats; getCached does not store a throw, so it is mapped
 // to 503 by the handler rather than cached.
-class NoStatsError extends Error {}
+class NoStatsError extends Error {
+  constructor() {
+    super('no stats available');
+    this.name = 'NoStatsError';
+  }
+}
 
 export async function GET(request: Request) {
   try {

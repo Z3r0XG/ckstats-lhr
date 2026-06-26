@@ -13,7 +13,12 @@ const USER_CACHE_SECONDS = 30;
 
 // Thrown by the loader when the user is not found; getCached does not store a throw, so it is mapped
 // to 404 by the handler rather than cached.
-class UserNotFoundError extends Error {}
+class UserNotFoundError extends Error {
+  constructor() {
+    super('user not found');
+    this.name = 'UserNotFoundError';
+  }
+}
 
 export async function GET(
   request: Request,
