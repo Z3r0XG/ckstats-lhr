@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import {
+  getCached,
   getHistoricalPoolStats,
   getLatestPoolStats,
   getOnlineDevices,
@@ -16,6 +17,7 @@ export const dynamic = 'force-dynamic';
 
 const DASHBOARD_TOP_LIMIT = 10;
 const DASHBOARD_ONLINE_LIMIT = 10000;
+const DASHBOARD_CACHE_SECONDS = 30;
 
 export async function GET(request: Request) {
   try {
@@ -27,50 +29,61 @@ export async function GET(request: Request) {
         { status: 500 }
       );
     }
-    const [
-      latestStats,
-      historicalStats,
-      topHashrates,
-      topDifficulties,
-      topLoyalty,
-      onlineDevices,
-      highScores,
-    ] = await Promise.all([
-      getLatestPoolStats(),
-      getHistoricalPoolStats(),
-      getTopUserHashrates(DASHBOARD_TOP_LIMIT),
-      getTopUserDifficulties(DASHBOARD_TOP_LIMIT),
-      getTopUserLoyalty(DASHBOARD_TOP_LIMIT),
-      getOnlineDevices(DASHBOARD_ONLINE_LIMIT),
-      getTopBestDiffs(DASHBOARD_TOP_LIMIT),
-    ]);
+    // Pre-serialized payload, rebuilt at most once per DASHBOARD_CACHE_SECONDS; null = no stats yet.
+    const body = await getCached<string | null>(
+      'dashboardBody',
+      DASHBOARD_CACHE_SECONDS,
+      async () => {
+        const [
+          latestStats,
+          historicalStats,
+          topHashrates,
+          topDifficulties,
+          topLoyalty,
+          onlineDevices,
+          highScores,
+        ] = await Promise.all([
+          getLatestPoolStats(),
+          getHistoricalPoolStats(),
+          getTopUserHashrates(DASHBOARD_TOP_LIMIT),
+          getTopUserDifficulties(DASHBOARD_TOP_LIMIT),
+          getTopUserLoyalty(DASHBOARD_TOP_LIMIT),
+          getOnlineDevices(DASHBOARD_ONLINE_LIMIT),
+          getTopBestDiffs(DASHBOARD_TOP_LIMIT),
+        ]);
 
-    if (!latestStats) {
+        if (!latestStats) return null;
+
+        return JSON.stringify({
+          version: 1,
+          generatedAt: new Date().toISOString(),
+          latestStats: serializeData(latestStats),
+          historicalStats: serializeData(historicalStats),
+          topUserHashrates: serializeData(topHashrates),
+          topUserDifficulties: serializeData(topDifficulties),
+          topUserLoyalty: serializeData(topLoyalty),
+          onlineDevices: serializeData(onlineDevices),
+          highScores: serializeData(highScores),
+          service: getServiceSnapshot(),
+          limits: {
+            topUsers: DASHBOARD_TOP_LIMIT,
+            onlineDevices: DASHBOARD_ONLINE_LIMIT,
+            historicalPoints: (historicalStats || []).length,
+          },
+        });
+      }
+    );
+
+    if (body === null) {
       return NextResponse.json(
         { error: 'No stats available' },
         { status: 503 }
       );
     }
 
-    const payload = {
-      version: 1,
-      generatedAt: new Date().toISOString(),
-      latestStats: serializeData(latestStats),
-      historicalStats: serializeData(historicalStats),
-      topUserHashrates: serializeData(topHashrates),
-      topUserDifficulties: serializeData(topDifficulties),
-      topUserLoyalty: serializeData(topLoyalty),
-      onlineDevices: serializeData(onlineDevices),
-      highScores: serializeData(highScores),
-      service: getServiceSnapshot(),
-      limits: {
-        topUsers: DASHBOARD_TOP_LIMIT,
-        onlineDevices: DASHBOARD_ONLINE_LIMIT,
-        historicalPoints: (historicalStats || []).length,
-      },
-    };
-
-    return NextResponse.json(payload);
+    return new NextResponse(body, {
+      headers: { 'content-type': 'application/json' },
+    });
   } catch (error) {
     console.error('Error building dashboard payload:', error);
     return NextResponse.json(
