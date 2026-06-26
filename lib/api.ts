@@ -18,6 +18,24 @@ const _pendingLoads = new Map<string, Promise<any>>();
 const _JITTER_MIN = 0.9;
 const _JITTER_RANGE = 0.2;
 
+// Hard cap on cached entries; once exceeded, the oldest (least-recently-used) keys are evicted.
+export const CACHE_MAX_ENTRIES = 10_000;
+
+// Insert/refresh an entry at the most-recently-used position, evicting the oldest entries while over
+// the cap. Map iteration is insertion order, so the front is the least-recently-used.
+function _cacheStore(key: string, entry: CacheEntry): void {
+  _cache.delete(key);
+  _cache.set(key, entry);
+  if (_cache.size > CACHE_MAX_ENTRIES) {
+    const it = _cache.keys();
+    while (_cache.size > CACHE_MAX_ENTRIES) {
+      const next = it.next();
+      if (next.done) break;
+      _cache.delete(next.value);
+    }
+  }
+}
+
 async function getCached<T>(
   key: string,
   ttlSeconds: number,
@@ -25,8 +43,13 @@ async function getCached<T>(
 ): Promise<T> {
   const now = Date.now();
   const entry = _cache.get(key);
-  if (entry && entry.expires > now) {
-    return entry.value as T;
+  if (entry) {
+    if (entry.expires > now) {
+      _cache.delete(key);
+      _cache.set(key, entry); // bump to most-recently-used
+      return entry.value as T;
+    }
+    _cache.delete(key); // expired — remove it
   }
 
   const pending = _pendingLoads.get(key);
@@ -41,7 +64,7 @@ async function getCached<T>(
   const loadPromise = (async () => {
     const value = await loader();
     const jitter = _JITTER_MIN + Math.random() * _JITTER_RANGE;
-    _cache.set(key, {
+    _cacheStore(key, {
       expires: Date.now() + Math.round(ttlSeconds * 1000 * jitter),
       value,
     });
@@ -107,7 +130,7 @@ export { getCached, cacheDelete, cacheDeletePrefix, cacheGet };
 
 export function cacheSet(key: string, value: any, ttlSeconds: number) {
   const jitter = _JITTER_MIN + Math.random() * _JITTER_RANGE;
-  _cache.set(key, {
+  _cacheStore(key, {
     expires: Date.now() + Math.round(ttlSeconds * 1000 * jitter),
     value,
   });

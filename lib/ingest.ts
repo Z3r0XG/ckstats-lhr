@@ -9,6 +9,11 @@ import { Agent } from 'undici';
 
 import { getDb } from './db';
 import {
+  resolveUsersIntervalSeconds,
+  isUsersHalfDue,
+  advanceUsersClock,
+} from './ingestSchedule';
+import {
   setPoolHealth,
   getPoolHealth,
   prunePoolHealth,
@@ -1202,6 +1207,14 @@ export function startIngestLoop(): void {
   if (loopStarted) return;
   loopStarted = true;
   const intervalSec = Number(process.env.POOL_INGEST_INTERVAL_SECONDS) || 60;
+  // Users-half cadence. The status half (pool.status → combined pool stats, plus the in-memory health
+  // map) runs every tick; the per-user half (per-user fetch + snapshot writes + combine) runs only
+  // every POOL_USERS_INTERVAL_SECONDS. Default = the tick interval (every cycle).
+  const usersSec = resolveUsersIntervalSeconds(
+    process.env.POOL_USERS_INTERVAL_SECONDS,
+    intervalSec
+  );
+  let lastUsersRunMs = 0; // 0 = never run; isUsersHalfDue treats it as due on the first tick
   // Prune cadence in seconds. Default 7200 (2h). Set to 0 to disable the in-loop prune entirely and
   // run the `cleanup` script from system cron instead — full control over timing/staggering.
   const rawCleanup = Number(process.env.POOL_CLEANUP_INTERVAL_SECONDS);
@@ -1209,14 +1222,28 @@ export function startIngestLoop(): void {
     Number.isFinite(rawCleanup) && rawCleanup >= 0 ? rawCleanup : 7200;
   let lastCleanup = Date.now();
   console.log(
-    `[ingest] starting in-process loop every ${intervalSec}s ` +
+    `[ingest] starting in-process loop: status every ${intervalSec}s, ` +
+      `users every ${usersSec}s ` +
       `(cleanup ${cleanupSec > 0 ? `every ${cleanupSec}s` : 'disabled — run via cron'})`
   );
   const tick = async () => {
     try {
-      const r = await runCycle();
+      // Each tick runs the status half (both halves when users are due); a cycle that loses the
+      // ingest lock (runCycle/runStatsCycle return null) is skipped entirely.
+      const nowMs = Date.now();
+      let r: { pools: number; users?: number } | null;
+      if (isUsersHalfDue(lastUsersRunMs, nowMs, usersSec)) {
+        r = await runCycle(); // both halves
+        // Advance only when the cycle ran; runCycle returns null on lock contention.
+        lastUsersRunMs = advanceUsersClock(lastUsersRunMs, nowMs, r !== null);
+      } else {
+        r = await runStatsCycle(); // status half only
+      }
       if (r) {
-        console.log(`[ingest] cycle ok: ${r.pools} pools, ${r.users} users`);
+        console.log(
+          `[ingest] cycle ok: ${r.pools} pools` +
+            (r.users !== undefined ? `, ${r.users} users` : ' (status only)')
+        );
       }
       // (r === null means the advisory lock was held by another ingester; withIngestLock logged it.)
       // Prune the time-series tables on a slow cadence, in-loop (no separate cleanup job needed); the
